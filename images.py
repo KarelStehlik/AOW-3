@@ -30,7 +30,7 @@ SmashRL=pyglet.resource.image("imagefolder/BSmashL.png")
 SmashGL=pyglet.resource.image("imagefolder/GSmashL.png")
 SmashRR=pyglet.resource.image("imagefolder/BSmashR.png")
 SmashGR=pyglet.resource.image("imagefolder/GSmashR.png")
-Background=pyglet.resource.image("imagefolder/Background.png")
+Background=pyglet.image.load("imagefolder/Background.png").get_texture()
 jetR=pyglet.resource.image("imagefolder/BJet.png")
 jetG=pyglet.resource.image("imagefolder/GJet.png")
 for e in [SmashR,SmashG]:
