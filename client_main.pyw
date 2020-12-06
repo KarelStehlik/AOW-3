@@ -1,6 +1,7 @@
 from PodSixNet.Connection import connection,ConnectionListener
 from imports import *
 from constants import *
+import groups
 pyglet.gl.glEnable(GL_BLEND)
 connection.DoConnect(('192.168.1.132', 5071))
 class MyNetworkListener(ConnectionListener):
@@ -40,17 +41,45 @@ class mode():
     def mouse_scroll(self, x, y, scroll_x, scroll_y):
         pass
 
+class button():
+    def __init__(self,func,x,y,width,height,image,batch):
+        self.sprite=pyglet.sprite.Sprite(image,x=x,y=y,batch=batch,group=groups.g[5])
+        self.sprite.scale_x=width/self.sprite.width
+        self.sprite.scale_y=height/self.sprite.height
+        self.func=func
+        self.x,self.y,self.width,self.height=x,y,width,height
+    def detect_click(self,x,y):
+        if self.x+self.width>=x>=self.x and self.y+self.height>=y>=self.y:
+            self.func()
+            return True
+        return False
+    def delete(self):
+        self.sprite.delete()
+
 class mode_intro(mode):
     def __init__(self,win,batch,nwl):
         super().__init__(win,batch)
         nwl.set_mode(self)
+        self.buttons=[]
+        self.buttons.append(button(self.join,0,0,100,100,images.flameG,batch))
+        self.joined=False
+    def mouse_press(self,x,y,button,modifiers):
+        [e.detect_click(x,y) for e in self.buttons]
+    def join(self):
+        if not self.joined:
+            connection.Send({"action":"join"})
+            self.joined=True
     def mouse_drag(self,x, y, dx, dy, button, modifiers):
         self.mouse_move(x,y,dx,dy)
     def tick(self,dt):
         super().tick(dt)
+    def end(self):
+        while len(self.buttons)>=1:
+            self.buttons.pop(0).delete()
     def network(self,data):
         if "action" in data and data["action"]=="start_game":
             newgame=Game(data["side"])
+            self.end()
             self.win.start_game(newgame)
 
 class TextureEnableGroup(pyglet.graphics.Group):
@@ -110,7 +139,7 @@ class windoo(pyglet.window.Window):
         self.batch = pyglet.graphics.Batch()
         self.sec=self.frames=0
         self.fpscount=pyglet.text.Label(x=5,y=5,text="0",color=(255,255,255,255),
-                                        group=pyglet.graphics.OrderedGroup(4),batch=self.batch)
+                                        group=groups.g[5],batch=self.batch)
         self.mouseheld=False
         self.current_mode=mode_intro(self,self.batch,self.nwl)
         self.keys = key.KeyStateHandler()
