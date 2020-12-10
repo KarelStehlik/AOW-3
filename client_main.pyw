@@ -42,29 +42,49 @@ class mode():
         pass
 
 class button():
-    def __init__(self,func,x,y,width,height,image,batch):
+    def __init__(self,func,x,y,width,height,batch,image=images.Button,text=""):
         self.sprite=pyglet.sprite.Sprite(image,x=x,y=y,batch=batch,group=groups.g[5])
         self.sprite.scale_x=width/self.sprite.width
         self.sprite.scale_y=height/self.sprite.height
         self.func=func
         self.x,self.y,self.width,self.height=x,y,width,height
-    def detect_click(self,x,y):
+        self.text=pyglet.text.Label(text,x=self.x+self.width//2,
+                y=self.y+self.height*4/7,color=(255,255,0,255),
+                batch=batch,group=groups.g[6],font_size=int(SPRITE_SIZE_MULT*self.height/2),
+                anchor_x="center",align="center",anchor_y="center")
+        self.down=False
+    def mouse_click(self,x,y):
         if self.x+self.width>=x>=self.x and self.y+self.height>=y>=self.y:
-            self.func()
+            self.down=True
+            self.sprite.scale=1.2
+            self.sprite.update(x=self.x-self.width/10,y=self.y-self.height/10)
             return True
         return False
+    def mouse_release(self,x,y):
+        if self.down:
+            self.down=False
+            self.sprite.scale=1
+            self.sprite.update(x=self.x,y=self.y)
+            if self.x+self.width>=x>=self.x and self.y+self.height>=y>=self.y:
+                self.func()
     def delete(self):
         self.sprite.delete()
+        self.text.delete()
 
 class mode_intro(mode):
     def __init__(self,win,batch,nwl):
         super().__init__(win,batch)
         nwl.set_mode(self)
         self.buttons=[]
-        self.buttons.append(button(self.join,0,0,100,100,images.flameG,batch))
+        self.buttons.append(button(self.join,SCREEN_WIDTH*2/5,SCREEN_HEIGHT/3,
+                                   SCREEN_WIDTH*1/5,SCREEN_HEIGHT/7,batch,text="Play"))
+        self.bg=pyglet.sprite.Sprite(images.Intro,x=0,y=0,group=groups.g[0],batch=batch)
+        self.bg.scale_x,self.bg.scale_y=SCREEN_WIDTH/self.bg.width,SCREEN_HEIGHT/self.bg.height
         self.joined=False
     def mouse_press(self,x,y,button,modifiers):
-        [e.detect_click(x,y) for e in self.buttons]
+        [e.mouse_click(x,y) for e in self.buttons]
+    def mouse_release(self,x,y,button,modifiers):
+        [e.mouse_release(x,y) for e in self.buttons]
     def join(self):
         if not self.joined:
             connection.Send({"action":"join"})
@@ -74,6 +94,7 @@ class mode_intro(mode):
     def tick(self,dt):
         super().tick(dt)
     def end(self):
+        self.bg.delete()
         while len(self.buttons)>=1:
             self.buttons.pop(0).delete()
     def network(self,data):
@@ -114,7 +135,8 @@ class mode_main(mode):
             4,pyglet.gl.GL_QUADS,self.background_texgroup,
             ("v2i",(0,0,SCREEN_WIDTH,0,
             SCREEN_WIDTH,SCREEN_HEIGHT,0,SCREEN_HEIGHT)),
-            ("t2f",(0,0,10,0,10,10,0,10))
+            ("t2f",(0,0,SCREEN_WIDTH/512,0,SCREEN_WIDTH/512,SCREEN_HEIGHT/512,
+                    0,SCREEN_HEIGHT/512))
         )
     def mouse_drag(self,x, y, dx, dy, button, modifiers):
         self.mouse_move(x,y,dx,dy)
@@ -193,5 +215,5 @@ pyglet.clock.schedule_interval(place.tick,1.0/60)
 
 while True:
     connection.Pump()
-    pyglet.clock.tick()
     place.nwl.Pump()
+    pyglet.clock.tick()

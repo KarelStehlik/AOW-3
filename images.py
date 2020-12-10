@@ -1,5 +1,22 @@
 import pyglet
 from constants import *
+
+def RI(name):
+    return pyglet.resource.image(f"imagefolder/{name}.png")
+def IL(name):
+    return pyglet.image.load(f"imagefolder/{name}.png")
+Button=RI("Button")
+Background=IL("Background").get_texture()
+Intro=RI("Intro")
+
+
+
+
+
+
+
+
+########################  CLONE  ############################
 gunmanR=pyglet.resource.image("imagefolder/BGunman.png")
 gunmanG=pyglet.resource.image("imagefolder/GGunman.png")
 engiR=pyglet.resource.image("imagefolder/BEngi.png")
@@ -30,7 +47,6 @@ SmashRL=pyglet.resource.image("imagefolder/BSmashL.png")
 SmashGL=pyglet.resource.image("imagefolder/GSmashL.png")
 SmashRR=pyglet.resource.image("imagefolder/BSmashR.png")
 SmashGR=pyglet.resource.image("imagefolder/GSmashR.png")
-Background=pyglet.image.load("imagefolder/Background.png").get_texture()
 jetR=pyglet.resource.image("imagefolder/BJet.png")
 jetG=pyglet.resource.image("imagefolder/GJet.png")
 for e in [SmashR,SmashG]:
