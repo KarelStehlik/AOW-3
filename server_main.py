@@ -2,6 +2,7 @@ from PodSixNet.Channel import Channel
 from PodSixNet.Server import Server
 from imports import *
 from constants import *
+import game_server as game_stuff
 
 class player_channel(Channel):
     def __init__(self, conn=None, addr=(), server=None, map=None):
@@ -18,10 +19,11 @@ class player_channel(Channel):
             self.server.leave(self)
     def start(self,game,side):
         self.game=game
+        self.side=side
         self.Send({"action":"start_game","side":side})
     def Network(self,data):
         if self.game!=None:
-            self.game.network(data)
+            self.game.network(data,self.side)
     def Network_join(self,data):
         self.conn()
 
@@ -39,7 +41,8 @@ class cw_server(Server):
         if not channel in self.playing_channels:
             self.playing_channels.append(channel)
             if len(self.playing_channels)%2==0:
-                self.games.append(Game(self.playing_channels[-1],self.playing_channels[-2],self))
+                self.games.append(game_stuff.Game(self.playing_channels[-1],
+                                self.playing_channels[-2],self))
     def leave(self,channel):
         pass
     def tick(self,dt=0):
@@ -48,27 +51,6 @@ class cw_server(Server):
             e.Pump()
         for e in self.games:
             e.tick()
-
-class Game():
-    def __init__(self, channel1,channel2,server):
-        channel1.start(self,0)
-        channel2.start(self,1)
-        self.channels=[channel1,channel2]
-        self.buildings=[[],[]]
-        self.units=[[],[]]
-        self.server=server
-    def send_both(self,msg):
-        self.channels[0].Send(msg)
-        self.channels[1].Send(msg)
-    def tick(self):
-        pass
-    def network(self,data):
-        pass
-    def end(self,winner):
-        self.send_both({"action":"game_end","winner":winner})
-        self.server.games.remove(self)
-        self.server.playing_channels.remove(channels[0])
-        self.server.playing_channels.remove(channels[1])
 
 srvr=cw_server(localaddr=("192.168.1.132",5071))
 pyglet.clock.schedule_interval(srvr.tick,1.0/60)

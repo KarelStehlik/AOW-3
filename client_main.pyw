@@ -71,7 +71,7 @@ class mode_intro(mode):
             self.buttons.pop(0).delete()
     def network(self,data):
         if "action" in data and data["action"]=="start_game":
-            newgame=game_stuff.Game(data["side"],self.batch)
+            newgame=game_stuff.Game(data["side"],self.batch,connection)
             self.end()
             self.win.start_game(newgame)
 
@@ -80,12 +80,25 @@ class mode_main(mode):
         super().__init__(win,batch)
         nwl.set_mode(self)
         self.game=game
-    def mouse_drag(self,x, y, dx, dy, button, modifiers):
-        self.mouse_move(x,y,dx,dy)
     def tick(self,dt):
+        self.game.tick()
         super().tick(dt)
     def network(self,data):
-        pass
+        self.game.network(data)
+    def mouse_move(self,x, y, dx, dy):
+        self.game.mouse_move(x, y, dx, dy)
+    def mouse_drag(self,x, y, dx, dy, button, modifiers):
+        self.game.mouse_drag(x, y, dx, dy, button, modifiers)
+    def key_press(self,symbol,modifiers):
+        self.game.key_press(symbol,modifiers)
+    def key_release(self,symbol,modifiers):
+        self.game.key_release(symbol,modifiers)
+    def mouse_press(self,x,y,button,modifiers):
+        self.game.mouse_press(x,y,button,modifiers)
+    def mouse_release(self,x,y,button,modifiers):
+        self.game.mouse_release(x,y,button,modifiers)
+    def mouse_scroll(self, x, y, scroll_x, scroll_y):
+        self.game.mouse_scroll(x, y, scroll_x, scroll_y)
 
 
 class windoo(pyglet.window.Window):
