@@ -57,6 +57,10 @@ class mode_intro(mode):
         [e.mouse_click(x,y) for e in self.buttons]
     def mouse_release(self,x,y,button,modifiers):
         [e.mouse_release(x,y) for e in self.buttons]
+    def mouse_move(self,x, y, dx, dy):
+        self.mousex=x
+        self.mousey=y
+        [e.mouse_move(x,y) for e in self.buttons]
     def join(self):
         if not self.joined:
             connection.Send({"action":"join"})

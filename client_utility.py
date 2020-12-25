@@ -37,20 +37,65 @@ class button():
                 batch=batch,group=groups.g[6],font_size=int(SPRITE_SIZE_MULT*self.height/2),
                 anchor_x="center",align="center",anchor_y="center")
         self.down=False
+        self.big=0
+    def embiggen(self):
+        self.big=1
+        self.sprite.scale=1.1
+        self.sprite.update(x=self.x-self.width/20,y=self.y-self.height/20)
+    def unbiggen(self):
+        self.big=0
+        self.sprite.scale=1
+        self.sprite.update(x=self.x,y=self.y)
+    def smallen(self):
+        self.big=-1
+        self.sprite.scale=0.9
+        self.sprite.update(x=self.x+self.width/20,y=self.y+self.height/20)
+
+    def mouse_move(self,x,y):
+        if not self.down:
+            if self.x+self.width>=x>=self.x and self.y+self.height>=y>=self.y:
+                if self.big!=1:
+                    self.embiggen()
+            else:
+                self.unbiggen()
+
     def mouse_click(self,x,y):
         if self.x+self.width>=x>=self.x and self.y+self.height>=y>=self.y:
+            self.smallen()
             self.down=True
-            self.sprite.scale=1.2
-            self.sprite.update(x=self.x-self.width/10,y=self.y-self.height/10)
             return True
         return False
     def mouse_release(self,x,y):
         if self.down:
             self.down=False
-            self.sprite.scale=1
-            self.sprite.update(x=self.x,y=self.y)
+            self.unbiggen()
             if self.x+self.width>=x>=self.x and self.y+self.height>=y>=self.y:
                 self.func()
     def delete(self):
         self.sprite.delete()
         self.text.delete()
+
+class toolbar():
+     def __init__(self,x,y,width,height,batch,image=images.Button):
+         self.sprite=pyglet.sprite.Sprite(image,x=x,y=y,batch=batch,group=groups.g[4])
+         self.x,self.y,self.width,self.height=x,y,width,height
+         self.batch=batch
+         self.sprite.scale_x=width/self.sprite.width
+         self.sprite.scale_y=height/self.sprite.height
+         self.buttons=[]
+     def add(self,func,x,y,width,height,image=images.Button,text=""):
+         self.buttons.append(button(func,x,y,width,
+                    height,self.batch,image=image,text=""))
+     def delete(self):
+         [e.delete for e in self.buttons]
+         self.sprite.delete()
+     def mouse_click(self,x,y):
+         if self.x+self.width>=x>=self.x and self.y+self.height>=y>=self.y:
+             [e.mouse_click(x,y) for e in self.buttons]
+             return True
+         return False
+     def mouse_move(self,x,y):
+         [e.mouse_move(x,y) for e in self.buttons]
+     def mouse_release(self,x,y):
+         [e.mouse_release(x,y) for e in self.buttons]
+

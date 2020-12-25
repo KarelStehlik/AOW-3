@@ -8,6 +8,8 @@ def IL(name):
 Button=RI("Button")
 Background=IL("Background").get_texture()
 Intro=RI("Intro")
+Cancelbutton=RI("Cancelbutton")
+Towerbutton=RI("Towerbutton")
 
 
 
