@@ -1,7 +1,7 @@
 from imports import *
 import groups
 from constants import *
-from client_utility import *
+
 class Game():
     def __init__(self, channel1,channel2,server):
         channel1.start(self,0)

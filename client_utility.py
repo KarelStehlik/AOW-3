@@ -26,11 +26,12 @@ class TextureBindGroup(pyglet.graphics.Group):
     def __hash__(self):
         return hash((self.texture.id, self.texture.target))
 class button():
-    def __init__(self,func,x,y,width,height,batch,image=images.Button,text=""):
+    def __init__(self,func,x,y,width,height,batch,image=images.Button,text="",args=()):
         self.sprite=pyglet.sprite.Sprite(image,x=x,y=y,batch=batch,group=groups.g[5])
         self.sprite.scale_x=width/self.sprite.width
         self.sprite.scale_y=height/self.sprite.height
         self.func=func
+        self.fargs=args
         self.x,self.y,self.width,self.height=x,y,width,height
         self.text=pyglet.text.Label(text,x=self.x+self.width//2,
                 y=self.y+self.height*4/7,color=(255,255,0,255),
@@ -70,7 +71,7 @@ class button():
             self.down=False
             self.unbiggen()
             if self.x+self.width>=x>=self.x and self.y+self.height>=y>=self.y:
-                self.func()
+                self.func(*self.fargs)
     def delete(self):
         self.sprite.delete()
         self.text.delete()
@@ -83,9 +84,9 @@ class toolbar():
          self.sprite.scale_x=width/self.sprite.width
          self.sprite.scale_y=height/self.sprite.height
          self.buttons=[]
-     def add(self,func,x,y,width,height,image=images.Button,text=""):
+     def add(self,func,x,y,width,height,image=images.Button,text="",args=()):
          self.buttons.append(button(func,x,y,width,
-                    height,self.batch,image=image,text=""))
+                    height,self.batch,image=image,text="",args=args))
      def delete(self):
          [e.delete for e in self.buttons]
          self.sprite.delete()

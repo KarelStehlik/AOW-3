@@ -17,13 +17,15 @@ class Game():
             ("t2f",(0,0,SCREEN_WIDTH/512,0,SCREEN_WIDTH/512,SCREEN_HEIGHT/512,
                     0,SCREEN_HEIGHT/512))
         )
-        self.UI_toolbars=[]
+        """self.UI_bottom_bar_page=0
         self.UI_bottomBar=toolbar(0,0,SCREEN_WIDTH,SCREEN_HEIGHT/5,self.batch)
         self.UI_toolbars.append(self.UI_bottomBar)
-        self.UI_bottomBar.add(self.select_tower,20,20,100,100,image=images.Towerbutton)
+        self.UI_bottomBar.add(self.select_tower,20,20,100,100,image=images.Towerbutton)"""
+        self.UI_bottomBar=UI_bottom_bar(self)
+        self.UI_toolbars=[self.UI_bottomBar]
         self.selected=selection(self)
-    def select_tower(self):
-        self.selected=selection_tower(self)
+    def select(self,sel):
+        self.selected=sel(self)
     def tick(self):
         self.players[0].tick()
         self.players[1].tick()
@@ -49,6 +51,34 @@ class Game():
     def mouse_scroll(self, x, y, scroll_x, scroll_y):
         pass
 
+class UI_bottom_bar(toolbar):
+    def __init__(self,game):
+        super().__init__(0,0,SCREEN_WIDTH,SCREEN_HEIGHT/5,game.batch)
+        self.game=game
+        self.page=0
+        self.load_page(0)
+    def load_page(self,n):
+        i=0
+        for e in selects_all[n]:
+            self.add(self.game.select,SCREEN_WIDTH*0.01+0.1*i,SCREEN_WIDTH*0.01,
+                     SCREEN_WIDTH*0.09,SCREEN_WIDTH*0.09,e.img,args=(e,))
+            i+=1
+
+class player():
+    def __init__(self):
+        self.walls=[]
+        self.units=[]
+        self.towers=[]
+    def tick(self):
+        [e.tick() for e in self.units]
+        [e.tick for e in self.towers]
+    def update_cam(x,y):
+        [e.update_cam(x,y) for e in self.units]
+        [e.update_cam(x,y) for e in self.towers]
+        [e.update_cam(x,y) for e in self.walls]
+
+##################   ---/core---  #################
+##################  ---selects---  #################
 class selection():
     def __init__(self,game):
         pass
@@ -62,6 +92,7 @@ class selection():
         pass
 
 class selection_tower(selection):
+    img=images.Towerbutton
     def __init__(self,game):
         self.game=game
         self.size=unit_stats["Tower"]["size"]
@@ -87,18 +118,11 @@ class selection_tower(selection):
         self.sprite.delete()
         self.cancelbutton.delete()
 
-class player():
-    def __init__(self):
-        self.walls=[]
-        self.units=[]
-        self.towers=[]
-    def tick(self):
-        [e.tick() for e in self.units]
-        [e.tick for e in self.towers]
-    def update_cam(x,y):
-        [e.update_cam(x,y) for e in self.units]
-        [e.update_cam(x,y) for e in self.towers]
-        [e.update_cam(x,y) for e in self.walls]
+selects_p1=[selection_tower]
+selects_all=[selects_p1]
+
+################## ---/selects--- #################
+##################   ---units---  #################   
 
 class Tower():
     name="Tower"
@@ -114,3 +138,5 @@ class Tower():
         self.l.append(self)
     def tick(self):
         pass
+
+##################  ---/units---  #################
