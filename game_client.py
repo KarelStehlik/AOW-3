@@ -2,7 +2,10 @@ from imports import *
 import groups
 from constants import *
 from client_utility import *
-
+class test():
+    def __init__(self,x,y):
+        self.x=x
+        self.y=y
 class Game():
     def __init__(self,side,batch,connection):
         self.side,self.batch=side,batch
@@ -17,14 +20,11 @@ class Game():
             ("t2f",(0,0,SCREEN_WIDTH/512,0,SCREEN_WIDTH/512,SCREEN_HEIGHT/512,
                     0,SCREEN_HEIGHT/512))
         )
-        """self.UI_bottom_bar_page=0
-        self.UI_bottomBar=toolbar(0,0,SCREEN_WIDTH,SCREEN_HEIGHT/5,self.batch)
-        self.UI_toolbars.append(self.UI_bottomBar)
-        self.UI_bottomBar.add(self.select_tower,20,20,100,100,image=images.Towerbutton)"""
         self.UI_bottomBar=UI_bottom_bar(self)
         self.UI_toolbars=[self.UI_bottomBar]
         self.selected=selection(self)
     def select(self,sel):
+        self.selected.end()
         self.selected=sel(self)
     def tick(self):
         self.players[0].tick()
@@ -32,7 +32,10 @@ class Game():
     def network(self,data):
         if "action" in data:
             if data["action"]=="place_tower":
-                Tower(data["xy"][0],data["xy"][1],data["side"],self)
+                Tower(data["ID"],data["xy"][0],data["xy"][1],data["side"],self)
+            elif data["action"]=="place_wall":
+                Wall(data["ID"],self.find_tower(data["ID1"],data["side"]),
+                     self.find_tower(data["ID2"],data["side"]),data["side"],self)
     def mouse_move(self,x, y, dx, dy):
         [e.mouse_move(x,y) for e in self.UI_toolbars]
         self.selected.mouse_move(x,y)
@@ -50,6 +53,21 @@ class Game():
         self.selected.mouse_release(x,y)
     def mouse_scroll(self, x, y, scroll_x, scroll_y):
         pass
+    def find_tower(self,ID,side):
+        for e in self.players[side].towers:
+            if e.ID==ID:
+                return e
+        return None
+    def find_wall(self,ID,side):
+        for e in self.players[side].walls:
+            if e.ID==ID:
+                return e
+        return None
+    def find_unit(self,ID,side):
+        for e in self.players[side].units:
+            if e.ID==ID:
+                return e
+        return None
 
 class UI_bottom_bar(toolbar):
     def __init__(self,game):
@@ -60,9 +78,11 @@ class UI_bottom_bar(toolbar):
     def load_page(self,n):
         i=0
         for e in selects_all[n]:
-            self.add(self.game.select,SCREEN_WIDTH*0.01+0.1*i,SCREEN_WIDTH*0.01,
+            self.add(self.game.select,SCREEN_WIDTH*(0.01+0.1*i),SCREEN_WIDTH*0.01,
                      SCREEN_WIDTH*0.09,SCREEN_WIDTH*0.09,e.img,args=(e,))
             i+=1
+    def unload_page(self):
+        [e.delete() for e in self.buttons]
 
 class player():
     def __init__(self):
@@ -118,7 +138,41 @@ class selection_tower(selection):
         self.sprite.delete()
         self.cancelbutton.delete()
 
-selects_p1=[selection_tower]
+class selection_wall(selection):
+    img=images.Towerbutton
+    def __init__(self,game):
+        self.game=game
+        self.cancelbutton=button(self.end,SCREEN_WIDTH*0.01,SCREEN_HEIGHT*0.9,
+                                 SCREEN_WIDTH*0.1,SCREEN_HEIGHT*0.09,game.batch,
+                                 image=images.Cancelbutton)
+        self.selected1,self.selected1=None,None
+        self.buttons=[]
+        for e in game.players[game.side].towers:
+            self.buttons.append(button(self.select,e.x-20,e.y-20,40,40,
+                                       self.game.batch,args=(e.ID,)))
+        self.sprite=None
+    def select(self,ID):
+        if self.selected1==None or self.selected1==ID:
+            self.selected1=ID
+            return
+        self.selected2=ID
+        self.game.connection.Send({"action":"place_wall","ID1":self.selected1,
+                                   "ID2":self.selected2})
+        self.end()
+    def mouse_move(self,x,y):
+        pass
+    def mouse_click(self,x,y):
+        if not self.cancelbutton.mouse_click(x,y):
+            [e.mouse_click(x,y) for e in self.buttons]
+    def mouse_release(self,x,y):
+        self.cancelbutton.mouse_release(x,y)
+        [e.mouse_release(x,y) for e in self.buttons]
+    def end(self):
+        self.game.selected=selection(self.game)
+        self.cancelbutton.delete()
+        [e.delete() for e in self.buttons]
+
+selects_p1=[selection_tower,selection_wall]
 selects_all=[selects_p1]
 
 ################## ---/selects--- #################
@@ -126,8 +180,9 @@ selects_all=[selects_p1]
 
 class Tower():
     name="Tower"
-    def __init__(self,x,y,side,game):
+    def __init__(self,ID,x,y,side,game):
         self.x,self.y=x,y
+        self.ID=ID
         self.side=side
         self.size=unit_stats[self.name]["size"]
         self.sprite=pyglet.sprite.Sprite(images.Intro,x=x-self.size/2,
@@ -136,7 +191,34 @@ class Tower():
         self.sprite.scale=self.size/self.sprite.width
         self.l=game.players[side].towers
         self.l.append(self)
+        self.game=game
     def tick(self):
         pass
+    def delete(self):
+        self.l.remove(self)
+        self.sprite.delete()
+
+class Wall():
+    name="Wall"
+    def __init__(self,ID,t1,t2,side,game):
+        self.ID=ID
+        self.x1,self.y1,self.x2,self.y2=t1.x,t1.y,t2.x,t2.y
+        self.side=side
+        self.width=unit_stats[self.name]["width"]
+        self.game=game
+        self.l=game.players[side].walls
+        self.l.append(self)
+        x=self.width/2/math.sqrt((self.x1-self.x2)**2+(self.y1-self.y2)**2)
+        a=x*(self.y2-self.y1)
+        b=x*(self.x1-self.x2)
+        self.texgroup=TextureBindGroup(images.JetIconTex,layer=1)
+        glEnable(GL_BLEND)
+        self.sprite=game.batch.add(
+            4,pyglet.gl.GL_QUADS,self.texgroup,
+            ("v2f",(self.x1-a,self.y1-b,self.x1+a,self.y1+b,
+            self.x2+a,self.y2+b,self.x2-a,self.y2-b)),
+            ("t2f",(0,0,1,0,1,0.5/x,
+                    0,0.5/x))
+        )
 
 ##################  ---/units---  #################

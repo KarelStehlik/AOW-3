@@ -1,1 +1,2 @@
 Tower:size=50
+Wall:width=30

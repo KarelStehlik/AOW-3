@@ -7,6 +7,7 @@ from pyglet.window import key
 from pyglet import clock
 import images
 import os
+import math
 from pyglet.gl import *
 glEnable(GL_BLEND)
 unit_stats={}

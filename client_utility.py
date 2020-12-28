@@ -88,7 +88,7 @@ class toolbar():
          self.buttons.append(button(func,x,y,width,
                     height,self.batch,image=image,text="",args=args))
      def delete(self):
-         [e.delete for e in self.buttons]
+         [e.delete() for e in self.buttons]
          self.sprite.delete()
      def mouse_click(self,x,y):
          if self.x+self.width>=x>=self.x and self.y+self.height>=y>=self.y:
