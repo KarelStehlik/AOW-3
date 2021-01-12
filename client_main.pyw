@@ -5,7 +5,7 @@ import groups
 from client_utility import *
 import game_client as game_stuff
 pyglet.gl.glEnable(GL_BLEND)
-connection.DoConnect(('192.168.1.170', 5071))
+connection.DoConnect(('192.168.1.132', 5071))
 class MyNetworkListener(ConnectionListener):
     def __init__(self,*args,**kwargs):
         super().__init__()
