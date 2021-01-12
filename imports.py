@@ -3,7 +3,6 @@ import time
 import random
 from pyglet.window import key
 from pyglet import clock
-import images
 import os
 import math
 pyglet.gl.glEnable(pyglet.gl.GL_BLEND)

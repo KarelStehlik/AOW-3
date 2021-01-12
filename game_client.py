@@ -1,6 +1,7 @@
 from imports import *
 import groups
 from constants import *
+import images
 from client_utility import button,toolbar,TextureBindGroup
 class test():
     def __init__(self,x,y):
@@ -34,7 +35,7 @@ class Game():
         self.selected.end()
         self.selected=sel(self)
     def tick(self):
-        while self.ticks<60*(time.time()-self.start_time):
+        while self.ticks<FPS*(time.time()-self.start_time):
             self.players[0].tick()
             self.players[1].tick()
             self.ticks+=1
@@ -253,8 +254,9 @@ class Tower():
         self.l.append(self)
         self.game=game
         self.update_cam(self.game.camx,self.game.camy)
+        self.spinspeed=600/FPS
     def tick(self):
-        self.sprite.rotation+=10
+        self.sprite.rotation+=self.spinspeed
     def update_cam(self,x,y):
         self.sprite.update(x=self.x-self.size/2-x,y=self.y-self.size/2-y)
     def delete(self):

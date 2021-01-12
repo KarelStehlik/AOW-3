@@ -2,14 +2,12 @@ from PodSixNet.Connection import connection,ConnectionListener
 from imports import *
 from constants import *
 import groups
+import images
 from client_utility import button,toolbar,TextureBindGroup
 import game_client as game_stuff
-<<<<<<< HEAD
 pyglet.gl.glEnable(pyglet.gl.GL_BLEND)
-=======
-pyglet.gl.glEnable(GL_BLEND)
->>>>>>> de37c9c00a6d88b849710f0705dea69b745773be
-connection.DoConnect(('192.168.1.132', 5071))
+
+connection.DoConnect(('192.168.1.170', 5071))
 class MyNetworkListener(ConnectionListener):
     def __init__(self,*args,**kwargs):
         super().__init__()
@@ -167,7 +165,6 @@ class windoo(pyglet.window.Window):
             self.frames=0
 place = windoo(caption='test',fullscreen=True)
 place.start()
-pyglet.clock.schedule_interval(place.tick,1.0/60)
 
 while True:
     try:

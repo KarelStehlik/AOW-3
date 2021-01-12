@@ -20,7 +20,6 @@ class player_channel(Channel):
     def start(self,game,side):
         self.game=game
         self.side=side
-        print(time.time())
         self.Send({"action":"start_game","side":side,"time0":str(time.time())})
     def Network(self,data):
         if self.game!=None:
@@ -53,7 +52,8 @@ class cw_server(Server):
         for e in self.games:
             e.tick()
 
-srvr=cw_server(localaddr=("192.168.1.132",5071))
-pyglet.clock.schedule_interval(srvr.tick,1.0/60)
+srvr=cw_server(localaddr=("192.168.1.170",5071))
+pyglet.clock.schedule_interval(srvr.tick,1.0/FPS)
 while True:
     pyglet.clock.tick()
+    time.sleep(0.001)
