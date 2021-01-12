@@ -33,6 +33,7 @@ class button():
         self.func=func
         self.fargs=args
         self.x,self.y,self.width,self.height=x,y,width,height
+        self.ogx,self.ogy=x,y
         self.text=pyglet.text.Label(text,x=self.x+self.width//2,
                 y=self.y+self.height*4/7,color=(255,255,0,255),
                 batch=batch,group=groups.g[6],font_size=int(SPRITE_SIZE_MULT*self.height/2),
@@ -51,6 +52,12 @@ class button():
         self.big=-1
         self.sprite.scale=0.9
         self.sprite.update(x=self.x+self.width/20,y=self.y+self.height/20)
+
+    def update(self,x,y):
+        self.sprite.update(x=x,y=y)
+        self.x,self.y=x,y
+        self.text.x=x+self.width//2
+        self.text.y=y+self.height*4/7
 
     def mouse_move(self,x,y):
         if not self.down:

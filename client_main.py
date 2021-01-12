@@ -2,14 +2,11 @@ from PodSixNet.Connection import connection,ConnectionListener
 from imports import *
 from constants import *
 import groups
-from client_utility import button,toolbar,TextureBindGroup
+from client_utility import *
 import game_client as game_stuff
-<<<<<<< HEAD
-pyglet.gl.glEnable(pyglet.gl.GL_BLEND)
-=======
 pyglet.gl.glEnable(GL_BLEND)
->>>>>>> de37c9c00a6d88b849710f0705dea69b745773be
-connection.DoConnect(('192.168.1.132', 5071))
+#connection.DoConnect(('192.168.1.132', 5071))
+connection.DoConnect(('192.168.1.170', 5071))
 class MyNetworkListener(ConnectionListener):
     def __init__(self,*args,**kwargs):
         super().__init__()
@@ -32,7 +29,7 @@ class mode():
         self.mousey=y
     def mouse_drag(self,x, y, dx, dy, button, modifiers):
         self.mouse_move(x,y,dx,dy)
-    def tick(self):
+    def tick(self,dt):
         pass
     def key_press(self,symbol,modifiers):
         pass
@@ -71,16 +68,15 @@ class mode_intro(mode):
             self.joined=True
     def mouse_drag(self,x, y, dx, dy, button, modifiers):
         self.mouse_move(x,y,dx,dy)
-    def tick(self):
-        super().tick()
-        self.batch.draw()
+    def tick(self,dt):
+        super().tick(dt)
     def end(self):
         self.bg.delete()
         while len(self.buttons)>=1:
             self.buttons.pop(0).delete()
     def network(self,data):
         if "action" in data and data["action"]=="start_game":
-            newgame=game_stuff.Game(data["side"],self.batch,connection,float(data["time0"]))
+            newgame=game_stuff.Game(data["side"],self.batch,connection)
             self.end()
             self.win.start_game(newgame)
 
@@ -89,9 +85,9 @@ class mode_main(mode):
         super().__init__(win,batch)
         nwl.set_mode(self)
         self.game=game
-    def tick(self):
+    def tick(self,dt):
         self.game.tick()
-        super().tick()
+        super().tick(dt)
     def network(self,data):
         self.game.network(data)
     def mouse_move(self,x, y, dx, dy):
@@ -114,8 +110,7 @@ class windoo(pyglet.window.Window):
     def start(self):
         self.nwl=nwl
         self.batch = pyglet.graphics.Batch()
-        self.sec=time.time()
-        self.frames=0
+        self.sec=self.frames=0
         self.fpscount=pyglet.text.Label(x=5,y=5,text="0",color=(255,255,255,255),
                                         group=groups.g[5],batch=self.batch)
         self.mouseheld=False
@@ -135,12 +130,13 @@ class windoo(pyglet.window.Window):
     def error_close(self):
         self.close()
         connection.close()
-    def tick(self):
+    def tick(self,dt):
         self.dispatch_events()
-        self.check()
+        self.check(dt)
+        self.current_mode.tick(dt)
         self.switch_to()
         self.clear()
-        self.current_mode.tick()
+        self.batch.draw()
         self.flip()
     def on_key_press(self,symbol,modifiers):
         self.current_mode.key_press(symbol,modifiers)
@@ -159,12 +155,14 @@ class windoo(pyglet.window.Window):
         self.current_mode.mouse_scroll(x, y, scroll_x, scroll_y)
     def on_deactivate(self):
         self.minimize()
-    def check(self):
+    def check(self,dt):
+        self.sec+=dt
         self.frames+=1
-        if time.time()-self.sec>=1:
-            self.sec+=1
+        if self.sec>1:
+            self.sec-=1
             self.fpscount.text=str(self.frames)
             self.frames=0
+
 place = windoo(caption='test',fullscreen=True)
 place.start()
 pyglet.clock.schedule_interval(place.tick,1.0/60)
@@ -173,7 +171,9 @@ while True:
     try:
         connection.Pump()
         place.nwl.Pump()
-        place.tick()
+        pyglet.clock.tick()
     except Exception as e:
         place.error_close()
         raise(e)
+        while True:
+            pass

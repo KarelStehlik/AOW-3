@@ -7,6 +7,7 @@ def IL(name):
     return pyglet.image.load(f"imagefolder/{name}.png")
 Button=RI("Button")
 Background=IL("Background").get_texture()
+Wall=IL("Wall").get_texture()
 Intro=RI("Intro")
 Cancelbutton=RI("Cancelbutton")
 Towerbutton=RI("Towerbutton")

@@ -20,7 +20,8 @@ class player_channel(Channel):
     def start(self,game,side):
         self.game=game
         self.side=side
-        self.Send({"action":"start_game","side":side})
+        print(time.time())
+        self.Send({"action":"start_game","side":side,"time0":str(time.time())})
     def Network(self,data):
         if self.game!=None:
             self.game.network(data,self.side)

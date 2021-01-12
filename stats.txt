@@ -1,2 +1,2 @@
-Tower:size=50
-Wall:width=30
+Tower:size=50,hp=10000
+Wall:width=30,hp=5000

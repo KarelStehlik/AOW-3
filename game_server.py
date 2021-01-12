@@ -7,16 +7,19 @@ class Game():
     def __init__(self, channel1,channel2,server):
         channel1.start(self,0)
         channel2.start(self,1)
+        self.time_start=time.time()
         self.channels=[channel1,channel2]
         self.players=[player(),player()]
         self.server=server
         self.object_ID=0
+        self.ticks=0
     def send_both(self,msg):
         self.channels[0].Send(msg)
         self.channels[1].Send(msg)
     def tick(self):
         self.players[0].tick()
         self.players[1].tick()
+        self.ticks+=1
     def network(self,data,side):
         if "action" in data:
             if data["action"]=="place_tower":
@@ -38,8 +41,8 @@ class Game():
     def end(self,winner):
         self.send_both({"action":"game_end","winner":winner})
         self.server.games.remove(self)
-        self.server.playing_channels.remove(channels[0])
-        self.server.playing_channels.remove(channels[1])
+        self.server.playing_channels.remove(self.channels[0])
+        self.server.playing_channels.remove(self.channels[1])
     def find_tower(self,ID,side):
         for e in self.players[side].towers:
             if e.ID==ID:
@@ -63,7 +66,7 @@ class player():
         self.towers=[]
     def tick(self):
         [e.tick() for e in self.units]
-        [e.tick for e in self.towers]
+        [e.tick() for e in self.towers]
 
 ##################   ---/core---  #################
 ##################   ---units---  ################# 
@@ -75,6 +78,7 @@ class Tower():
         self.ID=ID
         self.side=side
         self.size=unit_stats[self.name]["size"]
+        self.hp=unit_stats[self.name]["hp"]
         self.l=game.players[side].towers
         self.l.append(self)
     def tick(self):
@@ -83,6 +87,8 @@ class Tower():
 class Wall():
     name="Wall"
     def __init__(self,ID,t1,t2,side,game):
+        self.hp=unit_stats[self.name]["hp"]
+        self.width=unit_stats[self.name]["width"]
         self.ID=ID
         self.x1,self.y1,self.x2,self.y2=t1.x,t1.y,t2.x,t2.y
         self.side=side
