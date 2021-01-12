@@ -1,6 +1,6 @@
 from PodSixNet.Connection import connection, ConnectionListener
 from imports import *
-from constants import *
+import constants
 import groups
 import images
 from client_utility import button, toolbar, TextureBindGroup
@@ -68,10 +68,10 @@ class mode_intro(mode):
         super().__init__(win, batch)
         nwl.set_mode(self)
         self.buttons = []
-        self.buttons.append(button(self.join, SCREEN_WIDTH * 2 / 5, SCREEN_HEIGHT / 3,
-                                   SCREEN_WIDTH * 1 / 5, SCREEN_HEIGHT / 7, batch, text="Play"))
+        self.buttons.append(button(self.join, constants.SCREEN_WIDTH * 2 / 5, constants.SCREEN_HEIGHT / 3,
+                                   constants.SCREEN_WIDTH * 1 / 5, constants.SCREEN_HEIGHT / 7, batch, text="Play"))
         self.bg = pyglet.sprite.Sprite(images.Intro, x=0, y=0, group=groups.g[0], batch=batch)
-        self.bg.scale_x, self.bg.scale_y = SCREEN_WIDTH / self.bg.width, SCREEN_HEIGHT / self.bg.height
+        self.bg.scale_x, self.bg.scale_y = constants.SCREEN_WIDTH / self.bg.width, constants.SCREEN_HEIGHT / self.bg.height
         self.joined = False
 
     def mouse_press(self, x, y, button, modifiers):

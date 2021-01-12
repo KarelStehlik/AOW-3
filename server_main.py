@@ -1,7 +1,7 @@
 from PodSixNet.Channel import Channel
 from PodSixNet.Server import Server
 from imports import *
-from constants import *
+import constants
 import game_server as game_stuff
 
 
@@ -65,7 +65,7 @@ class cw_server(Server):
 
 
 srvr = cw_server(localaddr=("192.168.1.170", 5071))
-pyglet.clock.schedule_interval(srvr.tick, 1.0 / FPS)
+pyglet.clock.schedule_interval(srvr.tick, 1.0 / constants.FPS)
 while True:
     pyglet.clock.tick()
     time.sleep(0.001)
