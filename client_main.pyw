@@ -8,7 +8,8 @@ import game_client as game_stuff
 
 pyglet.gl.glEnable(pyglet.gl.GL_BLEND)
 
-connection.DoConnect(('192.168.1.170', 5071))
+#connection.DoConnect(('192.168.1.170', 5071))
+connection.DoConnect(('127.0.0.1', 5071))
 
 
 class MyNetworkListener(ConnectionListener):
@@ -28,7 +29,7 @@ class MyNetworkListener(ConnectionListener):
 nwl = MyNetworkListener()
 
 
-class mode():
+class mode:
     def __init__(self, win, batch):
         self.batch = batch
         self.mousex = self.mousey = 0
@@ -209,9 +210,10 @@ class windoo(pyglet.window.Window):
             self.frames = 0
 
 
-#place = windoo(caption='test', fullscreen=True)
-place = windoo(caption='test', style=pyglet.window.Window.WINDOW_STYLE_BORDERLESS,width=constants.SCREEN_WIDTH,height=constants.SCREEN_HEIGHT)
-place.set_location(0,0)
+# place = windoo(caption='test', fullscreen=True)
+place = windoo(caption='test', style=pyglet.window.Window.WINDOW_STYLE_BORDERLESS, width=constants.SCREEN_WIDTH,
+               height=constants.SCREEN_HEIGHT)
+place.set_location(0, 0)
 
 while True:
     try:

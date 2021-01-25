@@ -29,6 +29,9 @@ class Game:
         self.UI_categories = UI_categories(self, self.UI_bottomBar)
         self.UI_toolbars = [self.UI_bottomBar, self.UI_categories]
         self.selected = selection_none(self)
+        self.unit_formation_rows = 5
+        self.unit_formation_columns = 10
+        self.unit_formation = UI_formation(self)
 
     def select(self, sel):
         self.selected.end()
@@ -78,8 +81,9 @@ class Game:
             self.camy_moving = min(self.camy_moving + self.cam_move_speed, self.cam_move_speed)
 
     def mouse_press(self, x, y, button, modifiers):
-        if not self.UI_bottomBar.mouse_click(x, y):
-            self.selected.mouse_click(x, y)
+        if True in [e.mouse_click(x, y) for e in self.UI_toolbars]:
+            return
+        self.selected.mouse_click(x, y)
 
     def mouse_release(self, x, y, button, modifiers):
         [e.mouse_release(x, y) for e in self.UI_toolbars]
@@ -133,13 +137,23 @@ class UI_bottom_bar(toolbar):
 
     def unload_page(self):
         [e.delete() for e in self.buttons]
+        self.buttons = []
+
+
+class UI_formation(toolbar):
+    def __init__(self, game):
+        self.rows, self.columns = game.unit_formation_rows, game.unit_formation_columns
+        self.dot_size = SCREEN_HEIGHT / 5 / self.rows
+        super().__init__(SCREEN_WIDTH - self.dot_size * self.columns, 0, self.dot_size * self.columns,
+                         SCREEN_HEIGHT / 5, game.batch, image=None)
+        self.units = [[None for _ in range(self.columns)] for _ in range(self.rows)]
 
 
 class UI_categories(toolbar):
     def __init__(self, game, bb):
         super().__init__(0, bb.height, SCREEN_WIDTH, SCREEN_HEIGHT * 0.05, game.batch)
         i = 0
-        for e in selects_all:
+        for _ in selects_all:
             self.add(bb.load_page, SCREEN_WIDTH * (0.01 + 0.1 * i), bb.height + SCREEN_HEIGHT * 0.005,
                      SCREEN_WIDTH * 0.09, SCREEN_HEIGHT * 0.04, args=(i,))
             i += 1
@@ -275,8 +289,30 @@ class selection_wall(selection):
         self.camx, self.camy = x, y
 
 
+class selection_unit(selection):
+    img = images.gunmanR
+
+    def __init__(self, game):
+        super().__init__(game)
+
+    def mouse_move(self, x, y):
+        pass
+
+    def mouse_click(self, x, y):
+        pass
+
+    def mouse_release(self, x, y):
+        self.cancelbutton.mouse_release(x, y)
+
+    def end(self):
+        super().end()
+
+    def update_cam(self, x, y):
+        pass
+
+
 selects_p1 = [selection_tower, selection_wall]
-selects_all = [selects_p1]
+selects_all = [selects_p1, [selection_unit]]
 
 
 ################## ---/selects--- #################
@@ -341,5 +377,13 @@ class Wall:
 
     def update_cam(self, x, y):
         self.sprite.vertices = [(self.vertices_no_cam[i] - (x if i % 2 == 0 else y)) for i in range(8)]
+
+
+class Unit:
+    pass
+
+
+class Swordsman(Unit):
+    image = images.gunmanG
 
 ##################  ---/units---  #################
