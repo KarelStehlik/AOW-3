@@ -27,11 +27,11 @@ class Game:
         )
         self.UI_bottomBar = UI_bottom_bar(self)
         self.UI_categories = UI_categories(self, self.UI_bottomBar)
-        self.UI_toolbars = [self.UI_bottomBar, self.UI_categories]
-        self.selected = selection_none(self)
-        self.unit_formation_rows = 5
-        self.unit_formation_columns = 10
+        self.unit_formation_rows = 10
+        self.unit_formation_columns = 20
         self.unit_formation = UI_formation(self)
+        self.UI_toolbars = [self.UI_bottomBar, self.UI_categories, self.unit_formation]
+        self.selected = selection_none(self)
 
     def select(self, sel):
         self.selected.end()
@@ -119,6 +119,12 @@ class Game:
                 return e
         return None
 
+    def find_formation(self, ID, side):
+        for e in self.players[side].formations:
+            if e.ID == ID:
+                return e
+        return None
+
 
 class UI_bottom_bar(toolbar):
     def __init__(self, game):
@@ -144,9 +150,26 @@ class UI_formation(toolbar):
     def __init__(self, game):
         self.rows, self.columns = game.unit_formation_rows, game.unit_formation_columns
         self.dot_size = SCREEN_HEIGHT / 5 / self.rows
+        self.game = game
         super().__init__(SCREEN_WIDTH - self.dot_size * self.columns, 0, self.dot_size * self.columns,
                          SCREEN_HEIGHT / 5, game.batch, image=None)
-        self.units = [[None for _ in range(self.columns)] for _ in range(self.rows)]
+        self.units = [[None for _ in range(self.rows)] for _ in range(self.columns)]
+        self.Buttons2d = [[None for _ in range(self.rows)] for _ in range(self.columns)]
+        for x in range(self.columns):
+            for y in range(self.rows):
+                self.Buttons2d[x][y] = self.add(self.clicked, SCREEN_WIDTH + self.dot_size * (x - self.columns),
+                                              self.dot_size * (y + 1), self.dot_size, self.dot_size,
+                                              image=images.gunmanR, args=(x, y))
+
+    def clicked(self, x, y):
+        self.game.selected.clicked_unit_slot(x, y)
+
+    def set_unit(self, x, y, num):
+        self.units[x][y] = num
+        if num is None:
+            self.Buttons2d[x][y].set_image(images.gunmanR)
+        else:
+            self.Buttons2d[x][y].set_image(possible_units[num].image)
 
 
 class UI_categories(toolbar):
@@ -159,11 +182,12 @@ class UI_categories(toolbar):
             i += 1
 
 
-class player():
+class player:
     def __init__(self):
         self.walls = []
         self.units = []
         self.towers = []
+        self.formations = []
 
     def tick(self):
         [e.tick() for e in self.units]
@@ -183,6 +207,7 @@ class selection:
         self.cancelbutton = button(self.end, SCREEN_WIDTH * 0.01, SCREEN_HEIGHT * 0.9,
                                    SCREEN_WIDTH * 0.1, SCREEN_HEIGHT * 0.09, game.batch,
                                    image=images.Cancelbutton)
+        self.game=game
 
     def mouse_move(self, x, y):
         pass
@@ -199,10 +224,13 @@ class selection:
     def update_cam(self, x, y):
         pass
 
+    def clicked_unit_slot(self, x, y):
+        self.game.unit_formation.set_unit(x, y, None)
+
 
 class selection_none(selection):
     def __init__(self, game):
-        pass
+        self.game=game
 
     def end(self):
         pass
@@ -213,7 +241,6 @@ class selection_tower(selection):
 
     def __init__(self, game):
         super().__init__(game)
-        self.game = game
         self.camx, self.camy = 0, 0
         self.size = unit_stats["Tower"]["size"]
         self.sprite = pyglet.sprite.Sprite(images.Intro, x=0,
@@ -249,7 +276,6 @@ class selection_wall(selection):
 
     def __init__(self, game):
         super().__init__(game)
-        self.game = game
         self.selected1, self.selected1 = None, None
         self.buttons = []
         self.camx, self.camy = game.camx, game.camy
@@ -299,7 +325,8 @@ class selection_unit(selection):
         pass
 
     def mouse_click(self, x, y):
-        pass
+        if not self.cancelbutton.mouse_click(x, y):
+            pass
 
     def mouse_release(self, x, y):
         self.cancelbutton.mouse_release(x, y)
@@ -310,15 +337,19 @@ class selection_unit(selection):
     def update_cam(self, x, y):
         pass
 
+    def clicked_unit_slot(self, x, y):
+        self.game.unit_formation.set_unit(x, y, 0)
+
 
 selects_p1 = [selection_tower, selection_wall]
-selects_all = [selects_p1, [selection_unit]]
+selects_p2 = [selection_unit]
+selects_all = [selects_p1, selects_p2]
 
 
 ################## ---/selects--- #################
 ##################   ---units---  #################   
 
-class Tower():
+class Tower:
     name = "Tower"
 
     def __init__(self, ID, x, y, side, game):
@@ -379,11 +410,27 @@ class Wall:
         self.sprite.vertices = [(self.vertices_no_cam[i] - (x if i % 2 == 0 else y)) for i in range(8)]
 
 
+class Formation:
+    def __init__(self, ID, side, game):
+        self.ID = ID
+        self.side = side
+        self.game = game
+
+
 class Unit:
-    pass
+    def __init__(self, ID, side, game):
+        self.ID = ID
+        self.side = side
+        self.game = game
 
 
 class Swordsman(Unit):
     image = images.gunmanG
+
+    def __init__(self, ID, side, game):
+        super().__init__(ID, side, game)
+
+
+possible_units = [Swordsman]
 
 ##################  ---/units---  #################

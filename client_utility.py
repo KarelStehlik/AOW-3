@@ -42,6 +42,7 @@ class button():
         self.sprite.scale_y = height / self.sprite.height
         self.func = func
         self.fargs = args
+        self.batch=batch
         self.x, self.y, self.width, self.height = x, y, width, height
         self.ogx, self.ogy = x, y
         self.text = pyglet.text.Label(text, x=self.x + self.width // 2,
@@ -50,6 +51,11 @@ class button():
                                       anchor_x="center", align="center", anchor_y="center")
         self.down = False
         self.big = 0
+
+    def set_image(self, img):
+        self.sprite = pyglet.sprite.Sprite(img, x=self.x, y=self.y, batch=self.batch, group=groups.g[5])
+        self.sprite.scale_x = self.width / self.sprite.width
+        self.sprite.scale_y = self.height / self.sprite.height
 
     def embiggen(self):
         self.big = 1
@@ -112,8 +118,10 @@ class toolbar():
         self.buttons = []
 
     def add(self, func, x, y, width, height, image=images.Button, text="", args=()):
-        self.buttons.append(button(func, x, y, width,
-                                   height, self.batch, image=image, text="", args=args))
+        a = button(func, x, y, width, height, self.batch,
+                   image=image, text="", args=args)
+        self.buttons.append(a)
+        return a
 
     def delete(self):
         [e.delete() for e in self.buttons]
@@ -127,7 +135,8 @@ class toolbar():
         return False
 
     def mouse_move(self, x, y):
-        [e.mouse_move(x, y) for e in self.buttons]
+        if self.x + self.width >= x >= self.x and self.y + self.height >= y >= self.y:
+            [e.mouse_move(x, y) for e in self.buttons]
 
     def mouse_release(self, x, y):
         [e.mouse_release(x, y) for e in self.buttons]
