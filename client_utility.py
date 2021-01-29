@@ -1,7 +1,7 @@
-import pyglet
 from pyglet.gl import *
-import images
+
 import groups
+import images
 from constants import *
 
 
@@ -36,8 +36,9 @@ class TextureBindGroup(pyglet.graphics.Group):
 
 
 class button():
-    def __init__(self, func, x, y, width, height, batch, image=images.Button, text="", args=()):
-        self.sprite = pyglet.sprite.Sprite(image, x=x, y=y, batch=batch, group=groups.g[5])
+    def __init__(self, func, x, y, width, height, batch, image=images.Button, text="", args=(), layer=5):
+        self.sprite = pyglet.sprite.Sprite(image, x=x, y=y, batch=batch, group=groups.g[layer])
+        self.layer=layer
         self.sprite.scale_x = width / self.sprite.width
         self.sprite.scale_y = height / self.sprite.height
         self.func = func
@@ -53,7 +54,7 @@ class button():
         self.big = 0
 
     def set_image(self, img):
-        self.sprite = pyglet.sprite.Sprite(img, x=self.x, y=self.y, batch=self.batch, group=groups.g[5])
+        self.sprite = pyglet.sprite.Sprite(img, x=self.x, y=self.y, batch=self.batch, group=groups.g[self.layer])
         self.sprite.scale_x = self.width / self.sprite.width
         self.sprite.scale_y = self.height / self.sprite.height
 
@@ -106,9 +107,10 @@ class button():
 
 
 class toolbar():
-    def __init__(self, x, y, width, height, batch, image=images.Button):
+    def __init__(self, x, y, width, height, batch, image=images.Button, layer=4):
         if image is not None:
-            self.sprite = pyglet.sprite.Sprite(image, x=x, y=y, batch=batch, group=groups.g[4])
+            self.sprite = pyglet.sprite.Sprite(image, x=x, y=y, batch=batch, group=groups.g[layer])
+            self.layer=layer
             self.sprite.scale_x = width / self.sprite.width
             self.sprite.scale_y = height / self.sprite.height
         else:
@@ -117,9 +119,9 @@ class toolbar():
         self.batch = batch
         self.buttons = []
 
-    def add(self, func, x, y, width, height, image=images.Button, text="", args=()):
+    def add(self, func, x, y, width, height, image=images.Button, text="", args=()) -> button:
         a = button(func, x, y, width, height, self.batch,
-                   image=image, text="", args=args)
+                   image=image, text="", args=args, layer=self.layer+1)
         self.buttons.append(a)
         return a
 

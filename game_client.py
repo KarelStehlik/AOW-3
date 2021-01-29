@@ -151,15 +151,13 @@ class UI_formation(toolbar):
         self.rows, self.columns = game.unit_formation_rows, game.unit_formation_columns
         self.dot_size = SCREEN_HEIGHT / 5 / self.rows
         self.game = game
-        super().__init__(SCREEN_WIDTH - self.dot_size * self.columns, 0, self.dot_size * self.columns,
-                         SCREEN_HEIGHT / 5, game.batch, image=None)
+        super().__init__(SCREEN_WIDTH*0.99 - self.dot_size * (self.columns+2), SCREEN_HEIGHT * 0.01, self.dot_size * (self.columns+2),
+                         self.dot_size * (self.rows+2), game.batch, image=images.UnitFormFrame, layer=5)
         self.units = [[None for _ in range(self.rows)] for _ in range(self.columns)]
-        self.Buttons2d = [[None for _ in range(self.rows)] for _ in range(self.columns)]
-        for x in range(self.columns):
-            for y in range(self.rows):
-                self.Buttons2d[x][y] = self.add(self.clicked, SCREEN_WIDTH + self.dot_size * (x - self.columns),
-                                              self.dot_size * (y + 1), self.dot_size, self.dot_size,
-                                              image=images.gunmanR, args=(x, y))
+        self.Buttons2d = [[self.add(self.clicked, SCREEN_WIDTH*0.99 + self.dot_size * (x - self.columns - 1),
+                                    SCREEN_HEIGHT * 0.01 + self.dot_size * (y + 1), self.dot_size, self.dot_size,
+                                    image=images.UnitSlot, args=(x, y)) for y in range(self.rows)] for x in
+                          range(self.columns)]
 
     def clicked(self, x, y):
         self.game.selected.clicked_unit_slot(x, y)
@@ -167,7 +165,7 @@ class UI_formation(toolbar):
     def set_unit(self, x, y, num):
         self.units[x][y] = num
         if num is None:
-            self.Buttons2d[x][y].set_image(images.gunmanR)
+            self.Buttons2d[x][y].set_image(images.UnitSlot)
         else:
             self.Buttons2d[x][y].set_image(possible_units[num].image)
 
@@ -207,7 +205,7 @@ class selection:
         self.cancelbutton = button(self.end, SCREEN_WIDTH * 0.01, SCREEN_HEIGHT * 0.9,
                                    SCREEN_WIDTH * 0.1, SCREEN_HEIGHT * 0.09, game.batch,
                                    image=images.Cancelbutton)
-        self.game=game
+        self.game = game
 
     def mouse_move(self, x, y):
         pass
@@ -219,6 +217,7 @@ class selection:
         pass
 
     def end(self):
+        self.game.selected = selection_none(self.game)
         self.cancelbutton.delete()
 
     def update_cam(self, x, y):
@@ -230,7 +229,7 @@ class selection:
 
 class selection_none(selection):
     def __init__(self, game):
-        self.game=game
+        self.game = game
 
     def end(self):
         pass
@@ -263,7 +262,6 @@ class selection_tower(selection):
         self.cancelbutton.mouse_release(x, y)
 
     def end(self):
-        self.game.selected = selection_none(self.game)
         self.sprite.delete()
         super().end()
 
@@ -306,7 +304,6 @@ class selection_wall(selection):
         [e.mouse_release(x, y) for e in self.buttons]
 
     def end(self):
-        self.game.selected = selection_none(self.game)
         super().end()
         [e.delete() for e in self.buttons]
 

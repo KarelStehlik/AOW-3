@@ -1,10 +1,11 @@
 from PodSixNet.Connection import connection, ConnectionListener
-from imports import *
+
 import constants
+import game_client as game_stuff
 import groups
 import images
-from client_utility import button, toolbar, TextureBindGroup
-import game_client as game_stuff
+from client_utility import button
+from imports import *
 
 pyglet.gl.glEnable(pyglet.gl.GL_BLEND)
 
