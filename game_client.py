@@ -8,7 +8,7 @@ import client_utility
 class Game:
     def __init__(self, side, batch, connection, time0):
         self.side, self.batch = side, batch
-        self.players = [player(), player()]
+        self.players = [player(0, self), player(1, self)]
         self.connection = connection
         self.batch = batch
         self.cam_move_speed = 3
@@ -186,12 +186,15 @@ class UI_categories(client_utility.toolbar):
 
 
 class player:
-    def __init__(self):
+    def __init__(self, side, game):
+        self.side = side
+        self.game = game
         self.walls = []
         self.units = []
         self.towers = []
         self.formations = []
-        self.all_buildings = []
+        self.TownHall = TownHall(TH_DISTANCE * side, TH_DISTANCE * side, side, self.game)
+        self.all_buildings = [self.TownHall]
 
     def tick(self):
         [e.tick() for e in self.units]
@@ -200,8 +203,7 @@ class player:
 
     def update_cam(self, x, y):
         [e.update_cam(x, y) for e in self.units]
-        [e.update_cam(x, y) for e in self.towers]
-        [e.update_cam(x, y) for e in self.walls]
+        [e.update_cam(x, y) for e in self.all_buildings]
 
 
 # #################   ---/core---  #################
@@ -359,6 +361,27 @@ selects_all = [selects_p1, selects_p2]
 # ################# ---/selects--- #################
 # #################   ---units---  #################
 
+class TownHall:
+    name = "TownHall"
+
+    def __init__(self, x, y, side, game):
+        self.x, self.y = x, y
+        self.side = side
+        self.size = unit_stats[self.name]["size"]
+        self.hp = unit_stats[self.name]["hp"]
+        self.sprite = pyglet.sprite.Sprite(images.Intro, x=x - self.size / 2,
+                                           y=y - self.size / 2, batch=game.batch,
+                                           group=groups.g[2])
+        self.sprite.scale = self.size / self.sprite.width
+        self.game = game
+
+    def update_cam(self, x, y):
+        self.sprite.update(x=self.x - self.size / 2 - x, y=self.y - self.size / 2 - y)
+
+    def tick(self):
+        pass
+
+
 class Tower:
     name = "Tower"
 
@@ -374,9 +397,9 @@ class Tower:
                                            y=y - self.size / 2, batch=game.batch,
                                            group=groups.g[2])
         self.sprite.scale = self.size / self.sprite.width
-        self.sprite.opacity=70
-        self.l = game.players[side].towers
-        self.l.append(self)
+        self.sprite.opacity = 70
+        game.players[side].towers.append(self)
+        game.players[side].all_buildings.append(self)
         self.game = game
         self.update_cam(self.game.camx, self.game.camy)
         self.spinspeed = 600 / FPS
@@ -385,7 +408,8 @@ class Tower:
         self.sprite.update(x=self.x - self.size / 2 - x, y=self.y - self.size / 2 - y)
 
     def delete(self):
-        self.l.remove(self)
+        self.game.players[self.side].towers.remove(self)
+        self.game.players[self.side].all_buildings.remove(self)
         self.sprite.delete()
 
     def tick(self):
@@ -412,8 +436,8 @@ class Wall:
         self.width = unit_stats[self.name]["width"]
         self.hp = unit_stats[self.name]["hp"]
         self.game = game
-        self.l = game.players[side].walls
-        self.l.append(self)
+        game.players[side].walls.append(self)
+        game.players[side].all_buildings.append(self)
         x = self.width / 2 / math.sqrt((self.x1 - self.x2) ** 2 + (self.y1 - self.y2) ** 2)
         a = x * (self.y2 - self.y1)
         b = x * (self.x1 - self.x2)
@@ -446,15 +470,16 @@ class Wall:
 
 
 class Formation:
-    def __init__(self, ID, side, game):
+    def __init__(self, ID, plan, side, game):
         self.ID = ID
+        self.plan = plan
         self.side = side
         self.game = game
 
 
 class Unit:
     image = images.Cancelbutton
-    name = "Swordsman"
+    name = "None"
 
     def __init__(self, ID, side, game):
         self.ID = ID

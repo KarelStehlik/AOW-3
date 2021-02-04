@@ -1,13 +1,14 @@
 from imports import *
 from constants import *
 
+
 class Game:
     def __init__(self, channel1, channel2, server):
         channel1.start(self, 0)
         channel2.start(self, 1)
         self.time_start = time.time()
         self.channels = [channel1, channel2]
-        self.players = [player(), player()]
+        self.players = [player(0, self), player(1, self)]
         self.server = server
         self.object_ID = 0
         self.ticks = 0
@@ -67,10 +68,14 @@ class Game:
 
 
 class player():
-    def __init__(self):
+    def __init__(self, side, game):
+        self.side = side
+        self.game = game
         self.walls = []
         self.units = []
         self.towers = []
+        self.TownHall = TownHall(TH_DISTANCE * side, TH_DISTANCE * side, side, self.game)
+        self.all_buildings = [self.TownHall]
 
     def tick(self):
         [e.tick() for e in self.units]
@@ -79,6 +84,18 @@ class player():
 
 ##################   ---/core---  #################
 ##################   ---units---  ################# 
+class TownHall:
+    name = "TownHall"
+
+    def __init__(self, x, y, side, game):
+        self.x, self.y = x, y
+        self.side = side
+        self.size = unit_stats[self.name]["size"]
+        self.hp = unit_stats[self.name]["hp"]
+
+    def tick(self):
+        pass
+
 
 class Tower():
     name = "Tower"
@@ -91,8 +108,8 @@ class Tower():
         self.side = side
         self.size = unit_stats[self.name]["size"]
         self.hp = unit_stats[self.name]["hp"]
-        self.l = game.players[side].towers
-        self.l.append(self)
+        game.players[side].towers.append(self)
+        game.players[side].all_buildings.append(self)
 
     def tick(self):
         if self.spawning < FPS:
@@ -117,8 +134,8 @@ class Wall:
         self.x1, self.y1, self.x2, self.y2 = t1.x, t1.y, t2.x, t2.y
         self.side = side
         self.game = game
-        self.l = game.players[side].walls
-        self.l.append(self)
+        game.players[side].walls.append(self)
+        game.players[side].all_buildings.append(self)
 
     def tick(self):
         if self.spawning < FPS:

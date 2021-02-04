@@ -1,4 +1,3 @@
-import pyglet
 from constants import *
 
 
@@ -156,9 +155,6 @@ ShieldR.height = 110 * SPRITE_SIZE_MULT
 ShieldG.anchor_x = 20 * SPRITE_SIZE_MULT
 ShieldR.anchor_x = 20 * SPRITE_SIZE_MULT
 
-for e in [gunmanG, gunmanR, mixerG, mixerR, teleG, teleR, sprayerG, sprayerR, megamixerG,
-          megamixerR, fire, engiG, engiR]:
-    e.anchor_x = e.width // 2
 fire.anchor_y = fire.height // 2
 gunmanG.anchor_x -= 5 * SPRITE_SIZE_MULT
 gunmanR.anchor_x -= 5 * SPRITE_SIZE_MULT
