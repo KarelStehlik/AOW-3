@@ -5,6 +5,12 @@ import images
 from constants import *
 
 
+def sprite_with_scale(scale, scale_x, scale_y, *args, **kwargs):
+    a = pyglet.sprite.Sprite(*args, *kwargs)
+    a.update(scale=scale, scale_x=scale_x, scale_y=scale_y)
+    return a
+
+
 class TextureEnableGroup(pyglet.graphics.OrderedGroup):
     def set_state(self):
         glEnable(GL_TEXTURE_2D)
@@ -38,12 +44,12 @@ class TextureBindGroup(pyglet.graphics.Group):
 class button():
     def __init__(self, func, x, y, width, height, batch, image=images.Button, text="", args=(), layer=5):
         self.sprite = pyglet.sprite.Sprite(image, x=x, y=y, batch=batch, group=groups.g[layer])
-        self.layer=layer
+        self.layer = layer
         self.sprite.scale_x = width / self.sprite.width
         self.sprite.scale_y = height / self.sprite.height
         self.func = func
         self.fargs = args
-        self.batch=batch
+        self.batch = batch
         self.x, self.y, self.width, self.height = x, y, width, height
         self.ogx, self.ogy = x, y
         self.text = pyglet.text.Label(text, x=self.x + self.width // 2,
@@ -110,7 +116,7 @@ class toolbar():
     def __init__(self, x, y, width, height, batch, image=images.Button, layer=4):
         if image is not None:
             self.sprite = pyglet.sprite.Sprite(image, x=x, y=y, batch=batch, group=groups.g[layer])
-            self.layer=layer
+            self.layer = layer
             self.sprite.scale_x = width / self.sprite.width
             self.sprite.scale_y = height / self.sprite.height
         else:
@@ -121,7 +127,7 @@ class toolbar():
 
     def add(self, func, x, y, width, height, image=images.Button, text="", args=()) -> button:
         a = button(func, x, y, width, height, self.batch,
-                   image=image, text="", args=args, layer=self.layer+1)
+                   image=image, text="", args=args, layer=self.layer + 1)
         self.buttons.append(a)
         return a
 

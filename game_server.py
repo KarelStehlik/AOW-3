@@ -1,7 +1,7 @@
 from imports import *
+from constants import *
 
-
-class Game():
+class Game:
     def __init__(self, channel1, channel2, server):
         channel1.start(self, 0)
         channel2.start(self, 1)
@@ -17,16 +17,17 @@ class Game():
         self.channels[1].Send(msg)
 
     def tick(self):
-        self.players[0].tick()
-        self.players[1].tick()
-        self.ticks += 1
+        while self.ticks < FPS * (time.time() - self.time_start):
+            self.players[0].tick()
+            self.players[1].tick()
+            self.ticks += 1
 
     def network(self, data, side):
         if "action" in data:
             if data["action"] == "place_tower":
                 self.players[side].towers.append(Tower(
                     self.object_ID, data["xy"][0], data["xy"][1], side, self))
-                self.send_both({"action": "place_tower", "xy": data["xy"], "side": side,
+                self.send_both({"action": "place_tower", "xy": data["xy"], "tick": self.ticks, "side": side,
                                 "ID": self.object_ID})
                 self.object_ID += 1
             if data["action"] == "place_wall":
@@ -36,7 +37,7 @@ class Game():
                 self.players[side].walls.append(Wall(
                     self.object_ID, t1, t2, side, self))
                 self.send_both({"action": "place_wall", "ID1": data["ID1"],
-                                "ID2": data["ID2"], "side": side,
+                                "ID2": data["ID2"], "tick": self.ticks, "side": side,
                                 "ID": self.object_ID})
                 self.object_ID += 1
 
@@ -83,6 +84,8 @@ class Tower():
     name = "Tower"
 
     def __init__(self, ID, x, y, side, game):
+        self.exists = False
+        self.spawning = 0
         self.x, self.y = x, y
         self.ID = ID
         self.side = side
@@ -92,13 +95,22 @@ class Tower():
         self.l.append(self)
 
     def tick(self):
+        if self.spawning < FPS:
+            self.spawning += 1
+        if self.spawning == FPS:
+            self.exists = True
+            self.tick = self.tick2
+
+    def tick2(self):
         pass
 
 
-class Wall():
+class Wall:
     name = "Wall"
 
     def __init__(self, ID, t1, t2, side, game):
+        self.exists = False
+        self.spawning = 0
         self.hp = unit_stats[self.name]["hp"]
         self.width = unit_stats[self.name]["width"]
         self.ID = ID
@@ -107,5 +119,15 @@ class Wall():
         self.game = game
         self.l = game.players[side].walls
         self.l.append(self)
+
+    def tick(self):
+        if self.spawning < FPS:
+            self.spawning += 1
+        if self.spawning == FPS:
+            self.exists = True
+            self.tick = self.tick2
+
+    def tick2(self):
+        pass
 
 ##################  ---/units---  #################

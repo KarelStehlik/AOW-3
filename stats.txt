@@ -1,2 +1,3 @@
 Tower:size=50,hp=10000
 Wall:width=30,hp=5000
+Swordsman:vwidth=20,vheight=20

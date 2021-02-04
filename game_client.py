@@ -2,7 +2,7 @@ from imports import *
 import groups
 from constants import *
 import images
-from client_utility import button, toolbar, TextureBindGroup
+import client_utility
 
 
 class Game:
@@ -17,7 +17,7 @@ class Game:
         print(time.time(), self.start_time)
         self.camx, self.camy = 0, 0
         self.camx_moving, self.camy_moving = 0, 0
-        self.background_texgroup = TextureBindGroup(images.Background, layer=0)
+        self.background_texgroup = client_utility.TextureBindGroup(images.Background, layer=0)
         self.background = batch.add(
             4, pyglet.gl.GL_QUADS, self.background_texgroup,
             ("v2i", (0, 0, SCREEN_WIDTH, 0,
@@ -48,10 +48,10 @@ class Game:
     def network(self, data):
         if "action" in data:
             if data["action"] == "place_tower":
-                Tower(data["ID"], data["xy"][0], data["xy"][1], data["side"], self)
+                Tower(data["ID"], data["xy"][0], data["xy"][1], data["tick"], data["side"], self)
             elif data["action"] == "place_wall":
                 Wall(data["ID"], self.find_tower(data["ID1"], data["side"]),
-                     self.find_tower(data["ID2"], data["side"]), data["side"], self)
+                     self.find_tower(data["ID2"], data["side"]), data["tick"], data["side"], self)
 
     def mouse_move(self, x, y, dx, dy):
         [e.mouse_move(x, y) for e in self.UI_toolbars]
@@ -126,7 +126,7 @@ class Game:
         return None
 
 
-class UI_bottom_bar(toolbar):
+class UI_bottom_bar(client_utility.toolbar):
     def __init__(self, game):
         super().__init__(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT / 5, game.batch)
         self.game = game
@@ -146,21 +146,26 @@ class UI_bottom_bar(toolbar):
         self.buttons = []
 
 
-class UI_formation(toolbar):
+class UI_formation(client_utility.toolbar):
     def __init__(self, game):
         self.rows, self.columns = game.unit_formation_rows, game.unit_formation_columns
-        self.dot_size = SCREEN_HEIGHT / 5 / self.rows
+        self.dot_size = SCREEN_HEIGHT * 0.1788 / self.rows
         self.game = game
-        super().__init__(SCREEN_WIDTH*0.99 - self.dot_size * (self.columns+2), SCREEN_HEIGHT * 0.01, self.dot_size * (self.columns+2),
-                         self.dot_size * (self.rows+2), game.batch, image=images.UnitFormFrame, layer=5)
+        super().__init__(SCREEN_WIDTH - self.dot_size * (self.columns + 4), 0, self.dot_size * (self.columns + 4),
+                         self.dot_size * (self.rows + 4), game.batch, image=images.UnitFormFrame, layer=5)
         self.units = [[None for _ in range(self.rows)] for _ in range(self.columns)]
-        self.Buttons2d = [[self.add(self.clicked, SCREEN_WIDTH*0.99 + self.dot_size * (x - self.columns - 1),
-                                    SCREEN_HEIGHT * 0.01 + self.dot_size * (y + 1), self.dot_size, self.dot_size,
+        self.Buttons2d = [[self.add(self.clicked, SCREEN_WIDTH + self.dot_size * (x - self.columns - 2),
+                                    self.dot_size * (y + 2), self.dot_size, self.dot_size,
                                     image=images.UnitSlot, args=(x, y)) for y in range(self.rows)] for x in
                           range(self.columns)]
+        self.add(self.send, SCREEN_WIDTH - self.dot_size * (self.columns + 4), 0, SCREEN_WIDTH / 5, SCREEN_HEIGHT / 5,
+                 image=images.Cancelbutton)
 
     def clicked(self, x, y):
         self.game.selected.clicked_unit_slot(x, y)
+
+    def send(self):
+        self.game.select(selection_unit)
 
     def set_unit(self, x, y, num):
         self.units[x][y] = num
@@ -170,7 +175,7 @@ class UI_formation(toolbar):
             self.Buttons2d[x][y].set_image(possible_units[num].image)
 
 
-class UI_categories(toolbar):
+class UI_categories(client_utility.toolbar):
     def __init__(self, game, bb):
         super().__init__(0, bb.height, SCREEN_WIDTH, SCREEN_HEIGHT * 0.05, game.batch)
         i = 0
@@ -186,10 +191,12 @@ class player:
         self.units = []
         self.towers = []
         self.formations = []
+        self.all_buildings = []
 
     def tick(self):
         [e.tick() for e in self.units]
         [e.tick() for e in self.towers]
+        [e.tick() for e in self.walls]
 
     def update_cam(self, x, y):
         [e.update_cam(x, y) for e in self.units]
@@ -197,14 +204,14 @@ class player:
         [e.update_cam(x, y) for e in self.walls]
 
 
-##################   ---/core---  #################
-##################  ---selects---  #################
+# #################   ---/core---  #################
+# #################  ---selects---  #################
 
 class selection:
     def __init__(self, game):
-        self.cancelbutton = button(self.end, SCREEN_WIDTH * 0.01, SCREEN_HEIGHT * 0.9,
-                                   SCREEN_WIDTH * 0.1, SCREEN_HEIGHT * 0.09, game.batch,
-                                   image=images.Cancelbutton)
+        self.cancelbutton = client_utility.button(self.end, SCREEN_WIDTH * 0.01, SCREEN_HEIGHT * 0.9,
+                                                  SCREEN_WIDTH * 0.1, SCREEN_HEIGHT * 0.09, game.batch,
+                                                  image=images.Cancelbutton)
         self.game = game
 
     def mouse_move(self, x, y):
@@ -274,12 +281,12 @@ class selection_wall(selection):
 
     def __init__(self, game):
         super().__init__(game)
-        self.selected1, self.selected1 = None, None
+        self.selected1, self.selected2 = None, None
         self.buttons = []
         self.camx, self.camy = game.camx, game.camy
         for e in game.players[game.side].towers:
-            self.buttons.append(button(self.select, e.x - 20, e.y - 20, 40, 40,
-                                       self.game.batch, args=(e.ID,)))
+            self.buttons.append(client_utility.button(self.select, e.x - 20, e.y - 20, 40, 40,
+                                                      self.game.batch, args=(e.ID,)))
         self.sprite = None
         self.update_cam(self.game.camx, self.game.camy)
 
@@ -317,6 +324,12 @@ class selection_unit(selection):
 
     def __init__(self, game):
         super().__init__(game)
+        self.troops = self.game.unit_formation.units
+        self.sprites = [[client_utility.sprite_with_scale(*possible_units[self.troops[x][y]].get_image(),
+                                                          x=x * UNIT_SIZE,
+                                                          y=y * UNIT_SIZE)
+                         for y in range(self.game.unit_formation_rows)]
+                        for x in range(self.game.unit_formation_columns)]
 
     def mouse_move(self, x, y):
         pass
@@ -343,14 +356,16 @@ selects_p2 = [selection_unit]
 selects_all = [selects_p1, selects_p2]
 
 
-################## ---/selects--- #################
-##################   ---units---  #################   
+# ################# ---/selects--- #################
+# #################   ---units---  #################
 
 class Tower:
     name = "Tower"
 
-    def __init__(self, ID, x, y, side, game):
+    def __init__(self, ID, x, y, tick, side, game):
         self.x, self.y = x, y
+        self.exists = False
+        self.spawning = game.ticks - tick
         self.ID = ID
         self.side = side
         self.size = unit_stats[self.name]["size"]
@@ -359,14 +374,12 @@ class Tower:
                                            y=y - self.size / 2, batch=game.batch,
                                            group=groups.g[2])
         self.sprite.scale = self.size / self.sprite.width
+        self.sprite.opacity=70
         self.l = game.players[side].towers
         self.l.append(self)
         self.game = game
         self.update_cam(self.game.camx, self.game.camy)
         self.spinspeed = 600 / FPS
-
-    def tick(self):
-        self.sprite.rotation += self.spinspeed
 
     def update_cam(self, x, y):
         self.sprite.update(x=self.x - self.size / 2 - x, y=self.y - self.size / 2 - y)
@@ -375,11 +388,24 @@ class Tower:
         self.l.remove(self)
         self.sprite.delete()
 
+    def tick(self):
+        if self.spawning < FPS:
+            self.spawning += 1
+        if self.spawning == FPS:
+            self.exists = True
+            self.sprite.opacity = 255
+            self.tick = self.tick2
+
+    def tick2(self):
+        self.sprite.rotation += self.spinspeed
+
 
 class Wall:
     name = "Wall"
 
-    def __init__(self, ID, t1, t2, side, game):
+    def __init__(self, ID, t1, t2, tick, side, game):
+        self.exists = False
+        self.spawning = game.ticks - tick
         self.ID = ID
         self.x1, self.y1, self.x2, self.y2 = t1.x, t1.y, t2.x, t2.y
         self.side = side
@@ -391,7 +417,7 @@ class Wall:
         x = self.width / 2 / math.sqrt((self.x1 - self.x2) ** 2 + (self.y1 - self.y2) ** 2)
         a = x * (self.y2 - self.y1)
         b = x * (self.x1 - self.x2)
-        self.texgroup = TextureBindGroup(images.Wall, layer=1)
+        self.texgroup = client_utility.TextureBindGroup(images.Wall, layer=1)
         pyglet.gl.glEnable(pyglet.gl.GL_BLEND)
         self.vertices_no_cam = (
             self.x1 - a, self.y1 - b, self.x1 + a, self.y1 + b, self.x2 + a, self.y2 + b, self.x2 - a, self.y2 - b)
@@ -399,12 +425,24 @@ class Wall:
             4, pyglet.gl.GL_QUADS, self.texgroup,
             ("v2f", self.vertices_no_cam),
             ("t2f", (0, 0, 1, 0, 1, 0.5 / x,
-                     0, 0.5 / x))
+                     0, 0.5 / x)),
+            ("c4B", (255, 255, 255, 70) * 4)
         )
         self.update_cam(self.game.camx, self.game.camy)
 
     def update_cam(self, x, y):
         self.sprite.vertices = [(self.vertices_no_cam[i] - (x if i % 2 == 0 else y)) for i in range(8)]
+
+    def tick(self):
+        if self.spawning < FPS:
+            self.spawning += 1
+        if self.spawning == FPS:
+            self.exists = True
+            self.sprite.colors = (255,) * 16
+            self.tick = self.tick2
+
+    def tick2(self):
+        pass
 
 
 class Formation:
@@ -415,14 +453,22 @@ class Formation:
 
 
 class Unit:
+    image = images.Cancelbutton
+    name = "Swordsman"
+
     def __init__(self, ID, side, game):
         self.ID = ID
         self.side = side
         self.game = game
 
+    @classmethod
+    def get_image(cls):
+        return [unit_stats[cls.name]["vwidth"] / cls.image.width, 1, 1, cls.image]
+
 
 class Swordsman(Unit):
     image = images.gunmanG
+    name = "Swordsman"
 
     def __init__(self, ID, side, game):
         super().__init__(ID, side, game)
@@ -430,4 +476,4 @@ class Swordsman(Unit):
 
 possible_units = [Swordsman]
 
-##################  ---/units---  #################
+# #################  ---/units---  #################
