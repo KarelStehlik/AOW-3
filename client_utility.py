@@ -87,11 +87,12 @@ class button:
 
     def mouse_move(self, x, y):
         if not self.down:
-            if self.x + self.width >= x >= self.x and self.y + self.height >= y >= self.y:
-                if self.big != 1:
-                    self.embiggen()
-            else:
-                self.unbiggen()
+            if (self.big == 1) == (self.x + self.width >= x >= self.x and self.y + self.height >= y >= self.y):
+                return
+            if self.big != 1:
+                self.embiggen()
+                return
+            self.unbiggen()
 
     def mouse_click(self, x, y):
         if self.x + self.width >= x >= self.x and self.y + self.height >= y >= self.y:
@@ -112,7 +113,7 @@ class button:
         self.text.delete()
 
 
-class toolbar():
+class toolbar:
     def __init__(self, x, y, width, height, batch, image=images.Button, layer=4):
         if image is not None:
             self.sprite = pyglet.sprite.Sprite(image, x=x, y=y, batch=batch, group=groups.g[layer])

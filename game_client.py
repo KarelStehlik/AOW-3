@@ -315,11 +315,15 @@ class selection_wall(selection):
 
     def mouse_release(self, x, y):
         self.cancelbutton.mouse_release(x, y)
-        [e.mouse_release(x, y) for e in self.buttons]
+        i = 0
+        while len(self.buttons) > i:
+            self.buttons[i].mouse_release(x, y)
+            i += 1
 
     def end(self):
         super().end()
         [e.delete() for e in self.buttons]
+        self.buttons = []
 
     def update_cam(self, x, y):
         [e.update(e.ogx - x, e.ogy - y) for e in self.buttons]

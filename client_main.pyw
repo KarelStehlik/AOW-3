@@ -203,8 +203,8 @@ class windoo(pyglet.window.Window):
     def on_mouse_scroll(self, x, y, scroll_x, scroll_y):
         self.current_mode.mouse_scroll(x, y, scroll_x, scroll_y)
 
-    def on_deactivate(self):
-        self.minimize()
+    #def on_deactivate(self):
+    #    self.minimize()
 
     def check(self):
         self.frames += 1
@@ -214,9 +214,9 @@ class windoo(pyglet.window.Window):
             self.frames = 0
 
 
-place = windoo(caption='test', fullscreen=True)
-#place = windoo(caption='test', style=pyglet.window.Window.WINDOW_STYLE_BORDERLESS, width=constants.SCREEN_WIDTH,
-#               height=constants.SCREEN_HEIGHT)
+#place = windoo(caption='test', fullscreen=True)
+place = windoo(caption='test', style=pyglet.window.Window.WINDOW_STYLE_BORDERLESS, width=constants.SCREEN_WIDTH,
+               height=constants.SCREEN_HEIGHT)
 place.set_location(0, 0)
 
 while True:
