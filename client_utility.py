@@ -5,8 +5,8 @@ import images
 from constants import *
 
 
-def sprite_with_scale(scale, scale_x, scale_y, *args, **kwargs):
-    a = pyglet.sprite.Sprite(*args, *kwargs)
+def sprite_with_scale(img, scale, scale_x, scale_y, *args, **kwargs):
+    a = pyglet.sprite.Sprite(img, *args, **kwargs)
     a.update(scale=scale, scale_x=scale_x, scale_y=scale_y)
     return a
 
@@ -41,7 +41,7 @@ class TextureBindGroup(pyglet.graphics.Group):
         return hash((self.texture.id, self.texture.target))
 
 
-class button():
+class button:
     def __init__(self, func, x, y, width, height, batch, image=images.Button, text="", args=(), layer=5):
         self.sprite = pyglet.sprite.Sprite(image, x=x, y=y, batch=batch, group=groups.g[layer])
         self.layer = layer

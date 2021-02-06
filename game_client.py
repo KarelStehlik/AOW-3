@@ -27,8 +27,8 @@ class Game:
         )
         self.UI_bottomBar = UI_bottom_bar(self)
         self.UI_categories = UI_categories(self, self.UI_bottomBar)
-        self.unit_formation_rows = 10
-        self.unit_formation_columns = 20
+        self.unit_formation_rows = UNIT_FORMATION_ROWS
+        self.unit_formation_columns = UNIT_FORMATION_COLUMNS
         self.unit_formation = UI_formation(self)
         self.UI_toolbars = [self.UI_bottomBar, self.UI_categories, self.unit_formation]
         self.selected = selection_none(self)
@@ -151,14 +151,19 @@ class UI_formation(client_utility.toolbar):
         self.rows, self.columns = game.unit_formation_rows, game.unit_formation_columns
         self.dot_size = SCREEN_HEIGHT * 0.1788 / self.rows
         self.game = game
+
         super().__init__(SCREEN_WIDTH - self.dot_size * (self.columns + 4), 0, self.dot_size * (self.columns + 4),
-                         self.dot_size * (self.rows + 4), game.batch, image=images.UnitFormFrame, layer=5)
+                         self.dot_size * (self.rows + 4) + SCREEN_HEIGHT * 0.1, game.batch,
+                         image=images.UnitFormFrame, layer=5)
+
         self.units = [[None for _ in range(self.rows)] for _ in range(self.columns)]
+
         self.Buttons2d = [[self.add(self.clicked, SCREEN_WIDTH + self.dot_size * (x - self.columns - 2),
                                     self.dot_size * (y + 2), self.dot_size, self.dot_size,
                                     image=images.UnitSlot, args=(x, y)) for y in range(self.rows)] for x in
                           range(self.columns)]
-        self.add(self.send, SCREEN_WIDTH - self.dot_size * (self.columns + 4), 0, SCREEN_WIDTH / 5, SCREEN_HEIGHT / 5,
+
+        self.add(self.send, self.x, self.height - SCREEN_HEIGHT * 0.1, self.width, SCREEN_HEIGHT * 0.1,
                  image=images.Cancelbutton)
 
     def clicked(self, x, y):
@@ -327,11 +332,22 @@ class selection_unit(selection):
     def __init__(self, game):
         super().__init__(game)
         self.troops = self.game.unit_formation.units
-        self.sprites = [[client_utility.sprite_with_scale(*possible_units[self.troops[x][y]].get_image(),
-                                                          x=x * UNIT_SIZE,
-                                                          y=y * UNIT_SIZE)
-                         for y in range(self.game.unit_formation_rows)]
-                        for x in range(self.game.unit_formation_columns)]
+        self.sprites = []
+        self.sprite_locations = []
+        for x in range(self.game.unit_formation_columns):
+            for y in range(self.game.unit_formation_rows):
+                if self.troops[x][y] is not None:
+                    x_location = (x - self.game.unit_formation_columns) * UNIT_SIZE + \
+                                 self.game.players[self.game.side].TownHall.x
+                    y_location = (y - self.game.unit_formation_rows) * UNIT_SIZE + \
+                                 self.game.players[self.game.side].TownHall.y
+
+                    self.sprites.append(client_utility.sprite_with_scale(*possible_units[self.troops[x][y]].get_image(),
+                                                                         x=x_location,
+                                                                         y=y_location,
+                                                                         group=groups.g[5],
+                                                                         batch=self.game.batch))
+                    self.sprite_locations.append([x * UNIT_SIZE, y * UNIT_SIZE])
 
     def mouse_move(self, x, y):
         pass
@@ -344,10 +360,14 @@ class selection_unit(selection):
         self.cancelbutton.mouse_release(x, y)
 
     def end(self):
+        [e.delete() for e in self.sprites]
         super().end()
 
     def update_cam(self, x, y):
-        pass
+        i = 0
+        for e in self.sprites:
+            e.update(x=self.sprite_locations[i][0] - x, y=self.sprite_locations[i][1] - y)
+            i += 1
 
     def clicked_unit_slot(self, x, y):
         self.game.unit_formation.set_unit(x, y, 0)
@@ -488,7 +508,7 @@ class Unit:
 
     @classmethod
     def get_image(cls):
-        return [unit_stats[cls.name]["vwidth"] / cls.image.width, 1, 1, cls.image]
+        return [cls.image, unit_stats[cls.name]["vwidth"] / cls.image.width, 1, 1]
 
 
 class Swordsman(Unit):

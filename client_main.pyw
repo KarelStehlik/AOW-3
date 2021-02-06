@@ -70,7 +70,7 @@ class mode_intro(mode):
         super().__init__(win, batch)
         nwl.set_mode(self)
         self.buttons = []
-        self.buttons.append(client_utility.button(self.join, constants.SCREEN_WIDTH * 2 / 5, constants.SCREEN_HEIGHT / 3,
+        self.buttons.append(client_utility.button(self.join, constants.SCREEN_WIDTH * 2 / 5, constants.SCREEN_HEIGHT / 3    ,
                                                   constants.SCREEN_WIDTH * 1 / 5, constants.SCREEN_HEIGHT / 7, batch, text="Play"))
         self.bg = pyglet.sprite.Sprite(images.Intro, x=0, y=0, group=groups.g[0], batch=batch)
         self.bg.scale_x, self.bg.scale_y = constants.SCREEN_WIDTH / self.bg.width, constants.SCREEN_HEIGHT / self.bg.height
