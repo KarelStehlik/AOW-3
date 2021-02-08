@@ -43,6 +43,7 @@ class Game:
             self.players[1].tick()
             self.ticks += 1
         self.update_cam()
+        self.selected.tick()
         self.batch.draw()
 
     def network(self, data):
@@ -58,7 +59,7 @@ class Game:
         self.selected.mouse_move(x, y)
 
     def mouse_drag(self, x, y, dx, dy, button, modifiers):
-        pass
+        self.selected.mouse_move(x, y)
 
     def key_press(self, symbol, modifiers):
         if symbol == key.A:
@@ -69,6 +70,7 @@ class Game:
             self.camx_moving = min(self.camx_moving + self.cam_move_speed, self.cam_move_speed)
         elif symbol == key.W:
             self.camy_moving = min(self.camy_moving + self.cam_move_speed, self.cam_move_speed)
+        self.selected.key_press(symbol,modifiers)
 
     def key_release(self, symbol, modifiers):
         if symbol == key.D:
@@ -224,6 +226,9 @@ class selection:
     def mouse_move(self, x, y):
         pass
 
+    def key_press(self, button, modifiers):
+        pass
+
     def mouse_click(self, x, y):
         pass
 
@@ -235,6 +240,9 @@ class selection:
         self.cancelbutton.delete()
 
     def update_cam(self, x, y):
+        pass
+
+    def tick(self):
         pass
 
     def clicked_unit_slot(self, x, y):
@@ -338,6 +346,7 @@ class selection_unit(selection):
         self.troops = self.game.unit_formation.units
         self.sprites = []
         self.sprite_locations = []
+        self.camx, self.camy = game.camx, game.camy
         for x in range(self.game.unit_formation_columns):
             for y in range(self.game.unit_formation_rows):
                 if self.troops[x][y] is not None:
@@ -352,26 +361,97 @@ class selection_unit(selection):
                                                                          group=groups.g[5],
                                                                          batch=self.game.batch))
                     self.sprite_locations.append([x * UNIT_SIZE, y * UNIT_SIZE])
+        self.current_pos = [self.game.players[self.game.side].TownHall.x, self.game.players[self.game.side].TownHall.y]
+        self.instructions = []
+        self.mouse_pos = [self.game.players[self.game.side].TownHall.x, self.game.players[self.game.side].TownHall.y]
+        self.image = images.blue_arrow
+        self.actual_indicator_points = [None for i in range(8)]
+        moving_indicator_texgroup = client_utility.TextureBindGroup(self.image, layer=3)
+        self.MI_width = SCREEN_HEIGHT / 20
+        self.repeated_img_height = self.image.height * self.MI_width / self.image.width
+        self.moving_indicator = game.batch.add(4, pyglet.gl.GL_QUADS, moving_indicator_texgroup,
+                                               "v2f",
+                                               "t2f",
+                                               )
+        self.indicator_cycling = 0
+        self.moving_indicator_points = 1
+        self.update_moving_indicator_pos(500, 500)
 
     def mouse_move(self, x, y):
-        pass
+        self.update_moving_indicator_pos(x + self.camx, y + self.camy)
+        self.mouse_pos = [x, y]
+
+    def update_moving_indicator_pos(self, x, y):
+        pyglet.gl.glEnable(pyglet.gl.GL_BLEND)
+        dx = self.current_pos[0] - x
+        dy = self.current_pos[1] - y
+        if 0 == dx == dy:
+            return
+        length = (dx ** 2 + dy ** 2) ** 0.5
+        scale = self.MI_width / length
+        dx *= scale
+        dy *= scale
+        self.moving_indicator.vertices[-8::] = [x - dy - self.camx,
+                                                y + dx - self.camy,
+                                                x + dy - self.camx,
+                                                y - dx - self.camy,
+                                                self.current_pos[0] + dy - self.camx,
+                                                self.current_pos[1] - dx - self.camy,
+                                                self.current_pos[0] - dy - self.camx,
+                                                self.current_pos[1] + dx - self.camy
+                                                ]
+        self.actual_indicator_points[-8::] = [x - dy,
+                                              y + dx,
+                                              x + dy,
+                                              y - dx,
+                                              self.current_pos[0] + dy,
+                                              self.current_pos[1] - dx,
+                                              self.current_pos[0] - dy,
+                                              self.current_pos[1] + dx
+                                              ]
+        self.moving_indicator.tex_coords[-8::] = [0, self.indicator_cycling,
+                                                  1, self.indicator_cycling,
+                                                  1, length / self.repeated_img_height + self.indicator_cycling,
+                                                  0, length / self.repeated_img_height + self.indicator_cycling
+                                                  ]
+
+    def add_indicator_point(self, x, y):
+        self.moving_indicator_points += 1
+        self.moving_indicator.resize(self.moving_indicator_points * 4)
+        self.update_moving_indicator_pos(x, y)
 
     def mouse_click(self, x, y):
-        if not self.cancelbutton.mouse_click(x, y):
-            pass
+        if not self.cancelbutton.mouse_click(x, y) and [x+self.camx, y+self.camy] != self.current_pos:
+            self.instructions.append(["walk", x+self.camx, y+self.camy])
+            self.actual_indicator_points += [None for i in range(8)]
+            self.add_indicator_point(x + self.camx, y + self.camy)
+            self.current_pos = [x + self.camx, y + self.camy]
 
     def mouse_release(self, x, y):
         self.cancelbutton.mouse_release(x, y)
 
     def end(self):
         [e.delete() for e in self.sprites]
+        self.moving_indicator.delete()
         super().end()
 
+    def tick(self):
+        self.indicator_cycling += 0.03
+        reduce = 0
+        if self.indicator_cycling >= 1:
+            self.indicator_cycling -= 1
+            reduce = 1
+        mi = self.moving_indicator.tex_coords
+        for i in range(1, len(mi), 2):
+            mi[i] += 0.03 - reduce
+
     def update_cam(self, x, y):
-        i = 0
-        for e in self.sprites:
-            e.update(x=self.sprite_locations[i][0] - x, y=self.sprite_locations[i][1] - y)
-            i += 1
+        self.camx, self.camy = x, y
+        for i in range(0, self.moving_indicator_points * 8, 2):
+            self.moving_indicator.vertices[i] = self.actual_indicator_points[i] - x
+        for i in range(1, self.moving_indicator_points * 8, 2):
+            self.moving_indicator.vertices[i] = self.actual_indicator_points[i] - y
+        self.update_moving_indicator_pos(self.mouse_pos[0] + x, self.mouse_pos[1] + y)
 
     def clicked_unit_slot(self, x, y):
         self.game.unit_formation.set_unit(x, y, 0)

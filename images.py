@@ -17,6 +17,7 @@ Cancelbutton = RI("Cancelbutton")
 Towerbutton = RI("Towerbutton")
 UnitSlot = IL("UnitSlot")
 UnitFormFrame = IL("UnitFormFrame")
+blue_arrow = pyglet.image.load("imagefolder/blue_arrow.png").get_texture()
 
 ########################  CLONE  ############################
 gunmanR = pyglet.resource.image("imagefolder/BGunman.png")
@@ -183,9 +184,5 @@ platform.anchor_x = platform.anchor_y = 0
 cloneFrame = pyglet.resource.image("imagefolder/clone_select.png")
 cloneFrame.height *= SPRITE_SIZE_MULT
 cloneFrame.width *= SPRITE_SIZE_MULT
-blue_arrow = pyglet.resource.image("imagefolder/blue_arrow.png")
 red_arrow = pyglet.resource.image("imagefolder/red_arrow.png")
-blue_arrow.width = red_arrow.width = int(blue_arrow.width * SPRITE_SIZE_MULT / 15)
-blue_arrow.height = red_arrow.height = int(blue_arrow.height * SPRITE_SIZE_MULT / 15)
-blue_arrow.anchor_x = int(blue_arrow.width / 2)
 red_arrow.anchor_x = int(red_arrow.width / 2)
