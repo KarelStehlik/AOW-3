@@ -12,6 +12,8 @@ class Game:
         self.server = server
         self.object_ID = 0
         self.ticks = 0
+        self.unit_formation_columns = UNIT_FORMATION_COLUMNS
+        self.unit_formation_rows = UNIT_FORMATION_ROWS
 
     def send_both(self, msg):
         self.channels[0].Send(msg)
@@ -31,6 +33,7 @@ class Game:
                 self.send_both({"action": "place_tower", "xy": data["xy"], "tick": self.ticks, "side": side,
                                 "ID": self.object_ID})
                 self.object_ID += 1
+                return
             if data["action"] == "place_wall":
                 t1, t2 = self.find_tower(data["ID1"], side), self.find_tower(data["ID2"], side)
                 if None in [t1, t2] or t1 == t2:
@@ -39,6 +42,13 @@ class Game:
                     self.object_ID, t1, t2, side, self))
                 self.send_both({"action": "place_wall", "ID1": data["ID1"],
                                 "ID2": data["ID2"], "tick": self.ticks, "side": side,
+                                "ID": self.object_ID})
+                self.object_ID += 1
+                return
+            if data["action"] == "summon_formation":
+                Formation(self.object_ID, data["instructions"], data["troops"], side, self)
+                self.send_both({"action": "summon_formation", "tick": self.ticks, "side": side,
+                                "instructions": data["instructions"], "troops": data["troops"],
                                 "ID": self.object_ID})
                 self.object_ID += 1
 
@@ -67,19 +77,21 @@ class Game:
         return None
 
 
-class player():
+class player:
     def __init__(self, side, game):
         self.side = side
         self.game = game
         self.walls = []
         self.units = []
         self.towers = []
+        self.formations = []
         self.TownHall = TownHall(TH_DISTANCE * side, TH_DISTANCE * side, side, self.game)
         self.all_buildings = [self.TownHall]
 
     def tick(self):
         [e.tick() for e in self.units]
         [e.tick() for e in self.towers]
+        [e.tick() for e in self.formations]
 
 
 ##################   ---/core---  #################
@@ -97,10 +109,11 @@ class TownHall:
         pass
 
 
-class Tower():
+class Tower:
     name = "Tower"
 
     def __init__(self, ID, x, y, side, game):
+        self.game = game
         self.exists = False
         self.spawning = 0
         self.x, self.y = x, y
@@ -120,6 +133,10 @@ class Tower():
 
     def tick2(self):
         pass
+
+    def delete(self):
+        self.game.players[self.side].towers.remove(self)
+        self.game.players[self.side].all_buildings.remove(self)
 
 
 class Wall:
@@ -146,5 +163,70 @@ class Wall:
 
     def tick2(self):
         pass
+
+    def delete(self):
+        self.game.players[self.side].walls.remove(self)
+        self.game.players[self.side].all_buildings.remove(self)
+
+
+class Formation:
+    def __init__(self, ID, instructions, troops, side, game):
+        self.exists = False
+        self.spawning = 0
+        self.ID = ID
+        self.instructions = instructions
+        self.side = side
+        self.game = game
+        self.troops = []
+        self.game.players[self.side].formations.append(self)
+        i = 0
+        for column in range(UNIT_FORMATION_COLUMNS):
+            for row in range(UNIT_FORMATION_ROWS):
+                if troops[column][row] is not None:
+                    self.troops.append(
+                        possible_units[troops[column][row]](
+                            i,
+                            (column - self.game.unit_formation_columns/2) * UNIT_SIZE +
+                            self.game.players[self.side].TownHall.x,
+                            (row - self.game.unit_formation_rows/2) * UNIT_SIZE +
+                            self.game.players[self.side].TownHall.y,
+                            side,
+                            game
+                        )
+                    )
+                    i += 1
+
+    def tick(self):
+        if self.spawning < FPS:
+            self.spawning += 1
+        if self.spawning == FPS:
+            self.exists = True
+            self.tick = self.tick2
+
+    def tick2(self):
+        pass
+
+    def delete(self):
+        self.game.players[self.side].formations.remove(self)
+
+
+class Unit:
+    name = "None"
+
+    def __init__(self, ID, x, y, side, game):
+        self.ID = ID
+        self.side = side
+        self.game = game
+        self.x, self.y = x, y
+
+
+class Swordsman(Unit):
+    name = "Swordsman"
+
+    def __init__(self, ID, x, y, side, game):
+        super().__init__(ID, x, y, side, game)
+
+
+possible_units = [Swordsman]
 
 ##################  ---/units---  #################

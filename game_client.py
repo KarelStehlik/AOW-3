@@ -50,9 +50,14 @@ class Game:
         if "action" in data:
             if data["action"] == "place_tower":
                 Tower(data["ID"], data["xy"][0], data["xy"][1], data["tick"], data["side"], self)
-            elif data["action"] == "place_wall":
+                return
+            if data["action"] == "place_wall":
                 Wall(data["ID"], self.find_tower(data["ID1"], data["side"]),
                      self.find_tower(data["ID2"], data["side"]), data["tick"], data["side"], self)
+                return
+            if data["action"] == "summon_formation":
+                Formation(data["ID"], data["instructions"], data["troops"], data["tick"], data["side"], self)
+                return
 
     def mouse_move(self, x, y, dx, dy):
         [e.mouse_move(x, y) for e in self.UI_toolbars]
@@ -70,7 +75,7 @@ class Game:
             self.camx_moving = min(self.camx_moving + self.cam_move_speed, self.cam_move_speed)
         elif symbol == key.W:
             self.camy_moving = min(self.camy_moving + self.cam_move_speed, self.cam_move_speed)
-        self.selected.key_press(symbol,modifiers)
+        self.selected.key_press(symbol, modifiers)
 
     def key_release(self, symbol, modifiers):
         if symbol == key.D:
@@ -172,7 +177,7 @@ class UI_formation(client_utility.toolbar):
         self.game.selected.clicked_unit_slot(x, y)
 
     def send(self):
-        self.game.select(selection_unit)
+        self.game.select(selection_unit_formation)
 
     def set_unit(self, x, y, num):
         self.units[x][y] = num
@@ -207,10 +212,12 @@ class player:
         [e.tick() for e in self.units]
         [e.tick() for e in self.towers]
         [e.tick() for e in self.walls]
+        [e.tick() for e in self.formations]
 
     def update_cam(self, x, y):
         [e.update_cam(x, y) for e in self.units]
         [e.update_cam(x, y) for e in self.all_buildings]
+        [e.update_cam(x, y) for e in self.formations]
 
 
 # #################   ---/core---  #################
@@ -338,7 +345,7 @@ class selection_wall(selection):
         self.camx, self.camy = x, y
 
 
-class selection_unit(selection):
+class selection_unit_formation(selection):
     img = images.gunmanR
 
     def __init__(self, game):
@@ -365,7 +372,7 @@ class selection_unit(selection):
         self.instructions = []
         self.mouse_pos = [self.game.players[self.game.side].TownHall.x, self.game.players[self.game.side].TownHall.y]
         self.image = images.blue_arrow
-        self.actual_indicator_points = [None for i in range(8)]
+        self.actual_indicator_points = [0 for i in range(8)]
         moving_indicator_texgroup = client_utility.TextureBindGroup(self.image, layer=3)
         self.MI_width = SCREEN_HEIGHT / 20
         self.repeated_img_height = self.image.height * self.MI_width / self.image.width
@@ -421,9 +428,9 @@ class selection_unit(selection):
         self.update_moving_indicator_pos(x, y)
 
     def mouse_click(self, x, y):
-        if not self.cancelbutton.mouse_click(x, y) and [x+self.camx, y+self.camy] != self.current_pos:
-            self.instructions.append(["walk", x+self.camx, y+self.camy])
-            self.actual_indicator_points += [None for i in range(8)]
+        if not self.cancelbutton.mouse_click(x, y) and [x + self.camx, y + self.camy] != self.current_pos:
+            self.instructions.append(["walk", x + self.camx, y + self.camy])
+            self.actual_indicator_points += [0 for i in range(8)]
             self.add_indicator_point(x + self.camx, y + self.camy)
             self.current_pos = [x + self.camx, y + self.camy]
 
@@ -456,10 +463,26 @@ class selection_unit(selection):
     def clicked_unit_slot(self, x, y):
         self.game.unit_formation.set_unit(x, y, 0)
 
+    def key_press(self, button, modifiers):
+        if button == key.ENTER:
+            self.game.connection.Send(
+                {"action": "summon_formation", "instructions": self.instructions, "troops": self.troops})
+            self.end()
 
-selects_p1 = [selection_tower, selection_wall]
-selects_p2 = [selection_unit]
-selects_all = [selects_p1, selects_p2]
+
+class selection_unit(selection):
+    img = images.gunmanR
+    num = 0
+
+    def clicked_unit_slot(self, x, y):
+        self.game.unit_formation.set_unit(x, y, self.num)
+
+    def mouse_click(self, x, y):
+        if not self.cancelbutton.mouse_click(x, y):
+            pass
+
+    def mouse_release(self, x, y):
+        self.cancelbutton.mouse_release(x, y)
 
 
 # ################# ---/selects--- #################
@@ -574,21 +597,61 @@ class Wall:
 
 
 class Formation:
-    def __init__(self, ID, plan, side, game):
+    def __init__(self, ID, instructions, troops, tick, side, game):
+        self.exists = False
+        self.spawning = game.ticks - tick
         self.ID = ID
-        self.plan = plan
+        self.instructions = instructions
         self.side = side
         self.game = game
+        self.troops = []
+        self.game.players[self.side].formations.append(self)
+        i = 0
+        for column in range(UNIT_FORMATION_COLUMNS):
+            for row in range(UNIT_FORMATION_ROWS):
+                if troops[column][row] is not None:
+                    self.troops.append(
+                        possible_units[troops[column][row]](
+                            i,
+                            (column - self.game.unit_formation_columns/2) * UNIT_SIZE +
+                            self.game.players[self.side].TownHall.x,
+                            (row - self.game.unit_formation_rows/2) * UNIT_SIZE +
+                            self.game.players[self.side].TownHall.y,
+                            side,
+                            game
+                        )
+                    )
+                    i += 1
+
+    def tick(self):
+        if self.spawning < FPS:
+            self.spawning += 1
+        if self.spawning == FPS:
+            self.exists = True
+            self.tick = self.tick2
+
+    def tick2(self):
+        pass
+
+    def delete(self):
+        self.game.players[self.side].formations.remove(self)
+
+    def update_cam(self, x, y):
+        pass
 
 
 class Unit:
     image = images.Cancelbutton
     name = "None"
 
-    def __init__(self, ID, side, game):
+    def __init__(self, ID, x, y, side, game):
         self.ID = ID
         self.side = side
         self.game = game
+        self.x, self.y = x, y
+        self.sprite = client_utility.sprite_with_scale(self.image, unit_stats[self.name]["vwidth"] / self.image.width,
+                                                       1, 1, batch=game.batch, x=x * SPRITE_SIZE_MULT - game.camx,
+                                                       y=y * SPRITE_SIZE_MULT - game.camy, group=groups.g[5])
 
     @classmethod
     def get_image(cls):
@@ -599,10 +662,18 @@ class Swordsman(Unit):
     image = images.gunmanG
     name = "Swordsman"
 
-    def __init__(self, ID, side, game):
-        super().__init__(ID, side, game)
+    def __init__(self, ID, x, y, side, game):
+        super().__init__(ID, x, y, side, game)
+
+
+class selection_swordsman(selection_unit):
+    image = images.gunmanR
+    num = 0
 
 
 possible_units = [Swordsman]
+selects_p1 = [selection_tower, selection_wall]
+selects_p2 = [selection_swordsman]
+selects_all = [selects_p1, selects_p2]
 
 # #################  ---/units---  #################
