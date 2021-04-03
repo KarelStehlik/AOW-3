@@ -25,3 +25,12 @@ def load_stats():
 
 
 unit_stats = load_stats()
+
+
+def is_empty_2d(l):
+    for e in l:
+        if e:
+            return False
+    return True
+
+

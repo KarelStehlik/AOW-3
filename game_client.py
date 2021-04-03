@@ -64,6 +64,7 @@ class Game:
         self.selected.mouse_move(x, y)
 
     def mouse_drag(self, x, y, dx, dy, button, modifiers):
+        [e.mouse_drag(x, y) for e in self.UI_toolbars]
         self.selected.mouse_move(x, y)
 
     def key_press(self, symbol, modifiers):
@@ -375,7 +376,7 @@ class selection_unit_formation(selection):
         self.actual_indicator_points = [0 for i in range(8)]
         moving_indicator_texgroup = client_utility.TextureBindGroup(self.image, layer=3)
         self.MI_width = SCREEN_HEIGHT / 20
-        self.repeated_img_height = self.image.height * self.MI_width / self.image.width
+        self.repeated_img_height = self.image.height * 2 * self.MI_width / self.image.width
         self.moving_indicator = game.batch.add(4, pyglet.gl.GL_QUADS, moving_indicator_texgroup,
                                                "v2f",
                                                "t2f",
@@ -430,7 +431,7 @@ class selection_unit_formation(selection):
     def mouse_click(self, x, y):
         if not self.cancelbutton.mouse_click(x, y) and [x + self.camx, y + self.camy] != self.current_pos:
             self.instructions.append(["walk", x + self.camx, y + self.camy])
-            self.actual_indicator_points += [0 for i in range(8)]
+            self.actual_indicator_points += [0 for _ in range(8)]
             self.add_indicator_point(x + self.camx, y + self.camy)
             self.current_pos = [x + self.camx, y + self.camy]
 
@@ -443,14 +444,14 @@ class selection_unit_formation(selection):
         super().end()
 
     def tick(self):
-        self.indicator_cycling += 0.03
+        self.indicator_cycling += 0.016
         reduce = 0
         if self.indicator_cycling >= 1:
             self.indicator_cycling -= 1
             reduce = 1
         mi = self.moving_indicator.tex_coords
         for i in range(1, len(mi), 2):
-            mi[i] += 0.03 - reduce
+            mi[i] += 0.016 - reduce
 
     def update_cam(self, x, y):
         self.camx, self.camy = x, y
@@ -607,21 +608,23 @@ class Formation:
         self.troops = []
         self.game.players[self.side].formations.append(self)
         i = 0
+        self.x, self.y = self.game.players[self.side].TownHall.x, self.game.players[self.side].TownHall.y
         for column in range(UNIT_FORMATION_COLUMNS):
             for row in range(UNIT_FORMATION_ROWS):
                 if troops[column][row] is not None:
                     self.troops.append(
                         possible_units[troops[column][row]](
                             i,
-                            (column - self.game.unit_formation_columns/2) * UNIT_SIZE +
-                            self.game.players[self.side].TownHall.x,
-                            (row - self.game.unit_formation_rows/2) * UNIT_SIZE +
-                            self.game.players[self.side].TownHall.y,
+                            (column - self.game.unit_formation_columns / 2) * UNIT_SIZE + self.x,
+                            (row - self.game.unit_formation_rows / 2) * UNIT_SIZE + self.y,
                             side,
+                            column - self.game.unit_formation_columns / 2,
+                            row - self.game.unit_formation_rows / 2,
                             game
                         )
                     )
                     i += 1
+        self.instr_object = instruction_moving(self, self.x, self.y)
 
     def tick(self):
         if self.spawning < FPS:
@@ -629,29 +632,120 @@ class Formation:
         if self.spawning == FPS:
             self.exists = True
             self.tick = self.tick2
+            [e.summon_done() for e in self.troops]
 
     def tick2(self):
-        pass
+        if self.instr_object.completed:
+            if len(self.instructions) > 0:
+                instruction = self.instructions.pop(0)
+                if instruction[0] == "walk":
+                    self.instr_object = instruction_moving(self, instruction[1], instruction[2])
+            else:
+                return
+        self.instr_object.tick()
 
     def delete(self):
         self.game.players[self.side].formations.remove(self)
 
     def update_cam(self, x, y):
-        pass
+        [e.update_cam(x, y) for e in self.troops]
+
+
+class instruction_moving:
+    def __init__(self, formation, x, y):
+        self.target = formation
+        self.x, self.y = x, y
+        self.dx, self.dy = x - formation.x, y - formation.y
+        if self.dx == 0 == self.dy:
+            self.completed = True
+            return
+        inv_hypot = (self.dx ** 2 + self.dy ** 2) ** -.5
+        xr, yr = self.dx * inv_hypot * UNIT_SIZE, self.dy * inv_hypot * UNIT_SIZE
+        for e in formation.troops:
+            e.try_move(formation.x + e.column * yr + e.row * xr, formation.y - e.column * xr + e.row * yr)
+        self.completed = False
+        self.completed_rotate = False
+
+    def tick(self):
+        if self.completed:
+            return
+        [e.tick() for e in self.target.troops]
+        if False not in [e.reached_goal for e in self.target.troops]:
+            if self.completed_rotate:
+                self.completed = True
+                self.target.x, self.target.y = self.x, self.y
+                return
+            self.completed_rotate = True
+            [e.try_move(e.x + self.dx, e.y + self.dy) for e in self.target.troops]
 
 
 class Unit:
     image = images.Cancelbutton
     name = "None"
 
-    def __init__(self, ID, x, y, side, game):
+    def __init__(self, ID, x, y, side, column, row, game):
         self.ID = ID
         self.side = side
         self.game = game
         self.x, self.y = x, y
+        self.column, self.row = column, row
         self.sprite = client_utility.sprite_with_scale(self.image, unit_stats[self.name]["vwidth"] / self.image.width,
                                                        1, 1, batch=game.batch, x=x * SPRITE_SIZE_MULT - game.camx,
                                                        y=y * SPRITE_SIZE_MULT - game.camy, group=groups.g[5])
+        self.speed = unit_stats[self.name]["speed"] / FPS
+        self.sprite.opacity = 70
+        self.exists = False
+        self.rotation = 0
+        self.desired_x, self.desired_y = x, y
+        self.vx, self.vy = self.speed, 0
+        self.reached_goal = True
+
+    def tick(self):
+        pass
+
+    def tick2(self):
+        if self.reached_goal:
+            return
+        if self.x <= self.desired_x:
+            self.x += min(self.vx, self.desired_x - self.x)
+        else:
+            self.x += max(self.vx, self.desired_x - self.x)
+        if self.y <= self.desired_y:
+            self.y += min(self.vy, self.desired_y - self.y)
+        else:
+            self.y += max(self.vy, self.desired_y - self.y)
+        self.sprite.update(x=self.x - self.game.camx, y=self.y - self.game.camy)
+        if self.y == self.desired_y and self.x == self.desired_x:
+            self.reached_goal = True
+
+    def rotate(self, x, y):
+        if x == 0 == y:
+            return
+        inv_hypot = (x ** 2 + y ** 2) ** -.5
+        if x == 0 == y:
+            return
+        if x >= 0:
+            r = math.asin(x * inv_hypot)
+        else:
+            r = math.pi - math.asin(x * inv_hypot)
+        self.rotation = r
+        self.sprite.rotation = r * 180 / math.pi
+        self.vx, self.vy = x * inv_hypot * self.speed, y * inv_hypot * self.speed
+
+    def summon_done(self):
+        self.exists = True
+        self.sprite.opacity = 255
+        self.tick = self.tick2
+
+    def update_cam(self, x, y):
+        self.sprite.update(x=self.x - x, y=self.y - y)
+
+    def try_move(self, x, y):
+        if self.x == x and self.y == y:
+            return
+        self.desired_x, self.desired_y = x, y
+        self.rotate(x - self.x, y - self.y)
+        self.reached_goal = False
 
     @classmethod
     def get_image(cls):
@@ -662,8 +756,8 @@ class Swordsman(Unit):
     image = images.gunmanG
     name = "Swordsman"
 
-    def __init__(self, ID, x, y, side, game):
-        super().__init__(ID, x, y, side, game)
+    def __init__(self, ID, x, y, side, column, row, game):
+        super().__init__(ID, x, y, side, column, row, game)
 
 
 class selection_swordsman(selection_unit):

@@ -147,5 +147,9 @@ class toolbar:
         if self.x + self.width >= x >= self.x and self.y + self.height >= y >= self.y:
             [e.mouse_move(x, y) for e in self.buttons]
 
+    def mouse_drag(self, x, y):
+        if self.x + self.width >= x >= self.x and self.y + self.height >= y >= self.y:
+            [e.mouse_move for e in self.buttons]
+
     def mouse_release(self, x, y):
         [e.mouse_release(x, y) for e in self.buttons]

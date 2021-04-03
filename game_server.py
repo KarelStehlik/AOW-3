@@ -46,11 +46,14 @@ class Game:
                 self.object_ID += 1
                 return
             if data["action"] == "summon_formation":
+                if is_empty_2d(data["troops"]):
+                    return
                 Formation(self.object_ID, data["instructions"], data["troops"], side, self)
                 self.send_both({"action": "summon_formation", "tick": self.ticks, "side": side,
                                 "instructions": data["instructions"], "troops": data["troops"],
                                 "ID": self.object_ID})
                 self.object_ID += 1
+                return
 
     def end(self, winner):
         self.send_both({"action": "game_end", "winner": winner})
@@ -180,21 +183,23 @@ class Formation:
         self.troops = []
         self.game.players[self.side].formations.append(self)
         i = 0
+        self.x, self.y = self.game.players[self.side].TownHall.x, self.game.players[self.side].TownHall.y
         for column in range(UNIT_FORMATION_COLUMNS):
             for row in range(UNIT_FORMATION_ROWS):
                 if troops[column][row] is not None:
                     self.troops.append(
                         possible_units[troops[column][row]](
                             i,
-                            (column - self.game.unit_formation_columns/2) * UNIT_SIZE +
-                            self.game.players[self.side].TownHall.x,
-                            (row - self.game.unit_formation_rows/2) * UNIT_SIZE +
-                            self.game.players[self.side].TownHall.y,
+                            (column - self.game.unit_formation_columns / 2) * UNIT_SIZE + self.x,
+                            (row - self.game.unit_formation_rows / 2) * UNIT_SIZE + self.y,
                             side,
+                            column - self.game.unit_formation_columns / 2,
+                            row - self.game.unit_formation_rows / 2,
                             game
                         )
                     )
                     i += 1
+        self.instr_object = instruction_moving(self, self.x, self.y)
 
     def tick(self):
         if self.spawning < FPS:
@@ -202,29 +207,113 @@ class Formation:
         if self.spawning == FPS:
             self.exists = True
             self.tick = self.tick2
+            [e.summon_done() for e in self.troops]
 
     def tick2(self):
-        pass
+        if self.instr_object.completed:
+            if len(self.instructions) > 0:
+                instruction = self.instructions.pop(0)
+                if instruction[0] == "walk":
+                    self.instr_object = instruction_moving(self, instruction[1], instruction[2])
+            else:
+                return
+        self.instr_object.tick()
 
     def delete(self):
         self.game.players[self.side].formations.remove(self)
 
 
+class instruction_moving:
+    def __init__(self, formation, x, y):
+        self.target = formation
+        self.x, self.y = x, y
+        self.dx, self.dy = x - formation.x, y - formation.y
+        if self.dx == 0 == self.dy:
+            self.completed = True
+            return
+        inv_hypot = (self.dx ** 2 + self.dy ** 2) ** -.5
+        xr, yr = self.dx * inv_hypot * UNIT_SIZE, self.dy * inv_hypot * UNIT_SIZE
+        for e in formation.troops:
+            e.try_move(formation.x + e.column * yr + e.row * xr, formation.y - e.column * xr + e.row * yr)
+        self.completed = False
+        self.completed_rotate = False
+
+    def tick(self):
+        if self.completed:
+            return
+        [e.tick() for e in self.target.troops]
+        if False not in [e.reached_goal for e in self.target.troops]:
+            if self.completed_rotate:
+                self.completed = True
+                self.target.x, self.target.y = self.x, self.y
+                return
+            self.completed_rotate = True
+            [e.try_move(e.x + self.dx, e.y + self.dy) for e in self.target.troops]
+
+
 class Unit:
     name = "None"
 
-    def __init__(self, ID, x, y, side, game):
+    def __init__(self, ID, x, y, side, column, row, game):
         self.ID = ID
         self.side = side
         self.game = game
         self.x, self.y = x, y
+        self.column, self.row = column, row
+        self.speed = unit_stats[self.name]["speed"] / FPS
+        self.exists = False
+        self.rotation = 0
+        self.desired_x, self.desired_y = x, y
+        self.vx, self.vy = self.speed, 0
+        self.reached_goal = True
+
+    def tick(self):
+        pass
+
+    def tick2(self):
+        if self.reached_goal:
+            return
+        if self.x <= self.desired_x:
+            self.x += min(self.vx, self.desired_x - self.x)
+        else:
+            self.x += max(self.vx, self.desired_x - self.x)
+        if self.y <= self.desired_y:
+            self.y += min(self.vy, self.desired_y - self.y)
+        else:
+            self.y += max(self.vy, self.desired_y - self.y)
+        if self.y == self.desired_y and self.x == self.desired_x:
+            self.reached_goal = True
+
+    def rotate(self, x, y):
+        if x == 0 == y:
+            return
+        inv_hypot = (x ** 2 + y ** 2) ** -.5
+        if x == 0 == y:
+            return
+        if x >= 0:
+            r = math.asin(x * inv_hypot)
+        else:
+            r = math.pi - math.asin(x * inv_hypot)
+        self.rotation = r
+        self.vx, self.vy = x * inv_hypot * self.speed, y * inv_hypot * self.speed
+
+    def summon_done(self):
+        self.exists = True
+        self.tick = self.tick2
+
+    def try_move(self, x, y):
+        if self.x == x and self.y == y:
+            return
+        self.desired_x, self.desired_y = x, y
+        self.rotate(x - self.x, y - self.y)
+        self.reached_goal = False
 
 
 class Swordsman(Unit):
     name = "Swordsman"
 
-    def __init__(self, ID, x, y, side, game):
-        super().__init__(ID, x, y, side, game)
+    def __init__(self, ID, x, y, side, column, row, game):
+        super().__init__(ID, x, y, side, column, row, game)
 
 
 possible_units = [Swordsman]
