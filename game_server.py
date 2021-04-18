@@ -94,6 +94,7 @@ class player:
     def tick(self):
         [e.tick() for e in self.units]
         [e.tick() for e in self.towers]
+        [e.tick() for e in self.walls]
         [e.tick() for e in self.formations]
 
 
@@ -135,11 +136,19 @@ class Tower:
             self.tick = self.tick2
 
     def tick2(self):
-        pass
+        self.shove()
 
     def delete(self):
         self.game.players[self.side].towers.remove(self)
         self.game.players[self.side].all_buildings.remove(self)
+
+    def shove(self):
+        for e in self.game.players[self.side - 1].units:
+            if max(abs(e.x - self.x), abs(e.y - self.y)) < (self.size + e.size) / 2:
+                dist_sq = (e.x - self.x) ** 2 + (e.y - self.y) ** 2
+                if dist_sq < ((e.size + self.size) * .5) ** 2:
+                    shovage = (e.size + self.size) * .5 * dist_sq ** -.5 - 1
+                    e.take_knockback((e.x - self.x) * shovage, (e.y - self.y) * shovage)
 
 
 class Wall:
@@ -152,10 +161,24 @@ class Wall:
         self.width = unit_stats[self.name]["width"]
         self.ID = ID
         self.x1, self.y1, self.x2, self.y2 = t1.x, t1.y, t2.x, t2.y
+        self.length = ((self.x1 - self.x2) ** 2 + (self.y1 - self.y2) ** 2) ** .5
+        self.norm_vector = ((self.y2 - self.y1) / self.length, (self.x1 - self.x2) / self.length)
+        self.line_c = -self.norm_vector[0] * self.x1 - self.norm_vector[1] * self.y1
+        self.crossline_c = (-self.norm_vector[1] * (self.x1 + self.x2) + self.norm_vector[0] * (self.y1 + self.y2)) * .5
         self.side = side
         self.game = game
         game.players[side].walls.append(self)
         game.players[side].all_buildings.append(self)
+
+    def shove(self):
+        for e in self.game.players[1 - self.side].units:
+            if point_line_dist(e.x, e.y, self.norm_vector, self.line_c) < (self.width + e.size) * .5 and \
+                    point_line_dist(e.x, e.y, (self.norm_vector[1], -self.norm_vector[0]),
+                                    self.crossline_c) < self.length * .5:
+                shovage = point_line_dist(e.x, e.y, self.norm_vector, self.line_c) - (self.width + e.size) * .5
+                if e.x * self.norm_vector[0] + e.y * self.norm_vector[1] + self.line_c > 0:
+                    shovage *= -1
+                e.take_knockback(self.norm_vector[0] * shovage, self.norm_vector[1] * shovage)
 
     def tick(self):
         if self.spawning < FPS:
@@ -165,7 +188,7 @@ class Wall:
             self.tick = self.tick2
 
     def tick2(self):
-        pass
+        self.shove()
 
     def delete(self):
         self.game.players[self.side].walls.remove(self)
@@ -263,9 +286,12 @@ class Unit:
         self.speed = unit_stats[self.name]["speed"] / FPS
         self.exists = False
         self.rotation = 0
+        self.game.players[self.side].units.append(self)
         self.desired_x, self.desired_y = x, y
         self.vx, self.vy = self.speed, 0
         self.reached_goal = True
+        self.mass = 1
+        self.size = unit_stats[self.name]["size"]
 
     def tick(self):
         pass
@@ -301,12 +327,42 @@ class Unit:
         self.exists = True
         self.tick = self.tick2
 
+    def take_knockback(self, x, y):
+        self.x += x
+        self.y += y
+        self.rotate(self.desired_x - self.x, self.desired_y - self.y)
+
     def try_move(self, x, y):
         if self.x == x and self.y == y:
             return
         self.desired_x, self.desired_y = x, y
         self.rotate(x - self.x, y - self.y)
         self.reached_goal = False
+
+    def shove(self):
+        # disabled - too much lag
+        for e in self.game.players[self.side - 1].units:
+            if max(abs(e.x - self.x), abs(e.y - self.y)) > (self.size + e.size) / 2:
+                continue
+            dist_sq = (e.x - self.x) ** 2 + (e.y - self.y) ** 2
+            if dist_sq < ((e.size + self.size) * .5) ** 2:
+                shovage = (e.size + self.size) * .5 * dist_sq ** -.5 - 1
+                mass_ratio = self.mass / e.mass
+                ex, ey, selfx, selfy = e.x, e.y, self.x, self.y
+                e.take_knockback((ex - selfx) * shovage * mass_ratio, (ey - selfy) * shovage * mass_ratio)
+                self.take_knockback((ex - selfx) * shovage * (mass_ratio - 1),
+                                    (ey - selfy) * shovage * (mass_ratio - 1))
+        for e in self.game.players[self.side].units:
+            if max(abs(e.x - self.x), abs(e.y - self.y)) > (self.size + e.size) / 2 or e == self:
+                continue
+            dist_sq = (e.x - self.x) ** 2 + (e.y - self.y) ** 2
+            if dist_sq < ((e.size + self.size) * .5) ** 2:
+                shovage = (e.size + self.size) * .5 * dist_sq ** -.5 - 1
+                mass_ratio = self.mass / (e.mass + self.mass)
+                ex, ey, selfx, selfy = e.x, e.y, self.x, self.y
+                e.take_knockback((ex - selfx) * shovage * mass_ratio, (ey - selfy) * shovage * mass_ratio)
+                self.take_knockback((ex - selfx) * shovage * (mass_ratio - 1),
+                                    (ey - selfy) * shovage * (mass_ratio - 1))
 
 
 class Swordsman(Unit):

@@ -8,6 +8,10 @@ def RI(name):
 def IL(name):
     return pyglet.image.load(f"imagefolder/{name}.png")
 
+def centre_anchor(e):
+    e.anchor_x=e.width//2
+    e.anchor_y=e.height//2
+
 
 Button = RI("Button")
 Background = IL("Background").get_texture()
@@ -17,7 +21,9 @@ Cancelbutton = RI("Cancelbutton")
 Towerbutton = IL("Towerbutton")
 UnitSlot = IL("UnitSlot")
 UnitFormFrame = IL("UnitFormFrame")
-blue_arrow = pyglet.image.load("imagefolder/blue_arrow.png").get_texture()
+blue_arrow = IL("blue_arrow").get_texture()
+Swordsman=RI("Swordsman")
+centre_anchor(Swordsman)
 
 ########################  CLONE  ############################
 gunmanR = pyglet.resource.image("imagefolder/BGunman.png")

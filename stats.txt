@@ -1,4 +1,4 @@
 Tower:size=50,hp=10000
 TownHall:size=200,hp=100000
 Wall:width=30,hp=5000
-Swordsman:vwidth=20,vheight=20,speed=200
+Swordsman:vwidth=20,vheight=20,speed=200,size=19

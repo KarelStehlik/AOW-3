@@ -34,3 +34,6 @@ def is_empty_2d(l):
     return True
 
 
+def point_line_dist(x, y, normal_vector, c):
+    # assumes vector is normalized
+    return abs(x * normal_vector[0] + y * normal_vector[1] + c)
