@@ -5,7 +5,7 @@ import images
 from constants import *
 
 
-def sprite_with_scale(img, scale, scale_x, scale_y, *args, **kwargs):
+def sprite_with_scale(img, scale, scale_x, scale_y, *args, **kwargs) -> pyglet.sprite.Sprite:
     a = pyglet.sprite.Sprite(img, *args, **kwargs)
     a.update(scale=scale, scale_x=scale_x, scale_y=scale_y)
     return a
@@ -150,6 +150,8 @@ class toolbar:
     def mouse_drag(self, x, y):
         if self.x + self.width >= x >= self.x and self.y + self.height >= y >= self.y:
             [e.mouse_move for e in self.buttons]
+            return True
+        return False
 
     def mouse_release(self, x, y):
         [e.mouse_release(x, y) for e in self.buttons]

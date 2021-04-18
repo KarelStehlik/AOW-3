@@ -157,6 +157,7 @@ class UI_bottom_bar(client_utility.toolbar):
         self.buttons = []
 
 
+'''
 class UI_formation(client_utility.toolbar):
     def __init__(self, game):
         self.rows, self.columns = game.unit_formation_rows, game.unit_formation_columns
@@ -189,6 +190,63 @@ class UI_formation(client_utility.toolbar):
             self.Buttons2d[x][y].set_image(images.UnitSlot)
         else:
             self.Buttons2d[x][y].set_image(possible_units[num].image)
+'''
+
+
+class UI_formation(client_utility.toolbar):
+    def __init__(self, game):
+        self.rows, self.columns = game.unit_formation_rows, game.unit_formation_columns
+        self.dot_size = SCREEN_HEIGHT * 0.1788 / self.rows
+        self.game = game
+        self.dot_scale = self.dot_size / images.UnitSlot.width
+
+        super().__init__(SCREEN_WIDTH - self.dot_size * (self.columns + 4), 0, self.dot_size * (self.columns + 4),
+                         self.dot_size * (self.rows + 4) + SCREEN_HEIGHT * 0.1, game.batch,
+                         image=images.UnitFormFrame, layer=5)
+
+        self.units = [[None for _ in range(self.rows)] for _ in range(self.columns)]
+
+        self.sprites = [[client_utility.sprite_with_scale(images.UnitSlot, self.dot_scale, 1, 1,
+                                                          self.x + self.dot_size * (j + 2.5),
+                                                          self.y + self.dot_size * (i + 2.5),
+                                                          batch=game.batch, group=groups.g[6])
+                         for i in range(self.rows)] for j in range(self.columns)]
+        self.add(self.send, self.x, self.height - SCREEN_HEIGHT * 0.1, self.width, SCREEN_HEIGHT * 0.1,
+                 image=images.Cancelbutton)
+
+    def sucessful_click(self, x, y):
+        if self.x + self.dot_size * 2 < x < self.x + self.dot_size * (2 + self.columns) and \
+                self.y + self.dot_size * 2 < y < self.y + self.dot_size * (2 + self.rows):
+            self.game.selected.clicked_unit_slot(int((x - (self.x + self.dot_size * 2)) // self.dot_size),
+                                                 int((y - (self.y + self.dot_size * 2)) // self.dot_size))
+
+    def mouse_click(self, x, y):
+        if super().mouse_click(x, y):
+            self.sucessful_click(x, y)
+
+    def mouse_drag(self, x, y):
+        if super().mouse_drag:
+            self.sucessful_click(x, y)
+
+    def send(self):
+        self.game.select(selection_unit_formation)
+
+    def set_unit(self, x, y, num):
+        if self.units[x][y] == num:
+            return
+        self.units[x][y] = num
+        if num is not None:
+            self.sprites[x][y].delete()
+            self.sprites[x][y] = client_utility.sprite_with_scale(*possible_units[num].get_image(),
+                                                                  self.x + self.dot_size * (x + 2.5),
+                                                                  self.y + self.dot_size * (y + 2.5),
+                                                                  batch=self.game.batch, group=groups.g[6])
+        else:
+            self.sprites[x][y].delete()
+            self.sprites[x][y] = client_utility.sprite_with_scale(images.UnitSlot, self.dot_scale, 1, 1,
+                                                                  self.x + self.dot_size * (x + 2.5),
+                                                                  self.y + self.dot_size * (y + 2.5),
+                                                                  batch=self.game.batch, group=groups.g[6])
 
 
 class UI_categories(client_utility.toolbar):
@@ -227,6 +285,7 @@ class player:
         [e.tick() for e in self.formations]
         # print("formations_tick:", (time.time() - a) * 1000, "ms")
         # a = time.time()
+        self.TownHall.tick()
 
     def update_cam(self, x, y):
         [e.update_cam(x, y) for e in self.units]
@@ -370,10 +429,10 @@ class selection_unit_formation(selection):
         for x in range(self.game.unit_formation_columns):
             for y in range(self.game.unit_formation_rows):
                 if self.troops[x][y] is not None:
-                    x_location = (x - self.game.unit_formation_columns *.5) * UNIT_SIZE + \
-                                 self.game.players[self.game.side].TownHall.x-self.camx
-                    y_location = (y - self.game.unit_formation_rows*.5) * UNIT_SIZE + \
-                                 self.game.players[self.game.side].TownHall.y-self.camy
+                    x_location = (x - self.game.unit_formation_columns * .5) * UNIT_SIZE + \
+                                 self.game.players[self.game.side].TownHall.x - self.camx
+                    y_location = (y - self.game.unit_formation_rows * .5) * UNIT_SIZE + \
+                                 self.game.players[self.game.side].TownHall.y - self.camy
                     self.sprites.append(client_utility.sprite_with_scale(*possible_units[self.troops[x][y]].get_image(),
                                                                          x=x_location,
                                                                          y=y_location,
@@ -464,7 +523,7 @@ class selection_unit_formation(selection):
             mi[i] += 0.016 - reduce
 
     def update_cam(self, x, y):
-        dx,dy=x-self.camx,y-self.camy
+        dx, dy = x - self.camx, y - self.camy
         self.camx, self.camy = x, y
         for i in range(0, self.moving_indicator_points * 8, 2):
             self.moving_indicator.vertices[i] = self.actual_indicator_points[i] - x
@@ -472,7 +531,7 @@ class selection_unit_formation(selection):
             self.moving_indicator.vertices[i] = self.actual_indicator_points[i] - y
         self.update_moving_indicator_pos(self.mouse_pos[0] + x, self.mouse_pos[1] + y)
         for e in self.sprites:
-            e.update(x=e.x-dx,y=e.y-dy)
+            e.update(x=e.x - dx, y=e.y - dy)
 
     def clicked_unit_slot(self, x, y):
         self.game.unit_formation.set_unit(x, y, 0)
@@ -520,7 +579,15 @@ class TownHall:
         self.sprite.update(x=self.x - self.size / 2 - x, y=self.y - self.size / 2 - y)
 
     def tick(self):
-        pass
+        self.shove()
+
+    def shove(self):
+        for e in self.game.players[self.side - 1].units:
+            if max(abs(e.x - self.x), abs(e.y - self.y)) < (self.size + e.size) / 2:
+                dist_sq = (e.x - self.x) ** 2 + (e.y - self.y) ** 2
+                if dist_sq < ((e.size + self.size) * .5) ** 2:
+                    shovage = (e.size + self.size) * .5 * dist_sq ** -.5 - 1
+                    e.take_knockback((e.x - self.x) * shovage, (e.y - self.y) * shovage)
 
 
 class Tower:
@@ -534,7 +601,7 @@ class Tower:
         self.side = side
         self.size = unit_stats[self.name]["size"]
         self.hp = unit_stats[self.name]["hp"]
-        self.sprite = pyglet.sprite.Sprite(images.Swordsman, x=x,
+        self.sprite = pyglet.sprite.Sprite(images.Tower, x=x,
                                            y=y, batch=game.batch,
                                            group=groups.g[2])
         self.sprite.scale = self.size / self.sprite.width

@@ -96,6 +96,7 @@ class player:
         [e.tick() for e in self.towers]
         [e.tick() for e in self.walls]
         [e.tick() for e in self.formations]
+        self.TownHall.tick()
 
 
 ##################   ---/core---  #################
@@ -108,9 +109,18 @@ class TownHall:
         self.side = side
         self.size = unit_stats[self.name]["size"]
         self.hp = unit_stats[self.name]["hp"]
+        self.game=game
 
     def tick(self):
-        pass
+        self.shove()
+
+    def shove(self):
+        for e in self.game.players[self.side - 1].units:
+            if max(abs(e.x - self.x), abs(e.y - self.y)) < (self.size + e.size) / 2:
+                dist_sq = (e.x - self.x) ** 2 + (e.y - self.y) ** 2
+                if dist_sq < ((e.size + self.size) * .5) ** 2:
+                    shovage = (e.size + self.size) * .5 * dist_sq ** -.5 - 1
+                    e.take_knockback((e.x - self.x) * shovage, (e.y - self.y) * shovage)
 
 
 class Tower:
