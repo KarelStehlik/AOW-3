@@ -39,14 +39,24 @@ class Game:
 
     def tick(self):
         while self.ticks < FPS * (time.time() - self.start_time):
+            #print(f"\n\ntick {self.ticks}:\nplayer 0:")
+            #a = time.time()
             self.players[0].tick()
+            #print((time.time() - a) * 1000, "ms total")
+            #print("player 1:")
+            #a = time.time()
             self.players[1].tick()
+            #print((time.time() - a) * 1000, "ms total")
             self.ticks += 1
         self.update_cam()
+        #a=time.time()
         self.players[0].graphics_update()
         self.players[1].graphics_update()
+        #print((time.time() - a) * 1000, "ms graphics update")
         self.selected.tick()
+        #a = time.time()
         self.batch.draw()
+        #print((time.time() - a) * 1000, "ms draw")
 
     def network(self, data):
         if "action" in data:
@@ -135,6 +145,45 @@ class Game:
                 return e
         return None
 
+class player:
+    def __init__(self, side, game):
+        self.side = side
+        self.game = game
+        self.walls = []
+        self.units = []
+        self.towers = []
+        self.formations = []
+        self.TownHall = TownHall(TH_DISTANCE * side, TH_DISTANCE * side, side, self.game)
+        self.all_buildings = [self.TownHall]
+
+    def tick(self):
+        #a = time.time()
+        [e.tick() for e in self.units]
+        #print((time.time() - a) * 1000, "ms units tick")
+        #a = time.time()
+        [e.tick() for e in self.towers]
+        #print((time.time() - a) * 1000, "ms towers tick")
+        #a = time.time()
+        [e.tick() for e in self.walls]
+        #print((time.time() - a) * 1000, "ms walls tick")
+        #a = time.time()
+        [e.tick() for e in self.formations]
+        #print((time.time() - a) * 1000, "ms formations tick")
+        #a = time.time()
+        self.TownHall.tick()
+        #print((time.time()-a)*1000, "ms th tick")
+
+    def graphics_update(self):
+        [e.graphics_update() for e in self.units]
+        [e.graphics_update() for e in self.towers]
+        [e.graphics_update() for e in self.walls]
+        self.TownHall.graphics_update()
+
+    def update_cam(self, x, y):
+        [e.update_cam(x, y) for e in self.units]
+        [e.update_cam(x, y) for e in self.all_buildings]
+        [e.update_cam(x, y) for e in self.formations]
+
 
 class UI_bottom_bar(client_utility.toolbar):
     def __init__(self, game):
@@ -221,37 +270,6 @@ class UI_categories(client_utility.toolbar):
             self.add(bb.load_page, SCREEN_WIDTH * (0.01 + 0.1 * i), bb.height + SCREEN_HEIGHT * 0.005,
                      SCREEN_WIDTH * 0.09, SCREEN_HEIGHT * 0.04, args=(i,))
             i += 1
-
-
-class player:
-    def __init__(self, side, game):
-        self.side = side
-        self.game = game
-        self.walls = []
-        self.units = []
-        self.towers = []
-        self.formations = []
-        self.TownHall = TownHall(TH_DISTANCE * side, TH_DISTANCE * side, side, self.game)
-        self.all_buildings = [self.TownHall]
-
-    def tick(self):
-        [e.tick() for e in self.units]
-        [e.tick() for e in self.towers]
-        [e.tick() for e in self.walls]
-        [e.tick() for e in self.formations]
-        self.TownHall.tick()
-
-    def graphics_update(self):
-        [e.graphics_update() for e in self.units]
-        [e.graphics_update() for e in self.towers]
-        [e.graphics_update() for e in self.walls]
-        self.TownHall.graphics_update()
-
-    def update_cam(self, x, y):
-        [e.update_cam(x, y) for e in self.units]
-        [e.update_cam(x, y) for e in self.all_buildings]
-        [e.update_cam(x, y) for e in self.formations]
-
 
 # #################   ---/core---  #################
 # #################  ---selects---  #################
@@ -392,16 +410,16 @@ class selection_unit_formation(selection):
         for x in range(self.game.unit_formation_columns):
             for y in range(self.game.unit_formation_rows):
                 if self.troops[x][y] is not None:
-                    x_location = ((x - self.game.unit_formation_columns * .5) * UNIT_SIZE + \
-                                 self.game.players[self.game.side].TownHall.x)*SPRITE_SIZE_MULT - self.camx
-                    y_location = ((y - self.game.unit_formation_rows * .5) * UNIT_SIZE + \
-                                 self.game.players[self.game.side].TownHall.y)*SPRITE_SIZE_MULT - self.camy
+                    x_location = ((x - self.game.unit_formation_columns * .5) * UNIT_SIZE +
+                                  self.game.players[self.game.side].TownHall.x) * SPRITE_SIZE_MULT - self.camx
+                    y_location = ((y - self.game.unit_formation_rows * .5) * UNIT_SIZE +
+                                  self.game.players[self.game.side].TownHall.y) * SPRITE_SIZE_MULT - self.camy
                     self.sprites.append(client_utility.sprite_with_scale(*possible_units[self.troops[x][y]].get_image(),
                                                                          x=x_location,
                                                                          y=y_location,
                                                                          group=groups.g[5],
                                                                          batch=self.game.batch))
-        self.current_pos = [self.game.players[self.game.side].TownHall.x, self.game.players[self.game.side].TownHall.y]
+        self.current_pos = [self.game.players[self.game.side].TownHall.x*SPRITE_SIZE_MULT, self.game.players[self.game.side].TownHall.y*SPRITE_SIZE_MULT]
         self.instructions = []
         self.mouse_pos = [self.game.players[self.game.side].TownHall.x, self.game.players[self.game.side].TownHall.y]
         self.image = images.blue_arrow
@@ -462,7 +480,8 @@ class selection_unit_formation(selection):
 
     def mouse_click(self, x, y):
         if not self.cancelbutton.mouse_click(x, y) and [x + self.camx, y + self.camy] != self.current_pos:
-            self.instructions.append(["walk", x + self.camx, y + self.camy])
+            self.instructions.append(["walk", (x+self.camx)/SPRITE_SIZE_MULT,
+                                      (y + self.camy)/SPRITE_SIZE_MULT])
             self.actual_indicator_points += [0 for _ in range(8)]
             self.add_indicator_point(x + self.camx, y + self.camy)
             self.current_pos = [x + self.camx, y + self.camy]
@@ -551,7 +570,7 @@ class TownHall:
                 dist_sq = (e.x - self.x) ** 2 + (e.y - self.y) ** 2
                 if dist_sq < ((e.size + self.size) * .5) ** 2:
                     shovage = (e.size + self.size) * .5 * dist_sq ** -.5 - 1
-                    e.take_knockback((e.x - self.x) * shovage, (e.y - self.y) * shovage)
+                    e.take_knockback((e.x - self.x) * shovage, (e.y - self.y) * shovage, self)
 
     def graphics_update(self):
         pass
@@ -603,7 +622,7 @@ class Tower:
                 dist_sq = (e.x - self.x) ** 2 + (e.y - self.y) ** 2
                 if dist_sq < ((e.size + self.size) * .5) ** 2:
                     shovage = (e.size + self.size) * .5 * dist_sq ** -.5 - 1
-                    e.take_knockback((e.x - self.x) * shovage, (e.y - self.y) * shovage)
+                    e.take_knockback((e.x - self.x) * shovage, (e.y - self.y) * shovage, self)
 
     def graphics_update(self):
         pass
@@ -651,7 +670,7 @@ class Wall:
                 shovage = point_line_dist(e.x, e.y, self.norm_vector, self.line_c) - (self.width + e.size) * .5
                 if e.x * self.norm_vector[0] + e.y * self.norm_vector[1] + self.line_c > 0:
                     shovage *= -1
-                e.take_knockback(self.norm_vector[0] * shovage, self.norm_vector[1] * shovage)
+                e.take_knockback(self.norm_vector[0] * shovage, self.norm_vector[1] * shovage, self)
 
     def update_cam(self, x, y):
         self.sprite.vertices = [(self.vertices_no_cam[i] - (x if i % 2 == 0 else y)) for i in range(8)]
@@ -743,7 +762,6 @@ class instruction_moving:
     def tick(self):
         if self.completed:
             return
-        [e.tick() for e in self.target.troops]
         if False not in [e.reached_goal for e in self.target.troops]:
             if self.completed_rotate:
                 self.completed = True
@@ -770,6 +788,9 @@ class Unit:
                                                        y=y * SPRITE_SIZE_MULT - game.camy, group=groups.g[5])
         self.speed = unit_stats[self.name]["speed"] / FPS
         self.size = unit_stats[self.name]["size"]
+        self.health = self.max_health = unit_stats[self.name]["hp"]
+        self.damage = unit_stats[self.name]["dmg"]
+        self.attack_cooldown = unit_stats[self.name]["cd"]
         self.sprite.opacity = 70
         self.exists = False
         self.rotation = 0
@@ -782,9 +803,10 @@ class Unit:
         pass
 
     def tick2(self):
+        if self.reached_goal:
+            return
         if self.y == self.desired_y and self.x == self.desired_x:
             self.reached_goal = True
-        if self.reached_goal:
             return
         if self.x <= self.desired_x:
             self.x += min(self.vx, self.desired_x - self.x)
@@ -794,8 +816,9 @@ class Unit:
             self.y += min(self.vy, self.desired_y - self.y)
         else:
             self.y += max(self.vy, self.desired_y - self.y)
+        #self.shove()
 
-    def take_knockback(self, x, y):
+    def take_knockback(self, x, y, source):
         self.x += x
         self.y += y
         self.rotate(self.desired_x - self.x, self.desired_y - self.y)
@@ -823,7 +846,7 @@ class Unit:
         self.tick = self.tick2
 
     def update_cam(self, x, y):
-        self.sprite.update(x=self.x*SPRITE_SIZE_MULT - x, y=self.y*SPRITE_SIZE_MULT - y)
+        self.sprite.update(x=self.x * SPRITE_SIZE_MULT - x, y=self.y * SPRITE_SIZE_MULT - y)
 
     def try_move(self, x, y):
         if self.x == x and self.y == y:
@@ -842,9 +865,9 @@ class Unit:
                 shovage = (e.size + self.size) * .5 * dist_sq ** -.5 - 1
                 mass_ratio = self.mass / e.mass
                 ex, ey, selfx, selfy = e.x, e.y, self.x, self.y
-                e.take_knockback((ex - selfx) * shovage * mass_ratio, (ey - selfy) * shovage * mass_ratio)
+                e.take_knockback((ex - selfx) * shovage * mass_ratio, (ey - selfy) * shovage * mass_ratio, self)
                 self.take_knockback((ex - selfx) * shovage * (mass_ratio - 1),
-                                    (ey - selfy) * shovage * (mass_ratio - 1))
+                                    (ey - selfy) * shovage * (mass_ratio - 1), self)
         for e in self.game.players[self.side].units:
             if max(abs(e.x - self.x), abs(e.y - self.y)) > (self.size + e.size) / 2 or e == self:
                 continue
@@ -853,15 +876,15 @@ class Unit:
                 shovage = (e.size + self.size) * .5 * dist_sq ** -.5 - 1
                 mass_ratio = self.mass / (e.mass + self.mass)
                 ex, ey, selfx, selfy = e.x, e.y, self.x, self.y
-                e.take_knockback((ex - selfx) * shovage * mass_ratio, (ey - selfy) * shovage * mass_ratio)
+                e.take_knockback((ex - selfx) * shovage * mass_ratio, (ey - selfy) * shovage * mass_ratio, self)
                 self.take_knockback((ex - selfx) * shovage * (mass_ratio - 1),
-                                    (ey - selfy) * shovage * (mass_ratio - 1))
+                                    (ey - selfy) * shovage * (mass_ratio - 1), self)
 
     def graphics_update(self):
         if self.exists:
             self.sprite.update(x=self.x * SPRITE_SIZE_MULT - self.game.camx,
-                                y=self.y * SPRITE_SIZE_MULT - self.game.camy,
-                                rotation=-self.rotation * 180 / math.pi + 90)
+                               y=self.y * SPRITE_SIZE_MULT - self.game.camy,
+                               rotation=-self.rotation * 180 / math.pi + 90)
 
     @classmethod
     def get_image(cls):

@@ -5,6 +5,7 @@ from pyglet.window import key
 from pyglet import clock
 import os
 import math
+from numba import jit
 
 pyglet.gl.glEnable(pyglet.gl.GL_BLEND)
 
@@ -32,7 +33,6 @@ def is_empty_2d(l):
         if e:
             return False
     return True
-
 
 def point_line_dist(x, y, normal_vector, c):
     # assumes vector is normalized

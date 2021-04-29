@@ -109,7 +109,7 @@ class TownHall:
         self.side = side
         self.size = unit_stats[self.name]["size"]
         self.hp = unit_stats[self.name]["hp"]
-        self.game=game
+        self.game = game
 
     def tick(self):
         self.shove()
@@ -294,6 +294,9 @@ class Unit:
         self.x, self.y = x, y
         self.column, self.row = column, row
         self.speed = unit_stats[self.name]["speed"] / FPS
+        self.health = self.max_health = unit_stats[self.name]["hp"]
+        self.damage = unit_stats[self.name]["dmg"]
+        self.attack_cooldown = unit_stats[self.name]["cd"]
         self.exists = False
         self.rotation = 0
         self.game.players[self.side].units.append(self)
@@ -373,7 +376,6 @@ class Unit:
                 e.take_knockback((ex - selfx) * shovage * mass_ratio, (ey - selfy) * shovage * mass_ratio)
                 self.take_knockback((ex - selfx) * shovage * (mass_ratio - 1),
                                     (ey - selfy) * shovage * (mass_ratio - 1))
-
 
 class Swordsman(Unit):
     name = "Swordsman"
