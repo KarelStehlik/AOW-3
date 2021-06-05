@@ -17,6 +17,7 @@ def centre_anchor(e):
 Button = RI("Button")
 Background = IL("Background").get_texture()
 Wall = IL("Wall").get_texture()
+WallCrack = IL("wall_crack").get_texture()
 Intro = RI("Intro")
 Cancelbutton = RI("Cancelbutton")
 Towerbutton = IL("Towerbutton")
@@ -27,8 +28,11 @@ blue_arrow = IL("blue_arrow").get_texture()
 Swordsman = RI("Swordsman")
 centre_anchor(Swordsman)
 Tower = IL("Tower")
+TowerCrack = IL("tower_crack")
 centre_anchor(Tower)
-########################  CLONE  ############################
+centre_anchor(TowerCrack)
+
+# #######################  CLONE  ############################
 gunmanR = pyglet.resource.image("imagefolder/BGunman.png")
 gunmanG = pyglet.resource.image("imagefolder/GGunman.png")
 engiR = pyglet.resource.image("imagefolder/BEngi.png")

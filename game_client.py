@@ -8,6 +8,7 @@ import client_utility
 class Game:
     def __init__(self, side, batch, connection, time0):
         self.side, self.batch = side, batch
+        self.chunks = {}
         self.players = [player(0, self), player(1, self)]
         self.connection = connection
         self.batch = batch
@@ -33,30 +34,54 @@ class Game:
         self.UI_toolbars = [self.UI_bottomBar, self.UI_categories, self.unit_formation]
         self.selected = selection_none(self)
 
+    def add_unit_to_chunk(self, unit, location):
+        if location in self.chunks:
+            self.chunks[location].units[unit.side].append(unit)
+            return
+        self.chunks[location] = chunk()
+        self.chunks[location].units[unit.side].append(unit)
+
+    def add_tower_to_chunk(self, unit, location):
+        if location in self.chunks:
+            self.chunks[location].towers[unit.side].append(unit)
+            return
+        self.chunks[location] = chunk()
+        self.chunks[location].towers[unit.side].append(unit)
+
+    def add_townhall_to_chunk(self, unit, location):
+        if location in self.chunks:
+            self.chunks[location].townhalls[unit.side].append(unit)
+            return
+        self.chunks[location] = chunk()
+        self.chunks[location].townhalls[unit.side].append(unit)
+
+    def remove_unit_from_chunk(self, unit, location):
+        self.chunks[location].units[unit.side].remove(unit)
+
+    def remove_tower_from_chunk(self, unit, location):
+        self.chunks[location].towers[unit.side].remove(unit)
+
+    def clear_chunks(self):
+        for e in self.chunks:
+            self.chunks[e].clear_units()
+
     def select(self, sel):
         self.selected.end()
         self.selected = sel(self)
 
     def tick(self):
         while self.ticks < FPS * (time.time() - self.start_time):
-            #print(f"\n\ntick {self.ticks}:\nplayer 0:")
-            #a = time.time()
+            self.clear_chunks()
+            self.players[0].tick_units()
+            self.players[1].tick_units()
             self.players[0].tick()
-            #print((time.time() - a) * 1000, "ms total")
-            #print("player 1:")
-            #a = time.time()
             self.players[1].tick()
-            #print((time.time() - a) * 1000, "ms total")
             self.ticks += 1
         self.update_cam()
-        #a=time.time()
         self.players[0].graphics_update()
         self.players[1].graphics_update()
-        #print((time.time() - a) * 1000, "ms graphics update")
         self.selected.tick()
-        #a = time.time()
         self.batch.draw()
-        #print((time.time() - a) * 1000, "ms draw")
 
     def network(self, data):
         if "action" in data:
@@ -145,6 +170,7 @@ class Game:
                 return e
         return None
 
+
 class player:
     def __init__(self, side, game):
         self.side = side
@@ -156,22 +182,15 @@ class player:
         self.TownHall = TownHall(TH_DISTANCE * side, TH_DISTANCE * side, side, self.game)
         self.all_buildings = [self.TownHall]
 
-    def tick(self):
-        #a = time.time()
+    def tick_units(self):
+        # ticks before other stuff to ensure the units are in their chunks
         [e.tick() for e in self.units]
-        #print((time.time() - a) * 1000, "ms units tick")
-        #a = time.time()
+
+    def tick(self):
         [e.tick() for e in self.towers]
-        #print((time.time() - a) * 1000, "ms towers tick")
-        #a = time.time()
         [e.tick() for e in self.walls]
-        #print((time.time() - a) * 1000, "ms walls tick")
-        #a = time.time()
         [e.tick() for e in self.formations]
-        #print((time.time() - a) * 1000, "ms formations tick")
-        #a = time.time()
         self.TownHall.tick()
-        #print((time.time()-a)*1000, "ms th tick")
 
     def graphics_update(self):
         [e.graphics_update() for e in self.units]
@@ -183,6 +202,19 @@ class player:
         [e.update_cam(x, y) for e in self.units]
         [e.update_cam(x, y) for e in self.all_buildings]
         [e.update_cam(x, y) for e in self.formations]
+
+
+class chunk:
+    def __init__(self):
+        self.units = [[], []]
+        self.towers = [[], []]
+        self.townhalls = [[], []]
+
+    def is_empty(self):
+        return self.units[0] == [] == self.units[1] and self.towers[0] == [] == self.towers[1]
+
+    def clear_units(self):
+        self.units = [[], []]
 
 
 class UI_bottom_bar(client_utility.toolbar):
@@ -270,6 +302,7 @@ class UI_categories(client_utility.toolbar):
             self.add(bb.load_page, SCREEN_WIDTH * (0.01 + 0.1 * i), bb.height + SCREEN_HEIGHT * 0.005,
                      SCREEN_WIDTH * 0.09, SCREEN_HEIGHT * 0.04, args=(i,))
             i += 1
+
 
 # #################   ---/core---  #################
 # #################  ---selects---  #################
@@ -419,7 +452,8 @@ class selection_unit_formation(selection):
                                                                          y=y_location,
                                                                          group=groups.g[5],
                                                                          batch=self.game.batch))
-        self.current_pos = [self.game.players[self.game.side].TownHall.x*SPRITE_SIZE_MULT, self.game.players[self.game.side].TownHall.y*SPRITE_SIZE_MULT]
+        self.current_pos = [self.game.players[self.game.side].TownHall.x * SPRITE_SIZE_MULT,
+                            self.game.players[self.game.side].TownHall.y * SPRITE_SIZE_MULT]
         self.instructions = []
         self.mouse_pos = [self.game.players[self.game.side].TownHall.x, self.game.players[self.game.side].TownHall.y]
         self.image = images.blue_arrow
@@ -480,8 +514,8 @@ class selection_unit_formation(selection):
 
     def mouse_click(self, x, y):
         if not self.cancelbutton.mouse_click(x, y) and [x + self.camx, y + self.camy] != self.current_pos:
-            self.instructions.append(["walk", (x+self.camx)/SPRITE_SIZE_MULT,
-                                      (y + self.camy)/SPRITE_SIZE_MULT])
+            self.instructions.append(["walk", (x + self.camx) / SPRITE_SIZE_MULT,
+                                      (y + self.camy) / SPRITE_SIZE_MULT])
             self.actual_indicator_points += [0 for _ in range(8)]
             self.add_indicator_point(x + self.camx, y + self.camy)
             self.current_pos = [x + self.camx, y + self.camy]
@@ -556,6 +590,9 @@ class TownHall:
                                            group=groups.g[2])
         self.sprite.scale = self.size * SPRITE_SIZE_MULT / self.sprite.width
         self.game = game
+        self.chunks = get_chunks(x, y, self.size)
+        for e in self.chunks:
+            game.add_townhall_to_chunk(self, e)
 
     def update_cam(self, x, y):
         self.sprite.update(x=(self.x - self.size * .5) * SPRITE_SIZE_MULT - x,
@@ -565,12 +602,15 @@ class TownHall:
         self.shove()
 
     def shove(self):
-        for e in self.game.players[self.side - 1].units:
-            if max(abs(e.x - self.x), abs(e.y - self.y)) < (self.size + e.size) / 2:
-                dist_sq = (e.x - self.x) ** 2 + (e.y - self.y) ** 2
-                if dist_sq < ((e.size + self.size) * .5) ** 2:
-                    shovage = (e.size + self.size) * .5 * dist_sq ** -.5 - 1
-                    e.take_knockback((e.x - self.x) * shovage, (e.y - self.y) * shovage, self)
+        for c in self.chunks:
+            for e in self.game.chunks[c].units[1 - self.side]:
+                if e == self:
+                    continue
+                if max(abs(e.x - self.x), abs(e.y - self.y)) < (self.size + e.size) / 2:
+                    dist_sq = (e.x - self.x) ** 2 + (e.y - self.y) ** 2
+                    if dist_sq < ((e.size + self.size) * .5) ** 2:
+                        shovage = (e.size + self.size) * .5 * dist_sq ** -.5 - 1
+                        e.take_knockback((e.x - self.x) * shovage, (e.y - self.y) * shovage, self)
 
     def graphics_update(self):
         pass
@@ -586,10 +626,18 @@ class Tower:
         self.ID = ID
         self.side = side
         self.size = unit_stats[self.name]["size"]
-        self.hp = unit_stats[self.name]["hp"]
+        self.chunks = get_chunks(x, y, self.size)
+        for e in self.chunks:
+            game.add_tower_to_chunk(self, e)
+        self.hp = self.maxhp = unit_stats[self.name]["hp"]
         self.sprite = pyglet.sprite.Sprite(images.Tower, x=x * SPRITE_SIZE_MULT,
                                            y=y * SPRITE_SIZE_MULT, batch=game.batch,
-                                           group=groups.g[2])
+                                           group=groups.g[3])
+        self.sprite2 = pyglet.sprite.Sprite(images.TowerCrack, x=x * SPRITE_SIZE_MULT,
+                                            y=y * SPRITE_SIZE_MULT, batch=game.batch,
+                                            group=groups.g[4])
+        self.sprite2.opacity = 0
+        self.sprite2.scale = self.size * SPRITE_SIZE_MULT / self.sprite2.width
         self.sprite.scale = self.size * SPRITE_SIZE_MULT / self.sprite.width
         self.sprite.opacity = 70
         game.players[side].towers.append(self)
@@ -597,13 +645,22 @@ class Tower:
         self.game = game
         self.update_cam(self.game.camx, self.game.camy)
 
-    def update_cam(self, x, y):
-        self.sprite.update(x=self.x * SPRITE_SIZE_MULT - x, y=self.y * SPRITE_SIZE_MULT - y)
-
-    def delete(self):
+    def die(self):
         self.game.players[self.side].towers.remove(self)
         self.game.players[self.side].all_buildings.remove(self)
         self.sprite.delete()
+        self.sprite2.delete()
+
+    def take_damage(self, amount, source):
+        self.hp -= amount
+        if self.hp <= 0:
+            self.die()
+            return
+        self.sprite2.opacity = 255 * (self.maxhp - self.hp) / self.maxhp
+
+    def update_cam(self, x, y):
+        self.sprite.update(x=self.x * SPRITE_SIZE_MULT - x, y=self.y * SPRITE_SIZE_MULT - y)
+        self.sprite2.update(x=self.x * SPRITE_SIZE_MULT - x, y=self.y * SPRITE_SIZE_MULT - y)
 
     def tick(self):
         if self.spawning < FPS:
@@ -617,12 +674,15 @@ class Tower:
         self.shove()
 
     def shove(self):
-        for e in self.game.players[self.side - 1].units:
-            if max(abs(e.x - self.x), abs(e.y - self.y)) < (self.size + e.size) / 2:
-                dist_sq = (e.x - self.x) ** 2 + (e.y - self.y) ** 2
-                if dist_sq < ((e.size + self.size) * .5) ** 2:
-                    shovage = (e.size + self.size) * .5 * dist_sq ** -.5 - 1
-                    e.take_knockback((e.x - self.x) * shovage, (e.y - self.y) * shovage, self)
+        for c in self.chunks:
+            for e in self.game.chunks[c].units[1 - self.side]:
+                if e == self:
+                    continue
+                if max(abs(e.x - self.x), abs(e.y - self.y)) < (self.size + e.size) / 2:
+                    dist_sq = (e.x - self.x) ** 2 + (e.y - self.y) ** 2
+                    if dist_sq < ((e.size + self.size) * .5) ** 2:
+                        shovage = (e.size + self.size) * .5 * dist_sq ** -.5 - 1
+                        e.take_knockback((e.x - self.x) * shovage, (e.y - self.y) * shovage, self)
 
     def graphics_update(self):
         pass
@@ -642,25 +702,44 @@ class Wall:
         self.crossline_c = (-self.norm_vector[1] * (self.x1 + self.x2) + self.norm_vector[0] * (self.y1 + self.y2)) * .5
         self.side = side
         self.width = unit_stats[self.name]["width"]
-        self.hp = unit_stats[self.name]["hp"]
+        self.hp = self.maxhp = unit_stats[self.name]["hp"]
         self.game = game
         game.players[side].walls.append(self)
         game.players[side].all_buildings.append(self)
         x = self.width * .5 / self.length
         a = x * (self.y2 - self.y1)
         b = x * (self.x1 - self.x2)
-        self.texgroup = client_utility.TextureBindGroup(images.Wall, layer=1)
         pyglet.gl.glEnable(pyglet.gl.GL_BLEND)
         self.vertices_no_cam = [e * SPRITE_SIZE_MULT for e in [
             self.x1 - a, self.y1 - b, self.x1 + a, self.y1 + b, self.x2 + a, self.y2 + b, self.x2 - a, self.y2 - b]]
         self.sprite = game.batch.add(
-            4, pyglet.gl.GL_QUADS, self.texgroup,
+            4, pyglet.gl.GL_QUADS, client_utility.wall_group,
             ("v2f", self.vertices_no_cam),
             ("t2f", (0, 0, 1, 0, 1, 0.5 / x,
                      0, 0.5 / x)),
             ("c4B", (255, 255, 255, 70) * 4)
         )
+        self.crack_sprite = game.batch.add(
+            4, pyglet.gl.GL_QUADS, client_utility.wall_crack_group,
+            ("v2f", self.vertices_no_cam),
+            ("t2f", (0, 0, 1, 0, 1, 0.25 / x,
+                     0, 0.25 / x)),
+            ("c4B", (255, 255, 255, 0) * 4)
+        )
         self.update_cam(self.game.camx, self.game.camy)
+
+    def die(self):
+        self.sprite.delete()
+        self.crack_sprite.delete()
+        self.game.players[self.side].walls.remove(self)
+        self.game.players[self.side].all_buildings.remove(self)
+
+    def take_damage(self, amount, source):
+        self.hp -= amount
+        if self.hp <= 0:
+            self.die()
+            return
+        self.crack_sprite.colors[3::4] = [int((255 * (self.maxhp - self.hp)) // self.maxhp)] * 4
 
     def shove(self):
         for e in self.game.players[1 - self.side].units:
@@ -673,7 +752,8 @@ class Wall:
                 e.take_knockback(self.norm_vector[0] * shovage, self.norm_vector[1] * shovage, self)
 
     def update_cam(self, x, y):
-        self.sprite.vertices = [(self.vertices_no_cam[i] - (x if i % 2 == 0 else y)) for i in range(8)]
+        self.sprite.vertices = self.crack_sprite.vertices = [(self.vertices_no_cam[i] - (x if i % 2 == 0 else y)) for i
+                                                             in range(8)]
 
     def tick(self):
         if self.spawning < FPS:
@@ -713,11 +793,21 @@ class Formation:
                             side,
                             column - self.game.unit_formation_columns / 2,
                             row - self.game.unit_formation_rows / 2,
-                            game
+                            game, self
                         )
                     )
                     i += 1
         self.instr_object = instruction_moving(self, self.x, self.y)
+        self.desired_x, self.desired_y = self.x, self.y
+        self.aggro = {}
+
+    def get_aggro(self, amount, source):
+        if source in self.aggro:
+            self.aggro[source] += amount
+            return
+        self.aggro[source] = amount
+        if self.aggro[source] == max(self.aggro.values()):
+            self.instr_object = instruction_attacking(self, source)
 
     def tick(self):
         if self.spawning < FPS:
@@ -732,10 +822,15 @@ class Formation:
             if len(self.instructions) > 0:
                 instruction = self.instructions.pop(0)
                 if instruction[0] == "walk":
+                    self.desired_x, self.desired_y = instruction[1], instruction[2]
                     self.instr_object = instruction_moving(self, instruction[1], instruction[2])
             else:
                 return
         self.instr_object.tick()
+        for e in self.aggro:
+            self.aggro[e] -= 1
+            if self.aggro[e] <= 0:
+                self.aggro.pop(e)
 
     def delete(self):
         self.game.players[self.side].formations.remove(self)
@@ -771,14 +866,21 @@ class instruction_moving:
             [e.try_move(e.desired_x + self.dx, e.desired_y + self.dy) for e in self.target.troops]
 
 
+class instruction_attacking:
+    def __init__(self, formation, enemy):
+        self.target = formation
+        self.x, self.y = enemy.x, enemy.y
+
+
 class Unit:
     image = images.Cancelbutton
     name = "None"
 
-    def __init__(self, ID, x, y, side, column, row, game):
+    def __init__(self, ID, x, y, side, column, row, game, formation):
         self.ID = ID
         self.side = side
         self.game = game
+        self.formation = formation
         self.x, self.y = x, y
         self.column, self.row = column, row
         self.game.players[self.side].units.append(self)
@@ -791,6 +893,7 @@ class Unit:
         self.health = self.max_health = unit_stats[self.name]["hp"]
         self.damage = unit_stats[self.name]["dmg"]
         self.attack_cooldown = unit_stats[self.name]["cd"]
+        self.reach = unit_stats[self.name]["reach"]
         self.sprite.opacity = 70
         self.exists = False
         self.rotation = 0
@@ -798,25 +901,34 @@ class Unit:
         self.vx, self.vy = self.speed, 0
         self.reached_goal = True
         self.mass = 1
+        self.chunks = get_chunks(self.x, self.y, self.size)
+        for e in self.chunks:
+            self.game.add_unit_to_chunk(self, e)
 
     def tick(self):
         pass
 
     def tick2(self):
+        x, y = self.x, self.y
         if self.reached_goal:
-            return
-        if self.y == self.desired_y and self.x == self.desired_x:
-            self.reached_goal = True
-            return
-        if self.x <= self.desired_x:
-            self.x += min(self.vx, self.desired_x - self.x)
+            pass
         else:
-            self.x += max(self.vx, self.desired_x - self.x)
-        if self.y <= self.desired_y:
-            self.y += min(self.vy, self.desired_y - self.y)
-        else:
-            self.y += max(self.vy, self.desired_y - self.y)
-        #self.shove()
+            if self.x <= self.desired_x:
+                self.x += min(self.vx, self.desired_x - self.x)
+            else:
+                self.x += max(self.vx, self.desired_x - self.x)
+            if self.y <= self.desired_y:
+                self.y += min(self.vy, self.desired_y - self.y)
+            else:
+                self.y += max(self.vy, self.desired_y - self.y)
+            if self.y == self.desired_y and self.x == self.desired_x:
+                self.reached_goal = True
+                return
+
+        self.chunks = get_chunks(self.x, self.y, self.size)
+        for e in self.chunks:
+            self.game.add_unit_to_chunk(self, e)
+        self.shove()
 
     def take_knockback(self, x, y, source):
         self.x += x
@@ -857,28 +969,33 @@ class Unit:
 
     def shove(self):
         # disabled - too much lag
-        for e in self.game.players[self.side - 1].units:
-            if max(abs(e.x - self.x), abs(e.y - self.y)) > (self.size + e.size) / 2:
-                continue
-            dist_sq = (e.x - self.x) ** 2 + (e.y - self.y) ** 2
-            if dist_sq < ((e.size + self.size) * .5) ** 2:
-                shovage = (e.size + self.size) * .5 * dist_sq ** -.5 - 1
-                mass_ratio = self.mass / e.mass
-                ex, ey, selfx, selfy = e.x, e.y, self.x, self.y
-                e.take_knockback((ex - selfx) * shovage * mass_ratio, (ey - selfy) * shovage * mass_ratio, self)
-                self.take_knockback((ex - selfx) * shovage * (mass_ratio - 1),
-                                    (ey - selfy) * shovage * (mass_ratio - 1), self)
-        for e in self.game.players[self.side].units:
-            if max(abs(e.x - self.x), abs(e.y - self.y)) > (self.size + e.size) / 2 or e == self:
-                continue
-            dist_sq = (e.x - self.x) ** 2 + (e.y - self.y) ** 2
-            if dist_sq < ((e.size + self.size) * .5) ** 2:
-                shovage = (e.size + self.size) * .5 * dist_sq ** -.5 - 1
-                mass_ratio = self.mass / (e.mass + self.mass)
-                ex, ey, selfx, selfy = e.x, e.y, self.x, self.y
-                e.take_knockback((ex - selfx) * shovage * mass_ratio, (ey - selfy) * shovage * mass_ratio, self)
-                self.take_knockback((ex - selfx) * shovage * (mass_ratio - 1),
-                                    (ey - selfy) * shovage * (mass_ratio - 1), self)
+        for c in self.chunks:
+            for e in self.game.chunks[c].units[self.side]:
+                if e == self:
+                    continue
+                if max(abs(e.x - self.x), abs(e.y - self.y)) < (self.size + e.size) / 2:
+                    dist_sq = (e.x - self.x) ** 2 + (e.y - self.y) ** 2
+                    if dist_sq < ((e.size + self.size) * .5) ** 2:
+                        shovage = (e.size + self.size) * .5 * dist_sq ** -.5 - 1  # desired dist / current dist -1
+                        mass_ratio = self.mass / (self.mass + e.mass)
+                        ex, sx, ey, sy = e.x, self.x, e.y, self.y
+                        e.take_knockback((ex - sx) * shovage * mass_ratio, (ey - sy) * shovage * mass_ratio,
+                                         self)
+                        self.take_knockback((sx - ex) * shovage * (1 - mass_ratio),
+                                            (sy - ey) * shovage * (1 - mass_ratio),
+                                            self)
+            for e in self.game.chunks[c].units[self.side - 1]:
+                if max(abs(e.x - self.x), abs(e.y - self.y)) < (self.size + e.size) / 2:
+                    dist_sq = (e.x - self.x) ** 2 + (e.y - self.y) ** 2
+                    if dist_sq < ((e.size + self.size) * .5) ** 2:
+                        shovage = (e.size + self.size) * .5 * dist_sq ** -.5 - 1
+                        mass_ratio = self.mass / (self.mass + e.mass)
+                        ex, sx, ey, sy = e.x, self.x, e.y, self.y
+                        e.take_knockback((ex - sx) * shovage * mass_ratio, (ey - sy) * shovage * mass_ratio,
+                                         self)
+                        self.take_knockback((sx - ex) * shovage * (1 - mass_ratio),
+                                            (sy - ey) * shovage * (1 - mass_ratio),
+                                            self)
 
     def graphics_update(self):
         if self.exists:
@@ -895,8 +1012,8 @@ class Swordsman(Unit):
     image = images.Swordsman
     name = "Swordsman"
 
-    def __init__(self, ID, x, y, side, column, row, game):
-        super().__init__(ID, x, y, side, column, row, game)
+    def __init__(self, ID, x, y, side, column, row, game, formation):
+        super().__init__(ID, x, y, side, column, row, game, formation)
 
 
 class selection_swordsman(selection_unit):

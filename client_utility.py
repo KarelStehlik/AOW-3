@@ -41,6 +41,10 @@ class TextureBindGroup(pyglet.graphics.Group):
         return hash((self.texture.id, self.texture.target))
 
 
+wall_group = TextureBindGroup(images.Wall, layer=1)
+wall_crack_group = TextureBindGroup(images.WallCrack, layer=2)
+
+
 class button:
     def __init__(self, func, x, y, width, height, batch, image=images.Button, text="", args=(), layer=5):
         self.sprite = pyglet.sprite.Sprite(image, x=x, y=y, batch=batch, group=groups.g[layer])
