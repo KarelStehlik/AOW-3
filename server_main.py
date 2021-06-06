@@ -15,11 +15,11 @@ class player_channel(Channel):
         self.server = server
 
     def conn(self):
-        if self.server != None:
+        if self.server is not None:
             self.server.join(self)
 
     def dis(self):
-        if self.server != None:
+        if self.server is not None:
             self.server.leave(self)
 
     def start(self, game, side):
@@ -28,7 +28,7 @@ class player_channel(Channel):
         self.Send({"action": "start_game", "side": side, "time0": str(time.time())})
 
     def Network(self, data):
-        if self.game != None:
+        if self.game is not None:
             self.game.network(data, self.side)
 
     def Network_join(self, data):
@@ -64,7 +64,7 @@ class cw_server(Server):
         [e.tick() for e in self.games]
 
 
-#srvr = cw_server(localaddr=("192.168.1.170", 5071))
+# srvr = cw_server(localaddr=("192.168.1.170", 5071))
 srvr = cw_server(localaddr=("127.0.0.1", 5071))
 
 pyglet.clock.schedule_interval(srvr.tick, 1.0 / constants.FPS)

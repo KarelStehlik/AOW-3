@@ -4,6 +4,7 @@ from constants import *
 
 class Game:
     def __init__(self, channel1, channel2, server):
+        self.chunks = {}
         channel1.start(self, 0)
         channel2.start(self, 1)
         self.time_start = time.time()
@@ -21,6 +22,8 @@ class Game:
 
     def tick(self):
         while self.ticks < FPS * (time.time() - self.time_start):
+            self.players[0].tick_units()
+            self.players[1].tick_units()
             self.players[0].tick()
             self.players[1].tick()
             self.ticks += 1
@@ -61,6 +64,33 @@ class Game:
         self.server.playing_channels.remove(self.channels[0])
         self.server.playing_channels.remove(self.channels[1])
 
+    def add_unit_to_chunk(self, unit, location):
+        if location in self.chunks:
+            self.chunks[location].units[unit.side].append(unit)
+            return
+        self.chunks[location] = chunk()
+        self.chunks[location].units[unit.side].append(unit)
+
+    def add_tower_to_chunk(self, unit, location):
+        if location in self.chunks:
+            self.chunks[location].towers[unit.side].append(unit)
+            return
+        self.chunks[location] = chunk()
+        self.chunks[location].towers[unit.side].append(unit)
+
+    def add_townhall_to_chunk(self, unit, location):
+        if location in self.chunks:
+            self.chunks[location].townhalls[unit.side].append(unit)
+            return
+        self.chunks[location] = chunk()
+        self.chunks[location].townhalls[unit.side].append(unit)
+
+    def remove_unit_from_chunk(self, unit, location):
+        self.chunks[location].units[unit.side].remove(unit)
+
+    def remove_tower_from_chunk(self, unit, location):
+        self.chunks[location].towers[unit.side].remove(unit)
+
     def find_tower(self, ID, side):
         for e in self.players[side].towers:
             if e.ID == ID:
@@ -80,6 +110,19 @@ class Game:
         return None
 
 
+class chunk:
+    def __init__(self):
+        self.units = [[], []]
+        self.towers = [[], []]
+        self.townhalls = [[], []]
+
+    def is_empty(self):
+        return self.units[0] == [] == self.units[1] and self.towers[0] == [] == self.towers[1]
+
+    def clear_units(self):
+        self.units = [[], []]
+
+
 class player:
     def __init__(self, side, game):
         self.side = side
@@ -91,8 +134,11 @@ class player:
         self.TownHall = TownHall(TH_DISTANCE * side, TH_DISTANCE * side, side, self.game)
         self.all_buildings = [self.TownHall]
 
-    def tick(self):
+    def tick_units(self):
+        # ticks before other stuff to ensure the units are in their chunks
         [e.tick() for e in self.units]
+
+    def tick(self):
         [e.tick() for e in self.towers]
         [e.tick() for e in self.walls]
         [e.tick() for e in self.formations]
@@ -100,7 +146,7 @@ class player:
 
 
 ##################   ---/core---  #################
-##################   ---units---  ################# 
+##################   ---units---  #################
 class TownHall:
     name = "TownHall"
 
@@ -110,17 +156,23 @@ class TownHall:
         self.size = unit_stats[self.name]["size"]
         self.hp = unit_stats[self.name]["hp"]
         self.game = game
+        self.chunks = get_chunks(x, y, self.size)
+        for e in self.chunks:
+            game.add_townhall_to_chunk(self, e)
 
     def tick(self):
         self.shove()
 
     def shove(self):
-        for e in self.game.players[self.side - 1].units:
-            if max(abs(e.x - self.x), abs(e.y - self.y)) < (self.size + e.size) / 2:
-                dist_sq = (e.x - self.x) ** 2 + (e.y - self.y) ** 2
-                if dist_sq < ((e.size + self.size) * .5) ** 2:
-                    shovage = (e.size + self.size) * .5 * dist_sq ** -.5 - 1
-                    e.take_knockback((e.x - self.x) * shovage, (e.y - self.y) * shovage, self)
+        for c in self.chunks:
+            for e in self.game.chunks[c].units[1 - self.side]:
+                if e == self:
+                    continue
+                if max(abs(e.x - self.x), abs(e.y - self.y)) < (self.size + e.size) / 2:
+                    dist_sq = (e.x - self.x) ** 2 + (e.y - self.y) ** 2
+                    if dist_sq < ((e.size + self.size) * .5) ** 2:
+                        shovage = (e.size + self.size) * .5 * dist_sq ** -.5 - 1
+                        e.take_knockback((e.x - self.x) * shovage, (e.y - self.y) * shovage, self)
 
 
 class Tower:
@@ -137,6 +189,9 @@ class Tower:
         self.hp = self.maxhp = unit_stats[self.name]["hp"]
         game.players[side].towers.append(self)
         game.players[side].all_buildings.append(self)
+        self.chunks = get_chunks(x, y, self.size)
+        for e in self.chunks:
+            game.add_townhall_to_chunk(self, e)
 
     def die(self):
         self.game.players[self.side].towers.remove(self)
@@ -163,12 +218,15 @@ class Tower:
         self.game.players[self.side].all_buildings.remove(self)
 
     def shove(self):
-        for e in self.game.players[self.side - 1].units:
-            if max(abs(e.x - self.x), abs(e.y - self.y)) < (self.size + e.size) / 2:
-                dist_sq = (e.x - self.x) ** 2 + (e.y - self.y) ** 2
-                if dist_sq < ((e.size + self.size) * .5) ** 2:
-                    shovage = (e.size + self.size) * .5 * dist_sq ** -.5 - 1
-                    e.take_knockback((e.x - self.x) * shovage, (e.y - self.y) * shovage, self)
+        for c in self.chunks:
+            for e in self.game.chunks[c].units[1 - self.side]:
+                if e == self:
+                    continue
+                if max(abs(e.x - self.x), abs(e.y - self.y)) < (self.size + e.size) / 2:
+                    dist_sq = (e.x - self.x) ** 2 + (e.y - self.y) ** 2
+                    if dist_sq < ((e.size + self.size) * .5) ** 2:
+                        shovage = (e.size + self.size) * .5 * dist_sq ** -.5 - 1
+                        e.take_knockback((e.x - self.x) * shovage, (e.y - self.y) * shovage, self)
 
 
 class Wall:
@@ -279,8 +337,8 @@ class Formation:
                 return
         self.instr_object.tick()
         for e in self.aggro:
-            self.aggro[e]-=1
-            if self.aggro[e]<=0:
+            self.aggro[e] -= 1
+            if self.aggro[e] <= 0:
                 self.aggro.pop(e)
 
     def delete(self):
@@ -320,39 +378,55 @@ class Unit:
 
     def __init__(self, ID, x, y, side, column, row, game, formation):
         self.ID = ID
+        self.lifetime = 0
         self.side = side
         self.game = game
+        self.formation = formation
         self.x, self.y = x, y
         self.column, self.row = column, row
+        self.game.players[self.side].units.append(self)
         self.speed = unit_stats[self.name]["speed"] / FPS
+        self.size = unit_stats[self.name]["size"]
         self.health = self.max_health = unit_stats[self.name]["hp"]
         self.damage = unit_stats[self.name]["dmg"]
         self.attack_cooldown = unit_stats[self.name]["cd"]
+        self.reach = unit_stats[self.name]["reach"]
         self.exists = False
         self.rotation = 0
-        self.game.players[self.side].units.append(self)
         self.desired_x, self.desired_y = x, y
         self.vx, self.vy = self.speed, 0
         self.reached_goal = True
         self.mass = 1
-        self.size = unit_stats[self.name]["size"]
+        self.chunks = get_chunks(self.x, self.y, self.size)
+        for e in self.chunks:
+            self.game.add_unit_to_chunk(self, e)
 
     def tick(self):
         pass
 
     def tick2(self):
+        x, y = self.x, self.y
         if self.reached_goal:
-            return
-        if self.x <= self.desired_x:
-            self.x += min(self.vx, self.desired_x - self.x)
+            pass
         else:
-            self.x += max(self.vx, self.desired_x - self.x)
-        if self.y <= self.desired_y:
-            self.y += min(self.vy, self.desired_y - self.y)
-        else:
-            self.y += max(self.vy, self.desired_y - self.y)
-        if self.y == self.desired_y and self.x == self.desired_x:
-            self.reached_goal = True
+            if self.x <= self.desired_x:
+                self.x += min(self.vx, self.desired_x - self.x)
+            else:
+                self.x += max(self.vx, self.desired_x - self.x)
+            if self.y <= self.desired_y:
+                self.y += min(self.vy, self.desired_y - self.y)
+            else:
+                self.y += max(self.vy, self.desired_y - self.y)
+            if self.y == self.desired_y and self.x == self.desired_x:
+                self.reached_goal = True
+
+        self.chunks = get_chunks(self.x, self.y, self.size)
+        for e in self.chunks:
+            self.game.add_unit_to_chunk(self, e)
+        self.shove()
+        self.lifetime += 1
+        if self.lifetime % 4 == 0:
+            self.rotate(self.desired_x - self.x, self.desired_y - self.y)
 
     def rotate(self, x, y):
         if x == 0 == y:
@@ -374,7 +448,6 @@ class Unit:
     def take_knockback(self, x, y, source):
         self.x += x
         self.y += y
-        self.rotate(self.desired_x - self.x, self.desired_y - self.y)
 
     def try_move(self, x, y):
         if self.x == x and self.y == y:
@@ -385,28 +458,33 @@ class Unit:
 
     def shove(self):
         # disabled - too much lag
-        for e in self.game.players[self.side - 1].units:
-            if max(abs(e.x - self.x), abs(e.y - self.y)) > (self.size + e.size) / 2:
-                continue
-            dist_sq = (e.x - self.x) ** 2 + (e.y - self.y) ** 2
-            if dist_sq < ((e.size + self.size) * .5) ** 2:
-                shovage = (e.size + self.size) * .5 * dist_sq ** -.5 - 1
-                mass_ratio = self.mass / e.mass
-                ex, ey, selfx, selfy = e.x, e.y, self.x, self.y
-                e.take_knockback((ex - selfx) * shovage * mass_ratio, (ey - selfy) * shovage * mass_ratio)
-                self.take_knockback((ex - selfx) * shovage * (mass_ratio - 1),
-                                    (ey - selfy) * shovage * (mass_ratio - 1), self)
-        for e in self.game.players[self.side].units:
-            if max(abs(e.x - self.x), abs(e.y - self.y)) > (self.size + e.size) / 2 or e == self:
-                continue
-            dist_sq = (e.x - self.x) ** 2 + (e.y - self.y) ** 2
-            if dist_sq < ((e.size + self.size) * .5) ** 2:
-                shovage = (e.size + self.size) * .5 * dist_sq ** -.5 - 1
-                mass_ratio = self.mass / (e.mass + self.mass)
-                ex, ey, selfx, selfy = e.x, e.y, self.x, self.y
-                e.take_knockback((ex - selfx) * shovage * mass_ratio, (ey - selfy) * shovage * mass_ratio)
-                self.take_knockback((ex - selfx) * shovage * (mass_ratio - 1),
-                                    (ey - selfy) * shovage * (mass_ratio - 1), self)
+        for c in self.chunks:
+            for e in self.game.chunks[c].units[self.side]:
+                if e == self:
+                    continue
+                if max(abs(e.x - self.x), abs(e.y - self.y)) < (self.size + e.size) / 2:
+                    dist_sq = (e.x - self.x) ** 2 + (e.y - self.y) ** 2
+                    if dist_sq < ((e.size + self.size) * .5) ** 2:
+                        shovage = (e.size + self.size) * .5 * dist_sq ** -.5 - 1  # desired dist / current dist -1
+                        mass_ratio = self.mass / (self.mass + e.mass)
+                        ex, sx, ey, sy = e.x, self.x, e.y, self.y
+                        e.take_knockback((ex - sx) * shovage * mass_ratio, (ey - sy) * shovage * mass_ratio,
+                                         self)
+                        self.take_knockback((sx - ex) * shovage * (1 - mass_ratio),
+                                            (sy - ey) * shovage * (1 - mass_ratio),
+                                            self)
+            for e in self.game.chunks[c].units[self.side - 1]:
+                if max(abs(e.x - self.x), abs(e.y - self.y)) < (self.size + e.size) / 2:
+                    dist_sq = (e.x - self.x) ** 2 + (e.y - self.y) ** 2
+                    if dist_sq < ((e.size + self.size) * .5) ** 2:
+                        shovage = (e.size + self.size) * .5 * dist_sq ** -.5 - 1
+                        mass_ratio = self.mass / (self.mass + e.mass)
+                        ex, sx, ey, sy = e.x, self.x, e.y, self.y
+                        e.take_knockback((ex - sx) * shovage * mass_ratio, (ey - sy) * shovage * mass_ratio,
+                                         self)
+                        self.take_knockback((sx - ex) * shovage * (1 - mass_ratio),
+                                            (sy - ey) * shovage * (1 - mass_ratio),
+                                            self)
 
 
 class Swordsman(Unit):

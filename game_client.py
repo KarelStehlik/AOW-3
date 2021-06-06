@@ -216,6 +216,16 @@ class chunk:
     def clear_units(self):
         self.units = [[], []]
 
+    def shove_units(self):
+        for i in range(len(self.units[0])):
+            for j in range(i):
+                self.units[0][i].check_collision(self.units[0][j])
+            for e in self.units[1]:
+                self.units[0][i].check_collision(e)
+        for i in range(len(self.units[1])):
+            for j in range(i):
+                self.units[1][i].check_collision(self.units[1][j])
+
 
 class UI_bottom_bar(client_utility.toolbar):
     def __init__(self, game):
@@ -878,6 +888,7 @@ class Unit:
 
     def __init__(self, ID, x, y, side, column, row, game, formation):
         self.ID = ID
+        self.lifetime = 0
         self.side = side
         self.game = game
         self.formation = formation
@@ -923,17 +934,18 @@ class Unit:
                 self.y += max(self.vy, self.desired_y - self.y)
             if self.y == self.desired_y and self.x == self.desired_x:
                 self.reached_goal = True
-                return
 
         self.chunks = get_chunks(self.x, self.y, self.size)
         for e in self.chunks:
             self.game.add_unit_to_chunk(self, e)
-        self.shove()
+        #self.shove()
+        self.lifetime += 1
+        if self.lifetime % 4 == 0:
+            self.rotate(self.desired_x - self.x, self.desired_y - self.y)
 
     def take_knockback(self, x, y, source):
         self.x += x
         self.y += y
-        self.rotate(self.desired_x - self.x, self.desired_y - self.y)
 
     def rotate(self, x, y):
         if x == 0 == y:
@@ -971,7 +983,8 @@ class Unit:
         # disabled - too much lag
         for c in self.chunks:
             for e in self.game.chunks[c].units[self.side]:
-                if e == self:
+                self.check_collision(e)
+                '''if e == self:
                     continue
                 if max(abs(e.x - self.x), abs(e.y - self.y)) < (self.size + e.size) / 2:
                     dist_sq = (e.x - self.x) ** 2 + (e.y - self.y) ** 2
@@ -983,9 +996,10 @@ class Unit:
                                          self)
                         self.take_knockback((sx - ex) * shovage * (1 - mass_ratio),
                                             (sy - ey) * shovage * (1 - mass_ratio),
-                                            self)
+                                            self)'''
             for e in self.game.chunks[c].units[self.side - 1]:
-                if max(abs(e.x - self.x), abs(e.y - self.y)) < (self.size + e.size) / 2:
+                self.check_collision(e)
+                '''if max(abs(e.x - self.x), abs(e.y - self.y)) < (self.size + e.size) / 2:
                     dist_sq = (e.x - self.x) ** 2 + (e.y - self.y) ** 2
                     if dist_sq < ((e.size + self.size) * .5) ** 2:
                         shovage = (e.size + self.size) * .5 * dist_sq ** -.5 - 1
@@ -995,7 +1009,22 @@ class Unit:
                                          self)
                         self.take_knockback((sx - ex) * shovage * (1 - mass_ratio),
                                             (sy - ey) * shovage * (1 - mass_ratio),
-                                            self)
+                                          self)'''
+
+    def check_collision(self, other):
+        if other == self:
+            return
+        if max(abs(other.x - self.x), abs(other.y - self.y)) < (self.size + other.size) / 2:
+            dist_sq = (other.x - self.x) ** 2 + (other.y - self.y) ** 2
+            if dist_sq < ((other.size + self.size) * .5) ** 2:
+                shovage = (other.size + self.size) * .5 * dist_sq ** -.5 - 1  # desired dist / current dist -1
+                mass_ratio = self.mass / (self.mass + other.mass)
+                ex, sx, ey, sy = other.x, self.x, other.y, self.y
+                other.take_knockback((ex - sx) * shovage * mass_ratio, (ey - sy) * shovage * mass_ratio,
+                                     self)
+                self.take_knockback((sx - ex) * shovage * (1 - mass_ratio),
+                                    (sy - ey) * shovage * (1 - mass_ratio),
+                                    self)
 
     def graphics_update(self):
         if self.exists:

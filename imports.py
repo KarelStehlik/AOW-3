@@ -6,6 +6,7 @@ from pyglet import clock
 import os
 import math
 from numba import jit
+from numba.experimental import jitclass
 import constants
 
 pyglet.gl.glEnable(pyglet.gl.GL_BLEND)
