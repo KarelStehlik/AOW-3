@@ -15,18 +15,29 @@ class Game:
         self.ticks = 0
         self.unit_formation_columns = UNIT_FORMATION_COLUMNS
         self.unit_formation_rows = UNIT_FORMATION_ROWS
+        self.debug_secs, self.debug_ticks = time.time(), 0
 
     def send_both(self, msg):
         self.channels[0].Send(msg)
         self.channels[1].Send(msg)
 
+    def clear_chunks(self):
+        for e in self.chunks:
+            self.chunks[e].clear_units()
+
     def tick(self):
         while self.ticks < FPS * (time.time() - self.time_start):
+            self.clear_chunks()
             self.players[0].tick_units()
             self.players[1].tick_units()
             self.players[0].tick()
             self.players[1].tick()
             self.ticks += 1
+            # self.debug_ticks += 1
+            # if time.time() - self.debug_secs > 1:
+            # self.debug_secs += 1
+            # print(self.debug_ticks)
+            # self.debug_ticks = 0
 
     def network(self, data, side):
         if "action" in data:
@@ -151,14 +162,26 @@ class TownHall:
     name = "TownHall"
 
     def __init__(self, x, y, side, game):
+        self.entity_type = "townhall"
         self.x, self.y = x, y
         self.side = side
         self.size = unit_stats[self.name]["size"]
         self.hp = unit_stats[self.name]["hp"]
         self.game = game
         self.chunks = get_chunks(x, y, self.size)
+        self.exists=True
         for e in self.chunks:
             game.add_townhall_to_chunk(self, e)
+
+    def take_damage(self, amount,source):
+        if not self.exists:
+            return
+        self.hp -= amount
+        if self.hp <= 0:
+            self.die()
+
+    def die(self):
+        print("game over")
 
     def tick(self):
         self.shove()
@@ -179,6 +202,7 @@ class Tower:
     name = "Tower"
 
     def __init__(self, ID, x, y, side, game):
+        self.entity_type = "tower"
         self.game = game
         self.exists = False
         self.spawning = 0
@@ -196,8 +220,11 @@ class Tower:
     def die(self):
         self.game.players[self.side].towers.remove(self)
         self.game.players[self.side].all_buildings.remove(self)
+        self.exists=False
 
     def take_damage(self, amount, source):
+        if not self.exists:
+            return
         self.hp -= amount
         if self.hp <= 0:
             self.die()
@@ -233,6 +260,7 @@ class Wall:
     name = "Wall"
 
     def __init__(self, ID, t1, t2, side, game):
+        self.entity_type = "wall"
         self.exists = False
         self.spawning = 0
         self.hp = unit_stats[self.name]["hp"]
@@ -285,6 +313,7 @@ class Wall:
 
 class Formation:
     def __init__(self, ID, instructions, troops, side, game):
+        self.entity_type = "formation"
         self.exists = False
         self.spawning = 0
         self.ID = ID
@@ -311,13 +340,7 @@ class Formation:
                     )
                     i += 1
         self.instr_object = instruction_moving(self, self.x, self.y)
-        self.aggro = {}
-
-    def get_aggro(self, amount, source):
-        if source in self.aggro:
-            self.aggro[source] += amount
-            return
-        self.aggro[source] = amount
+        self.all_targets = []
 
     def tick(self):
         if self.spawning < FPS:
@@ -328,55 +351,102 @@ class Formation:
             [e.summon_done() for e in self.troops]
 
     def tick2(self):
+        i = 0
+        while i < len(self.all_targets):
+            if not self.all_targets[i].exists:
+                self.all_targets.pop(i)
+            else:
+                i += 1
         if self.instr_object.completed:
             if len(self.instructions) > 0:
                 instruction = self.instructions.pop(0)
                 if instruction[0] == "walk":
+                    self.desired_x, self.desired_y = instruction[1], instruction[2]
                     self.instr_object = instruction_moving(self, instruction[1], instruction[2])
             else:
                 return
         self.instr_object.tick()
-        for e in self.aggro:
-            self.aggro[e] -= 1
-            if self.aggro[e] <= 0:
-                self.aggro.pop(e)
 
     def delete(self):
         self.game.players[self.side].formations.remove(self)
+        self.instr_object.target = None
+        self.instr_object = None
+
+    def attack(self, enemy):
+        if enemy.entity_type == "formation":
+            enemy = enemy.troops
+        else:
+            enemy = [enemy, ]
+        self.all_targets += enemy
 
 
-class instruction_moving:
+class instruction:
     def __init__(self, formation, x, y):
         self.target = formation
+        self.completed = False
         self.x, self.y = x, y
-        self.dx, self.dy = x - formation.x, y - formation.y
-        if self.dx == 0 == self.dy:
+
+
+class instruction_linear(instruction):
+    def __init__(self, formation, x, y):
+        super().__init__(formation, x, y)
+        dx, dy = x - formation.x, y - formation.y
+        if dx == 0 == dy:
             self.completed = True
             return
-        inv_hypot = (self.dx ** 2 + self.dy ** 2) ** -.5
-        xr, yr = self.dx * inv_hypot * UNIT_SIZE, self.dy * inv_hypot * UNIT_SIZE
         for e in formation.troops:
-            e.try_move(formation.x + e.column * yr + e.row * xr, formation.y - e.column * xr + e.row * yr)
-        self.completed = False
-        self.completed_rotate = False
+            e.try_move(dx + e.desired_x, dy + e.desired_y)
 
     def tick(self):
         if self.completed:
             return
-        [e.tick() for e in self.target.troops]
         if False not in [e.reached_goal for e in self.target.troops]:
-            if self.completed_rotate:
+            self.completed = True
+            self.target.x, self.target.y = self.x, self.y
+
+
+class instruction_rotate(instruction):
+    def __init__(self, formation, x, y):
+        super().__init__(formation, x, y)
+        dx, dy = x - formation.x, y - formation.y
+        if dx == 0 == dy:
+            self.completed = True
+            return
+        inv_hypot = inv_h(dx, dy)
+        xr, yr = dx * inv_hypot * UNIT_SIZE, dy * inv_hypot * UNIT_SIZE
+        for e in formation.troops:
+            e.try_move(formation.x + e.column * yr + e.row * xr, formation.y + e.row * yr - e.column * xr)
+
+    def tick(self):
+        if self.completed:
+            return
+        if False not in [e.reached_goal for e in self.target.troops]:
+            self.completed = True
+
+
+class instruction_moving(instruction):
+    def __init__(self, formation, x, y):
+        super().__init__(formation, x, y)
+        self.current = instruction_rotate(formation, x, y)
+        self.stage = 0
+
+    def tick(self):
+        if self.completed:
+            return
+        self.current.tick()
+        if self.current.completed:
+            self.stage += 1
+            if self.stage == 1:
+                self.current = instruction_linear(self.target, self.x, self.y)
+            elif self.stage == 2:
                 self.completed = True
-                self.target.x, self.target.y = self.x, self.y
-                return
-            self.completed_rotate = True
-            [e.try_move(e.x + self.dx, e.y + self.dy) for e in self.target.troops]
 
 
 class Unit:
     name = "None"
 
     def __init__(self, ID, x, y, side, column, row, game, formation):
+        self.entity_type = "unit"
         self.ID = ID
         self.lifetime = 0
         self.side = side
@@ -390,9 +460,10 @@ class Unit:
         self.health = self.max_health = unit_stats[self.name]["hp"]
         self.damage = unit_stats[self.name]["dmg"]
         self.attack_cooldown = unit_stats[self.name]["cd"]
+        self.current_cooldown = 0
         self.reach = unit_stats[self.name]["reach"]
         self.exists = False
-        self.rotation = 0
+        self.target = None
         self.desired_x, self.desired_y = x, y
         self.vx, self.vy = self.speed, 0
         self.reached_goal = True
@@ -401,44 +472,89 @@ class Unit:
         for e in self.chunks:
             self.game.add_unit_to_chunk(self, e)
 
+    def acquire_target(self):
+        if self.target is not None and self.target.exists:
+            return
+        self.target = self.formation.all_targets[0]
+        dist = distance(self.x, self.y, self.target.x,
+                        self.target.y) - self.size - self.target.size
+        for e in self.formation.all_targets:
+            new_dist = distance(self.x, self.y, e.x, e.y) - self.size - e.size
+            if new_dist < dist:
+                dist = new_dist
+                self.target = e
+
+    def move_in_range(self, other):
+        dist_sq = (other.x - self.x) ** 2 + (other.y - self.y) ** 2
+        if dist_sq < ((other.size + self.size) * .5 + self.reach * 0.5) ** 2:
+            self.rotate(self.x - other.x, self.y - other.y)
+            self.vx /= 2
+            self.vy /= 2
+        elif dist_sq > ((other.size + self.size) * .5 + self.reach) ** 2:
+            self.rotate(other.x - self.x, other.y - self.y)
+        self.x += self.vx
+        self.y += self.vy
+
+    def attempt_attack(self, target):
+        if self.current_cooldown <= 0:
+            self.current_cooldown += self.attack_cooldown
+            self.attack(target)
+
+    def attack(self, target):
+        pass
+
+    def take_damage(self, amount, source):
+        if not self.exists:
+            return
+        self.health -= amount
+        if self.health <= 0:
+            self.die()
+
+    def die(self):
+        self.formation.troops.remove(self)
+        self.game.players[self.side].units.remove(self)
+        self.game = None
+        if not self.formation.troops:
+            self.formation.delete()
+        self.formation = None
+
     def tick(self):
         pass
 
     def tick2(self):
-        x, y = self.x, self.y
-        if self.reached_goal:
-            pass
+        if not self.exists:
+            return
+        if not self.formation.all_targets:
+            x, y = self.x, self.y
+            if self.reached_goal:
+                pass
+            else:
+                self.rotate(self.desired_x - self.x, self.desired_y - self.y)
+                if self.x <= self.desired_x:
+                    self.x += min(self.vx, self.desired_x - self.x)
+                else:
+                    self.x += max(self.vx, self.desired_x - self.x)
+                if self.y <= self.desired_y:
+                    self.y += min(self.vy, self.desired_y - self.y)
+                else:
+                    self.y += max(self.vy, self.desired_y - self.y)
+                if self.y == self.desired_y and self.x == self.desired_x:
+                    self.reached_goal = True
         else:
-            if self.x <= self.desired_x:
-                self.x += min(self.vx, self.desired_x - self.x)
-            else:
-                self.x += max(self.vx, self.desired_x - self.x)
-            if self.y <= self.desired_y:
-                self.y += min(self.vy, self.desired_y - self.y)
-            else:
-                self.y += max(self.vy, self.desired_y - self.y)
-            if self.y == self.desired_y and self.x == self.desired_x:
-                self.reached_goal = True
+            self.acquire_target()
+            if self.move_in_range(self.target):
+                pass  # self.attempt_attack(self.target)
 
         self.chunks = get_chunks(self.x, self.y, self.size)
         for e in self.chunks:
             self.game.add_unit_to_chunk(self, e)
         self.shove()
         self.lifetime += 1
-        if self.lifetime % 4 == 0:
-            self.rotate(self.desired_x - self.x, self.desired_y - self.y)
 
     def rotate(self, x, y):
         if x == 0 == y:
             return
-        inv_hypot = (x ** 2 + y ** 2) ** -.5
-        if x == 0 == y:
-            return
-        if x >= 0:
-            r = math.asin(x * inv_hypot)
-        else:
-            r = math.pi - math.asin(x * inv_hypot)
-        self.rotation = r
+        inv_hypot = inv_h(x, y)
         self.vx, self.vy = x * inv_hypot * self.speed, y * inv_hypot * self.speed
 
     def summon_done(self):
@@ -448,6 +564,11 @@ class Unit:
     def take_knockback(self, x, y, source):
         self.x += x
         self.y += y
+        if source.entity_type == "unit" and source.side == 1 - self.side and source not in self.formation.all_targets:
+            self.formation.attack(source.formation)
+        elif source.entity_type == "tower" or source.entity_type == "townhall" \
+                and source.side == 1 - self.side and source not in self.formation.all_targets:
+            self.formation.attack(source)
 
     def try_move(self, x, y):
         if self.x == x and self.y == y:
@@ -457,34 +578,28 @@ class Unit:
         self.reached_goal = False
 
     def shove(self):
-        # disabled - too much lag
+        if not self.exists:
+            return
         for c in self.chunks:
             for e in self.game.chunks[c].units[self.side]:
-                if e == self:
-                    continue
-                if max(abs(e.x - self.x), abs(e.y - self.y)) < (self.size + e.size) / 2:
-                    dist_sq = (e.x - self.x) ** 2 + (e.y - self.y) ** 2
-                    if dist_sq < ((e.size + self.size) * .5) ** 2:
-                        shovage = (e.size + self.size) * .5 * dist_sq ** -.5 - 1  # desired dist / current dist -1
-                        mass_ratio = self.mass / (self.mass + e.mass)
-                        ex, sx, ey, sy = e.x, self.x, e.y, self.y
-                        e.take_knockback((ex - sx) * shovage * mass_ratio, (ey - sy) * shovage * mass_ratio,
-                                         self)
-                        self.take_knockback((sx - ex) * shovage * (1 - mass_ratio),
-                                            (sy - ey) * shovage * (1 - mass_ratio),
-                                            self)
+                self.check_collision(e)
             for e in self.game.chunks[c].units[self.side - 1]:
-                if max(abs(e.x - self.x), abs(e.y - self.y)) < (self.size + e.size) / 2:
-                    dist_sq = (e.x - self.x) ** 2 + (e.y - self.y) ** 2
-                    if dist_sq < ((e.size + self.size) * .5) ** 2:
-                        shovage = (e.size + self.size) * .5 * dist_sq ** -.5 - 1
-                        mass_ratio = self.mass / (self.mass + e.mass)
-                        ex, sx, ey, sy = e.x, self.x, e.y, self.y
-                        e.take_knockback((ex - sx) * shovage * mass_ratio, (ey - sy) * shovage * mass_ratio,
-                                         self)
-                        self.take_knockback((sx - ex) * shovage * (1 - mass_ratio),
-                                            (sy - ey) * shovage * (1 - mass_ratio),
-                                            self)
+                self.check_collision(e)
+
+    def check_collision(self, other):
+        if other.ID == self.ID:
+            return
+        if max(abs(other.x - self.x), abs(other.y - self.y)) < (self.size + other.size) / 2:
+            dist_sq = (other.x - self.x) ** 2 + (other.y - self.y) ** 2
+            if dist_sq < ((other.size + self.size) * .5) ** 2:
+                shovage = (other.size + self.size) * .5 * dist_sq ** -.5 - 1  # desired dist / current dist -1
+                mass_ratio = self.mass / (self.mass + other.mass)
+                ex, sx, ey, sy = other.x, self.x, other.y, self.y
+                other.take_knockback((ex - sx) * shovage * mass_ratio, (ey - sy) * shovage * mass_ratio,
+                                     self)
+                self.take_knockback((sx - ex) * shovage * (1 - mass_ratio),
+                                    (sy - ey) * shovage * (1 - mass_ratio),
+                                    other)
 
 
 class Swordsman(Unit):
@@ -493,7 +608,19 @@ class Swordsman(Unit):
     def __init__(self, ID, x, y, side, column, row, game, formation):
         super().__init__(ID, x, y, side, column, row, game, formation)
 
+    def attack(self, target):
+        target.take_damage(self.damage, self)
 
-possible_units = [Swordsman]
+class Archer(Unit):
+    name = "Archer"
+
+    def __init__(self, ID, x, y, side, column, row, game, formation):
+        super().__init__(ID, x, y, side, column, row, game, formation)
+
+    def attack(self, target):
+        target.take_damage(self.damage, self)
+
+
+possible_units = [Swordsman,Archer]
 
 ##################  ---/units---  #################

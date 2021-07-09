@@ -7,9 +7,10 @@ import images
 import client_utility
 from imports import *
 
+pyglet.options['debug_gl'] = False
 pyglet.gl.glEnable(pyglet.gl.GL_BLEND)
 
-#connection.DoConnect(('192.168.1.170', 5071))
+# connection.DoConnect(('192.168.1.170', 5071))
 connection.DoConnect(('127.0.0.1', 5071))
 
 
@@ -70,8 +71,9 @@ class mode_intro(mode):
         super().__init__(win, batch)
         nwl.set_mode(self)
         self.buttons = []
-        self.buttons.append(client_utility.button(self.join, constants.SCREEN_WIDTH * 2 / 5, constants.SCREEN_HEIGHT / 3    ,
-                                                  constants.SCREEN_WIDTH * 1 / 5, constants.SCREEN_HEIGHT / 7, batch, text="Play"))
+        self.buttons.append(
+            client_utility.button(self.join, constants.SCREEN_WIDTH * 2 / 5, constants.SCREEN_HEIGHT / 3,
+                                  constants.SCREEN_WIDTH * 1 / 5, constants.SCREEN_HEIGHT / 7, batch, text="Play"))
         self.bg = pyglet.sprite.Sprite(images.Intro, x=0, y=0, group=groups.g[0], batch=batch)
         self.bg.scale_x, self.bg.scale_y = constants.SCREEN_WIDTH / self.bg.width, constants.SCREEN_HEIGHT / self.bg.height
         self.joined = False
@@ -160,6 +162,7 @@ class windoo(pyglet.window.Window):
         self.current_mode = mode_intro(self, self.batch, self.nwl)
         self.keys = key.KeyStateHandler()
         self.push_handlers(self.keys)
+        self.last_tick = time.time()
 
     def start_game(self, game):
         self.current_mode = mode_main(self, self.batch, self.nwl, game)
@@ -186,6 +189,7 @@ class windoo(pyglet.window.Window):
         self.clear()
         self.current_mode.tick()
         self.flip()
+        self.last_tick=time.time()
 
     def on_key_press(self, symbol, modifiers):
         self.current_mode.key_press(symbol, modifiers)
@@ -204,7 +208,7 @@ class windoo(pyglet.window.Window):
     def on_mouse_scroll(self, x, y, scroll_x, scroll_y):
         self.current_mode.mouse_scroll(x, y, scroll_x, scroll_y)
 
-    #def on_deactivate(self):
+    # def on_deactivate(self):
     #    self.minimize()
 
     def check(self):
@@ -215,7 +219,7 @@ class windoo(pyglet.window.Window):
             self.frames = 0
 
 
-#place = windoo(caption='test', fullscreen=True)
+# place = windoo(caption='test', fullscreen=True)
 place = windoo(caption='test', style=pyglet.window.Window.WINDOW_STYLE_BORDERLESS, width=constants.SCREEN_WIDTH,
                height=constants.SCREEN_HEIGHT)
 place.set_location(0, 0)

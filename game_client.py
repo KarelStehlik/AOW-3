@@ -65,6 +65,11 @@ class Game:
         for e in self.chunks:
             self.chunks[e].clear_units()
 
+    def get_chunk(self, c):
+        if c in self.chunks:
+            return c
+        return None
+
     def select(self, sel):
         self.selected.end()
         self.selected = sel(self)
@@ -591,22 +596,66 @@ class TownHall:
     name = "TownHall"
 
     def __init__(self, x, y, side, game):
+        self.entity_type = "townhall"
         self.x, self.y = x, y
         self.side = side
         self.size = unit_stats[self.name]["size"]
-        self.hp = unit_stats[self.name]["hp"]
-        self.sprite = pyglet.sprite.Sprite(images.Intro, x=(x - self.size * .5) * SPRITE_SIZE_MULT,
-                                           y=(y - self.size * .5) * SPRITE_SIZE_MULT, batch=game.batch,
+        self.hp = self.maxhp = unit_stats[self.name]["hp"]
+        self.sprite = pyglet.sprite.Sprite(images.Tower, x=x * SPRITE_SIZE_MULT,
+                                           y=y * SPRITE_SIZE_MULT, batch=game.batch,
                                            group=groups.g[2])
         self.sprite.scale = self.size * SPRITE_SIZE_MULT / self.sprite.width
         self.game = game
         self.chunks = get_chunks(x, y, self.size)
+        self.exists = True
         for e in self.chunks:
             game.add_townhall_to_chunk(self, e)
+        hpbar_y_centre = self.sprite.y
+        hpbar_y_range = 2 * SPRITE_SIZE_MULT
+        hpbar_x_centre = self.sprite.x
+        hpbar_x_range = self.size * SPRITE_SIZE_MULT / 2
+        self.hpbar = game.batch.add(
+            8, pyglet.gl.GL_QUADS, groups.g[6],
+            ("v2f", (hpbar_x_centre - hpbar_x_range, hpbar_y_centre - hpbar_y_range,
+                     hpbar_x_centre - hpbar_x_range, hpbar_y_centre + hpbar_y_range,
+                     hpbar_x_centre + hpbar_x_range, hpbar_y_centre - hpbar_y_range,
+                     hpbar_x_centre + hpbar_x_range, hpbar_y_centre + hpbar_y_range,
+                     hpbar_x_centre + hpbar_x_range, hpbar_y_centre - hpbar_y_range,
+                     hpbar_x_centre + hpbar_x_range, hpbar_y_centre + hpbar_y_range,
+                     hpbar_x_centre + hpbar_x_range, hpbar_y_centre - hpbar_y_range,
+                     hpbar_x_centre + hpbar_x_range, hpbar_y_centre + hpbar_y_range)),
+            ("c3B", (0, 255, 0, 0, 255, 0, 0, 255, 0, 0, 255, 0, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50))
+        )
+
+    def update_hpbar(self):
+        if not self.exists:
+            return
+        hpbar_y_centre = self.sprite.y
+        hpbar_y_range = 2 * SPRITE_SIZE_MULT
+        hpbar_x_centre = self.sprite.x
+        hpbar_x_range = self.size * SPRITE_SIZE_MULT / 2
+        health_size = hpbar_x_range * (2 * self.hp / self.maxhp - 1)
+        self.hpbar.vertices = (hpbar_x_centre - hpbar_x_range, hpbar_y_centre - hpbar_y_range,
+                               hpbar_x_centre - hpbar_x_range, hpbar_y_centre + hpbar_y_range,
+                               hpbar_x_centre + health_size, hpbar_y_centre + hpbar_y_range,
+                               hpbar_x_centre + health_size, hpbar_y_centre - hpbar_y_range,
+                               hpbar_x_centre + health_size, hpbar_y_centre - hpbar_y_range,
+                               hpbar_x_centre + health_size, hpbar_y_centre + hpbar_y_range,
+                               hpbar_x_centre + hpbar_x_range, hpbar_y_centre + hpbar_y_range,
+                               hpbar_x_centre + hpbar_x_range, hpbar_y_centre - hpbar_y_range)
+
+    def take_damage(self, amount, source):
+        self.hp -= amount
+        if self.hp <= 0:
+            self.die()
+
+    def die(self):
+        self.sprite.delete()
+        print("game over")
 
     def update_cam(self, x, y):
-        self.sprite.update(x=(self.x - self.size * .5) * SPRITE_SIZE_MULT - x,
-                           y=(self.y - self.size * .5) * SPRITE_SIZE_MULT - y)
+        self.sprite.update(x=self.x * SPRITE_SIZE_MULT - x,
+                           y=self.y * SPRITE_SIZE_MULT - y)
 
     def tick(self):
         self.shove()
@@ -623,13 +672,14 @@ class TownHall:
                         e.take_knockback((e.x - self.x) * shovage, (e.y - self.y) * shovage, self)
 
     def graphics_update(self):
-        pass
+        self.update_hpbar()
 
 
 class Tower:
     name = "Tower"
 
     def __init__(self, ID, x, y, tick, side, game):
+        self.entity_type = "tower"
         self.x, self.y = x, y
         self.exists = False
         self.spawning = game.ticks - tick
@@ -654,14 +704,51 @@ class Tower:
         game.players[side].all_buildings.append(self)
         self.game = game
         self.update_cam(self.game.camx, self.game.camy)
+        hpbar_y_centre = self.sprite.y
+        hpbar_y_range = 2 * SPRITE_SIZE_MULT
+        hpbar_x_centre = self.sprite.x
+        hpbar_x_range = self.size * SPRITE_SIZE_MULT / 2
+        self.hpbar = game.batch.add(
+            8, pyglet.gl.GL_QUADS, groups.g[6],
+            ("v2f", (hpbar_x_centre - hpbar_x_range, hpbar_y_centre - hpbar_y_range,
+                     hpbar_x_centre - hpbar_x_range, hpbar_y_centre + hpbar_y_range,
+                     hpbar_x_centre + hpbar_x_range, hpbar_y_centre - hpbar_y_range,
+                     hpbar_x_centre + hpbar_x_range, hpbar_y_centre + hpbar_y_range,
+                     hpbar_x_centre + hpbar_x_range, hpbar_y_centre - hpbar_y_range,
+                     hpbar_x_centre + hpbar_x_range, hpbar_y_centre + hpbar_y_range,
+                     hpbar_x_centre + hpbar_x_range, hpbar_y_centre - hpbar_y_range,
+                     hpbar_x_centre + hpbar_x_range, hpbar_y_centre + hpbar_y_range)),
+            ("c3B", (0, 255, 0, 0, 255, 0, 0, 255, 0, 0, 255, 0, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50))
+        )
+
+    def update_hpbar(self):
+        if not self.exists:
+            return
+        hpbar_y_centre = self.sprite.y
+        hpbar_y_range = 2 * SPRITE_SIZE_MULT
+        hpbar_x_centre = self.sprite.x
+        hpbar_x_range = self.size * SPRITE_SIZE_MULT / 2
+        health_size = hpbar_x_range * (2 * self.hp / self.maxhp - 1)
+        self.hpbar.vertices = (hpbar_x_centre - hpbar_x_range, hpbar_y_centre - hpbar_y_range,
+                               hpbar_x_centre - hpbar_x_range, hpbar_y_centre + hpbar_y_range,
+                               hpbar_x_centre + health_size, hpbar_y_centre + hpbar_y_range,
+                               hpbar_x_centre + health_size, hpbar_y_centre - hpbar_y_range,
+                               hpbar_x_centre + health_size, hpbar_y_centre - hpbar_y_range,
+                               hpbar_x_centre + health_size, hpbar_y_centre + hpbar_y_range,
+                               hpbar_x_centre + hpbar_x_range, hpbar_y_centre + hpbar_y_range,
+                               hpbar_x_centre + hpbar_x_range, hpbar_y_centre - hpbar_y_range)
 
     def die(self):
         self.game.players[self.side].towers.remove(self)
         self.game.players[self.side].all_buildings.remove(self)
         self.sprite.delete()
         self.sprite2.delete()
+        self.hpbar.delete()
+        self.exists = False
 
     def take_damage(self, amount, source):
+        if not self.exists:
+            return
         self.hp -= amount
         if self.hp <= 0:
             self.die()
@@ -695,13 +782,14 @@ class Tower:
                         e.take_knockback((e.x - self.x) * shovage, (e.y - self.y) * shovage, self)
 
     def graphics_update(self):
-        pass
+        self.update_hpbar()
 
 
 class Wall:
     name = "Wall"
 
     def __init__(self, ID, t1, t2, tick, side, game):
+        self.entity_type = "wall"
         self.exists = False
         self.spawning = game.ticks - tick
         self.ID = ID
@@ -745,6 +833,8 @@ class Wall:
         self.game.players[self.side].all_buildings.remove(self)
 
     def take_damage(self, amount, source):
+        if not self.exists:
+            return
         self.hp -= amount
         if self.hp <= 0:
             self.die()
@@ -782,6 +872,7 @@ class Wall:
 
 class Formation:
     def __init__(self, ID, instructions, troops, tick, side, game):
+        self.entity_type = "formation"
         self.exists = False
         self.spawning = game.ticks - tick
         self.ID = ID
@@ -808,16 +899,7 @@ class Formation:
                     )
                     i += 1
         self.instr_object = instruction_moving(self, self.x, self.y)
-        self.desired_x, self.desired_y = self.x, self.y
-        self.aggro = {}
-
-    def get_aggro(self, amount, source):
-        if source in self.aggro:
-            self.aggro[source] += amount
-            return
-        self.aggro[source] = amount
-        if self.aggro[source] == max(self.aggro.values()):
-            self.instr_object = instruction_attacking(self, source)
+        self.all_targets = []
 
     def tick(self):
         if self.spawning < FPS:
@@ -828,6 +910,12 @@ class Formation:
             [e.summon_done() for e in self.troops]
 
     def tick2(self):
+        i = 0
+        while i < len(self.all_targets):
+            if not self.all_targets[i].exists:
+                self.all_targets.pop(i)
+            else:
+                i += 1
         if self.instr_object.completed:
             if len(self.instructions) > 0:
                 instruction = self.instructions.pop(0)
@@ -837,49 +925,83 @@ class Formation:
             else:
                 return
         self.instr_object.tick()
-        for e in self.aggro:
-            self.aggro[e] -= 1
-            if self.aggro[e] <= 0:
-                self.aggro.pop(e)
 
     def delete(self):
         self.game.players[self.side].formations.remove(self)
+        self.instr_object.target = None
+        self.instr_object = None
 
     def update_cam(self, x, y):
         [e.update_cam(x, y) for e in self.troops]
 
+    def attack(self, enemy):
+        if enemy.entity_type == "formation":
+            enemy = enemy.troops
+        else:
+            enemy = [enemy, ]
+        self.all_targets += enemy
 
-class instruction_moving:
+
+class instruction:
     def __init__(self, formation, x, y):
         self.target = formation
+        self.completed = False
         self.x, self.y = x, y
-        self.dx, self.dy = x - formation.x, y - formation.y
-        if self.dx == 0 == self.dy:
+
+
+class instruction_linear(instruction):
+    def __init__(self, formation, x, y):
+        super().__init__(formation, x, y)
+        dx, dy = x - formation.x, y - formation.y
+        if dx == 0 == dy:
             self.completed = True
             return
-        inv_hypot = (self.dx ** 2 + self.dy ** 2) ** -.5
-        xr, yr = self.dx * inv_hypot * UNIT_SIZE, self.dy * inv_hypot * UNIT_SIZE
         for e in formation.troops:
-            e.try_move(formation.x + e.column * yr + e.row * xr, formation.y - e.column * xr + e.row * yr)
-        self.completed = False
-        self.completed_rotate = False
+            e.try_move(dx + e.desired_x, dy + e.desired_y)
 
     def tick(self):
         if self.completed:
             return
         if False not in [e.reached_goal for e in self.target.troops]:
-            if self.completed_rotate:
+            self.completed = True
+            self.target.x, self.target.y = self.x, self.y
+
+
+class instruction_rotate(instruction):
+    def __init__(self, formation, x, y):
+        super().__init__(formation, x, y)
+        dx, dy = x - formation.x, y - formation.y
+        if dx == 0 == dy:
+            self.completed = True
+            return
+        inv_hypot = inv_h(dx, dy)
+        xr, yr = dx * inv_hypot * UNIT_SIZE, dy * inv_hypot * UNIT_SIZE
+        for e in formation.troops:
+            e.try_move(formation.x + e.column * yr + e.row * xr, formation.y + e.row * yr - e.column * xr)
+
+    def tick(self):
+        if self.completed:
+            return
+        if False not in [e.reached_goal for e in self.target.troops]:
+            self.completed = True
+
+
+class instruction_moving(instruction):
+    def __init__(self, formation, x, y):
+        super().__init__(formation, x, y)
+        self.current = instruction_rotate(formation, x, y)
+        self.stage = 0
+
+    def tick(self):
+        if self.completed:
+            return
+        self.current.tick()
+        if self.current.completed:
+            self.stage += 1
+            if self.stage == 1:
+                self.current = instruction_linear(self.target, self.x, self.y)
+            elif self.stage == 2:
                 self.completed = True
-                self.target.x, self.target.y = self.x, self.y
-                return
-            self.completed_rotate = True
-            [e.try_move(e.desired_x + self.dx, e.desired_y + self.dy) for e in self.target.troops]
-
-
-class instruction_attacking:
-    def __init__(self, formation, enemy):
-        self.target = formation
-        self.x, self.y = enemy.x, enemy.y
 
 
 class Unit:
@@ -887,6 +1009,8 @@ class Unit:
     name = "None"
 
     def __init__(self, ID, x, y, side, column, row, game, formation):
+        self.entity_type = "unit"
+        self.last_camx, self.last_camy = game.camx, game.camy
         self.ID = ID
         self.lifetime = 0
         self.side = side
@@ -895,18 +1019,37 @@ class Unit:
         self.x, self.y = x, y
         self.column, self.row = column, row
         self.game.players[self.side].units.append(self)
+        self.size = unit_stats[self.name]["size"]
         self.sprite = client_utility.sprite_with_scale(self.image, unit_stats[self.name][
             "vwidth"] * SPRITE_SIZE_MULT / self.image.width,
                                                        1, 1, batch=game.batch, x=x * SPRITE_SIZE_MULT - game.camx,
                                                        y=y * SPRITE_SIZE_MULT - game.camy, group=groups.g[5])
+        hpbar_y_centre = self.sprite.y
+        hpbar_y_range = 2 * SPRITE_SIZE_MULT
+        hpbar_x_centre = self.sprite.x
+        hpbar_x_range = self.size * SPRITE_SIZE_MULT / 2
+        self.hpbar = game.batch.add(
+            8, pyglet.gl.GL_QUADS, groups.g[6],
+            ("v2f", (hpbar_x_centre - hpbar_x_range, hpbar_y_centre - hpbar_y_range,
+                     hpbar_x_centre - hpbar_x_range, hpbar_y_centre + hpbar_y_range,
+                     hpbar_x_centre + hpbar_x_range, hpbar_y_centre - hpbar_y_range,
+                     hpbar_x_centre + hpbar_x_range, hpbar_y_centre + hpbar_y_range,
+                     hpbar_x_centre + hpbar_x_range, hpbar_y_centre - hpbar_y_range,
+                     hpbar_x_centre + hpbar_x_range, hpbar_y_centre + hpbar_y_range,
+                     hpbar_x_centre + hpbar_x_range, hpbar_y_centre - hpbar_y_range,
+                     hpbar_x_centre + hpbar_x_range, hpbar_y_centre + hpbar_y_range)),
+            ("c3B", (0, 255, 0, 0, 255, 0, 0, 255, 0, 0, 255, 0, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50))
+        )
+
         self.speed = unit_stats[self.name]["speed"] / FPS
-        self.size = unit_stats[self.name]["size"]
         self.health = self.max_health = unit_stats[self.name]["hp"]
         self.damage = unit_stats[self.name]["dmg"]
         self.attack_cooldown = unit_stats[self.name]["cd"]
+        self.current_cooldown = 0
         self.reach = unit_stats[self.name]["reach"]
         self.sprite.opacity = 70
         self.exists = False
+        self.target = None
         self.rotation = 0
         self.desired_x, self.desired_y = x, y
         self.vx, self.vy = self.speed, 0
@@ -916,51 +1059,126 @@ class Unit:
         for e in self.chunks:
             self.game.add_unit_to_chunk(self, e)
 
+    def take_damage(self, amount, source):
+        if not self.exists:
+            return
+        self.health -= amount
+        if self.health <= 0:
+            self.die()
+
+    def update_hpbar(self):
+        if not self.exists:
+            return
+        hpbar_y_centre = self.sprite.y
+        hpbar_y_range = 2 * SPRITE_SIZE_MULT
+        hpbar_x_centre = self.sprite.x
+        hpbar_x_range = self.size * SPRITE_SIZE_MULT / 2
+        health_size = hpbar_x_range * (2 * self.health / self.max_health - 1)
+        self.hpbar.vertices = (hpbar_x_centre - hpbar_x_range, hpbar_y_centre - hpbar_y_range,
+                               hpbar_x_centre - hpbar_x_range, hpbar_y_centre + hpbar_y_range,
+                               hpbar_x_centre + health_size, hpbar_y_centre + hpbar_y_range,
+                               hpbar_x_centre + health_size, hpbar_y_centre - hpbar_y_range,
+                               hpbar_x_centre + health_size, hpbar_y_centre - hpbar_y_range,
+                               hpbar_x_centre + health_size, hpbar_y_centre + hpbar_y_range,
+                               hpbar_x_centre + hpbar_x_range, hpbar_y_centre + hpbar_y_range,
+                               hpbar_x_centre + hpbar_x_range, hpbar_y_centre - hpbar_y_range)
+        # print(list(self.hpbar.vertices))
+
+    def acquire_target(self):
+        if self.target is not None and self.target.exists:
+            return
+        self.target = self.formation.all_targets[0]
+        dist = distance(self.x, self.y, self.target.x,
+                        self.target.y) - self.size - self.target.size
+        for e in self.formation.all_targets:
+            new_dist = distance(self.x, self.y, e.x, e.y) - self.size - e.size
+            if new_dist < dist:
+                dist = new_dist
+                self.target = e
+
+    def move_in_range(self, other):
+        dist_sq = (other.x - self.x) ** 2 + (other.y - self.y) ** 2
+        if dist_sq < ((other.size + self.size) * .5 + self.reach * 0.5) ** 2:
+            self.rotate(self.x - other.x, self.y - other.y)
+            self.vx/=2
+            self.vy/=2
+        elif dist_sq > ((other.size + self.size) * .5 + self.reach) ** 2:
+            self.rotate(other.x - self.x, other.y - self.y)
+        self.x += self.vx
+        self.y += self.vy
+        return dist_sq < ((other.size + self.size) * .5 + self.reach) ** 2
+
+    def attempt_attack(self, target):
+        if self.current_cooldown <= 0:
+            self.current_cooldown += self.attack_cooldown
+            self.attack(target)
+
+    def attack(self, target):
+        pass
+
     def tick(self):
         pass
 
     def tick2(self):
-        x, y = self.x, self.y
-        if self.reached_goal:
-            pass
+        if not self.exists:
+            return
+        if not self.formation.all_targets:
+            x, y = self.x, self.y
+            if self.reached_goal:
+                pass
+            else:
+                self.rotate(self.desired_x - self.x, self.desired_y - self.y)
+                if self.x <= self.desired_x:
+                    self.x += min(self.vx, self.desired_x - self.x)
+                else:
+                    self.x += max(self.vx, self.desired_x - self.x)
+                if self.y <= self.desired_y:
+                    self.y += min(self.vy, self.desired_y - self.y)
+                else:
+                    self.y += max(self.vy, self.desired_y - self.y)
+                if self.y == self.desired_y and self.x == self.desired_x:
+                    self.reached_goal = True
         else:
-            if self.x <= self.desired_x:
-                self.x += min(self.vx, self.desired_x - self.x)
-            else:
-                self.x += max(self.vx, self.desired_x - self.x)
-            if self.y <= self.desired_y:
-                self.y += min(self.vy, self.desired_y - self.y)
-            else:
-                self.y += max(self.vy, self.desired_y - self.y)
-            if self.y == self.desired_y and self.x == self.desired_x:
-                self.reached_goal = True
+            self.acquire_target()
+            if self.move_in_range(self.target):
+                self.attempt_attack(self.target)
 
         self.chunks = get_chunks(self.x, self.y, self.size)
         for e in self.chunks:
             self.game.add_unit_to_chunk(self, e)
-        #self.shove()
+        self.shove()
         self.lifetime += 1
-        if self.lifetime % 4 == 0:
-            self.rotate(self.desired_x - self.x, self.desired_y - self.y)
+        if self.current_cooldown > 0:
+            self.current_cooldown -= 1 / FPS
+
+    def die(self):
+        self.formation.troops.remove(self)
+        self.game.players[self.side].units.remove(self)
+        self.game = None
+        self.sprite.delete()
+        self.hpbar.delete()
+        if not self.formation.troops:
+            self.formation.delete()
+        self.formation = None
+        self.exists = False
 
     def take_knockback(self, x, y, source):
+        if not self.exists:
+            return
         self.x += x
         self.y += y
+        if source.side != self.side:
+            if source.entity_type == "unit" and source not in self.formation.all_targets:
+                self.formation.attack(source.formation)
+            elif source.entity_type == "tower" or source.entity_type == "townhall" \
+                    and source not in self.formation.all_targets:
+                self.formation.attack(source)
 
     def rotate(self, x, y):
-        if x == 0 == y:
+        if x == y == 0:
             return
-        inv_hypot = (x ** 2 + y ** 2) ** -.5
-        if x >= 0:
-            try:
-                r = math.asin(y * inv_hypot)
-            except:
-                r = math.asin(max(min(y * inv_hypot, 1), -1))
-        else:
-            try:
-                r = math.pi - math.asin(y * inv_hypot)
-            except:
-                r = math.pi - math.asin(max(min(y * inv_hypot, 1), -1))
+        inv_hypot = inv_h(x, y)
+        r = get_rotation(x, y)
         self.rotation = r
         self.vx, self.vy = x * inv_hypot * self.speed, y * inv_hypot * self.speed
 
@@ -980,39 +1198,14 @@ class Unit:
         self.reached_goal = False
 
     def shove(self):
-        # disabled - too much lag
         for c in self.chunks:
             for e in self.game.chunks[c].units[self.side]:
                 self.check_collision(e)
-                '''if e == self:
-                    continue
-                if max(abs(e.x - self.x), abs(e.y - self.y)) < (self.size + e.size) / 2:
-                    dist_sq = (e.x - self.x) ** 2 + (e.y - self.y) ** 2
-                    if dist_sq < ((e.size + self.size) * .5) ** 2:
-                        shovage = (e.size + self.size) * .5 * dist_sq ** -.5 - 1  # desired dist / current dist -1
-                        mass_ratio = self.mass / (self.mass + e.mass)
-                        ex, sx, ey, sy = e.x, self.x, e.y, self.y
-                        e.take_knockback((ex - sx) * shovage * mass_ratio, (ey - sy) * shovage * mass_ratio,
-                                         self)
-                        self.take_knockback((sx - ex) * shovage * (1 - mass_ratio),
-                                            (sy - ey) * shovage * (1 - mass_ratio),
-                                            self)'''
             for e in self.game.chunks[c].units[self.side - 1]:
                 self.check_collision(e)
-                '''if max(abs(e.x - self.x), abs(e.y - self.y)) < (self.size + e.size) / 2:
-                    dist_sq = (e.x - self.x) ** 2 + (e.y - self.y) ** 2
-                    if dist_sq < ((e.size + self.size) * .5) ** 2:
-                        shovage = (e.size + self.size) * .5 * dist_sq ** -.5 - 1
-                        mass_ratio = self.mass / (self.mass + e.mass)
-                        ex, sx, ey, sy = e.x, self.x, e.y, self.y
-                        e.take_knockback((ex - sx) * shovage * mass_ratio, (ey - sy) * shovage * mass_ratio,
-                                         self)
-                        self.take_knockback((sx - ex) * shovage * (1 - mass_ratio),
-                                            (sy - ey) * shovage * (1 - mass_ratio),
-                                          self)'''
 
     def check_collision(self, other):
-        if other == self:
+        if other.ID == self.ID:
             return
         if max(abs(other.x - self.x), abs(other.y - self.y)) < (self.size + other.size) / 2:
             dist_sq = (other.x - self.x) ** 2 + (other.y - self.y) ** 2
@@ -1024,13 +1217,14 @@ class Unit:
                                      self)
                 self.take_knockback((sx - ex) * shovage * (1 - mass_ratio),
                                     (sy - ey) * shovage * (1 - mass_ratio),
-                                    self)
+                                    other)
 
     def graphics_update(self):
         if self.exists:
             self.sprite.update(x=self.x * SPRITE_SIZE_MULT - self.game.camx,
                                y=self.y * SPRITE_SIZE_MULT - self.game.camy,
                                rotation=-self.rotation * 180 / math.pi + 90)
+            self.update_hpbar()
 
     @classmethod
     def get_image(cls):
@@ -1044,15 +1238,34 @@ class Swordsman(Unit):
     def __init__(self, ID, x, y, side, column, row, game, formation):
         super().__init__(ID, x, y, side, column, row, game, formation)
 
+    def attack(self, target):
+        target.take_damage(self.damage, self)
+
 
 class selection_swordsman(selection_unit):
-    image = images.gunmanR
+    img = images.gunmanR
     num = 0
 
 
-possible_units = [Swordsman]
+class Archer(Unit):
+    image = images.Swordsman
+    name = "Archer"
+
+    def __init__(self, ID, x, y, side, column, row, game, formation):
+        super().__init__(ID, x, y, side, column, row, game, formation)
+
+    def attack(self, target):
+        target.take_damage(self.damage, self)
+
+
+class selection_archer(selection_unit):
+    img = images.gunmanG
+    num = 1
+
+
+possible_units = [Swordsman, Archer]
 selects_p1 = [selection_tower, selection_wall]
-selects_p2 = [selection_swordsman]
+selects_p2 = [selection_swordsman, selection_archer]
 selects_all = [selects_p1, selects_p2]
 
 # #################  ---/units---  #################

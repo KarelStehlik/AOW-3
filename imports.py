@@ -5,9 +5,10 @@ from pyglet.window import key
 from pyglet import clock
 import os
 import math
-from numba import jit
+from numba import njit
 from numba.experimental import jitclass
 import constants
+from functools import cache
 
 pyglet.gl.glEnable(pyglet.gl.GL_BLEND)
 
@@ -42,12 +43,30 @@ def point_line_dist(x, y, normal_vector, c):
     return abs(x * normal_vector[0] + y * normal_vector[1] + c)
 
 
-@jit(nopython=True)
+@njit
 def get_chunks(x, y, size):
-    #return [[int(x // constants.CHUNK_SIZE), int(y // constants.CHUNK_SIZE)]]
-    minx = (x - size*.5) // constants.CHUNK_SIZE
-    miny = (y - size*.5) // constants.CHUNK_SIZE
-    maxx = (x + size*.5) // constants.CHUNK_SIZE
-    maxy = (y + size*.5) // constants.CHUNK_SIZE
-    chunks=[str(a) + " " + str(b) for a in range(minx,maxx+1) for b in range(miny,maxy+1)]
+    # return [[int(x // constants.CHUNK_SIZE), int(y // constants.CHUNK_SIZE)]]
+    minx = int((x - size * .5) // constants.CHUNK_SIZE)
+    miny = int((y - size * .5) // constants.CHUNK_SIZE)
+    maxx = int((x + size * .5) // constants.CHUNK_SIZE)
+    maxy = int((y + size * .5) // constants.CHUNK_SIZE)
+    chunks = [str(a) + " " + str(b) for a in range(minx, maxx + 1) for b in range(miny, maxy + 1)]
     return chunks
+
+
+@njit
+def get_rotation(x, y):
+    inv_hypot = (x ** 2 + y ** 2) ** -.5
+    if x >= 0:
+        return math.asin(max(min(y * inv_hypot, 1), -1))
+    return math.pi - math.asin(max(min(y * inv_hypot, 1), -1))
+
+
+@njit
+def inv_h(x, y):
+    return (x ** 2 + y ** 2) ** -.5
+
+@njit
+def distance(x1,y1,x2,y2):
+    return ((x1-x2)**2+(y1-y2)**2)**.5
+
