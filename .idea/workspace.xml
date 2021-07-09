@@ -6,12 +6,8 @@
   <component name="ChangeListManager">
     <list default="true" id="25c78f4c-5a9e-4862-a395-67fbda59528b" name="Default Changelist" comment="knockback works properly, chunks added, 70fps full comp">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client_main.pyw" beforeDir="false" afterPath="$PROJECT_DIR$/client_main.pyw" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client_utility.py" beforeDir="false" afterPath="$PROJECT_DIR$/client_utility.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/game_client.py" beforeDir="false" afterPath="$PROJECT_DIR$/game_client.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/game_server.py" beforeDir="false" afterPath="$PROJECT_DIR$/game_server.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/imagefolder/Swordsman.png" beforeDir="false" afterPath="$PROJECT_DIR$/imagefolder/Swordsman.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/images.py" beforeDir="false" afterPath="$PROJECT_DIR$/images.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -160,9 +156,9 @@
       <list>
         <item itemvalue="Python.client_main.pyw" />
         <item itemvalue="Python.server_main" />
+        <item itemvalue="Python.client" />
         <item itemvalue="Python.game_client" />
         <item itemvalue="Python.game_server" />
-        <item itemvalue="Python.client" />
       </list>
     </recent_temporary>
   </component>

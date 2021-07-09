@@ -82,8 +82,6 @@ class Game:
             self.players[0].tick()
             self.players[1].tick()
             self.ticks += 1
-            if self.ticks % 100 == 0:
-                print(self.ticks//100, self.players[1].units[0].x if self.players[1].units else None)
         self.update_cam()
         self.players[0].graphics_update()
         self.players[1].graphics_update()

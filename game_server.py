@@ -33,8 +33,6 @@ class Game:
             self.players[0].tick()
             self.players[1].tick()
             self.ticks += 1
-            if self.ticks % 100 == 0:
-                print(self.ticks // 100, self.players[1].units[0].x if self.players[1].units else None)
             # self.debug_ticks += 1
             # if time.time() - self.debug_secs > 1:
             # self.debug_secs += 1
@@ -493,7 +491,6 @@ class Unit:
 
     def __init__(self, ID, x, y, side, column, row, game, formation):
         self.entity_type = "unit"
-        self.last_camx, self.last_camy = game.camx, game.camy
         self.ID = ID
         self.lifetime = 0
         self.side = side
@@ -581,6 +578,7 @@ class Unit:
         pass
 
     def die(self):
+        self.exists=False
         self.formation.troops.remove(self)
         self.game.players[self.side].units.remove(self)
         self.game = None
@@ -634,6 +632,8 @@ class Unit:
         self.tick = self.tick2
 
     def take_knockback(self, x, y, source):
+        if not self.exists:
+            return
         self.x += x
         self.y += y
         if source.entity_type == "unit" and source.side == 1 - self.side and source not in self.formation.all_targets:
