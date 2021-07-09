@@ -33,6 +33,8 @@ class Game:
             self.players[0].tick()
             self.players[1].tick()
             self.ticks += 1
+            if self.ticks % 100 == 0:
+                print(self.ticks // 100, self.players[1].units[0].x if self.players[1].units else None)
             # self.debug_ticks += 1
             # if time.time() - self.debug_secs > 1:
             # self.debug_secs += 1
@@ -52,6 +54,12 @@ class Game:
                 t1, t2 = self.find_tower(data["ID1"], side), self.find_tower(data["ID2"], side)
                 if None in [t1, t2] or t1 == t2:
                     return
+                for e in self.players[0].walls:
+                    if e.tower_1.ID in [data["ID1"], data["ID2"]] and e.tower_2.ID in [data["ID1"], data["ID2"]]:
+                        return
+                for e in self.players[1].walls:
+                    if e.tower_1.ID in [data["ID1"], data["ID2"]] and e.tower_2.ID in [data["ID1"], data["ID2"]]:
+                        return
                 self.players[side].walls.append(Wall(
                     self.object_ID, t1, t2, side, self))
                 self.send_both({"action": "place_wall", "ID1": data["ID1"],
@@ -121,19 +129,6 @@ class Game:
         return None
 
 
-class chunk:
-    def __init__(self):
-        self.units = [[], []]
-        self.towers = [[], []]
-        self.townhalls = [[], []]
-
-    def is_empty(self):
-        return self.units[0] == [] == self.units[1] and self.towers[0] == [] == self.towers[1]
-
-    def clear_units(self):
-        self.units = [[], []]
-
-
 class player:
     def __init__(self, side, game):
         self.side = side
@@ -156,6 +151,29 @@ class player:
         self.TownHall.tick()
 
 
+class chunk:
+    def __init__(self):
+        self.units = [[], []]
+        self.towers = [[], []]
+        self.townhalls = [[], []]
+
+    def is_empty(self):
+        return self.units[0] == [] == self.units[1] and self.towers[0] == [] == self.towers[1]
+
+    def clear_units(self):
+        self.units = [[], []]
+
+    def shove_units(self):
+        for i in range(len(self.units[0])):
+            for j in range(i):
+                self.units[0][i].check_collision(self.units[0][j])
+            for e in self.units[1]:
+                self.units[0][i].check_collision(e)
+        for i in range(len(self.units[1])):
+            for j in range(i):
+                self.units[1][i].check_collision(self.units[1][j])
+
+
 ##################   ---/core---  #################
 ##################   ---units---  #################
 class TownHall:
@@ -169,11 +187,14 @@ class TownHall:
         self.hp = unit_stats[self.name]["hp"]
         self.game = game
         self.chunks = get_chunks(x, y, self.size)
-        self.exists=True
+        self.exists = True
         for e in self.chunks:
             game.add_townhall_to_chunk(self, e)
 
-    def take_damage(self, amount,source):
+    def distance_to_point(self, x, y):
+        return distance(self.x, self.y, x, y) - self.size / 2
+
+    def take_damage(self, amount, source):
         if not self.exists:
             return
         self.hp -= amount
@@ -182,6 +203,7 @@ class TownHall:
 
     def die(self):
         print("game over")
+        self.game.end(1 - self.side)
 
     def tick(self):
         self.shove()
@@ -217,10 +239,13 @@ class Tower:
         for e in self.chunks:
             game.add_townhall_to_chunk(self, e)
 
+    def distance_to_point(self, x, y):
+        return distance(self.x, self.y, x, y) - self.size / 2
+
     def die(self):
         self.game.players[self.side].towers.remove(self)
         self.game.players[self.side].all_buildings.remove(self)
-        self.exists=False
+        self.exists = False
 
     def take_damage(self, amount, source):
         if not self.exists:
@@ -271,6 +296,7 @@ class Wall:
         self.norm_vector = ((self.y2 - self.y1) / self.length, (self.x1 - self.x2) / self.length)
         self.line_c = -self.norm_vector[0] * self.x1 - self.norm_vector[1] * self.y1
         self.crossline_c = (-self.norm_vector[1] * (self.x1 + self.x2) + self.norm_vector[0] * (self.y1 + self.y2)) * .5
+        self.tower_1, self.tower_2 = t1, t2
         self.side = side
         self.game = game
         game.players[side].walls.append(self)
@@ -295,6 +321,26 @@ class Wall:
                 if e.x * self.norm_vector[0] + e.y * self.norm_vector[1] + self.line_c > 0:
                     shovage *= -1
                 e.take_knockback(self.norm_vector[0] * shovage, self.norm_vector[1] * shovage, self)
+
+    def towards(self, x, y):
+        if point_line_dist(x, y, (self.norm_vector[1], -self.norm_vector[0]), self.crossline_c) < self.length * .5:
+            if x * self.norm_vector[0] + y * self.norm_vector[1] + self.line_c < 0:
+                return self.norm_vector
+            return -self.norm_vector[0], -self.norm_vector[1]
+        if (x - self.tower_1.x) ** 2 + (y - self.tower_1.y) ** 2 < (x - self.tower_2.x) ** 2 + (
+                y - self.tower_2.y) ** 2:
+            invh = inv_h(self.tower_1.x - x, self.tower_1.y - y)
+            return (self.tower_1.x - x) * invh, (self.tower_1.y - y) * invh
+        invh = inv_h(self.tower_2.x - x, self.tower_2.y - y)
+        return (self.tower_2.x - x) * invh, (self.tower_2.y - y) * invh
+
+    def distance_to_point(self, x, y):
+        if point_line_dist(x, y, (self.norm_vector[1], -self.norm_vector[0]), self.crossline_c) < self.length * .5:
+            return point_line_dist(x, y, self.norm_vector, self.line_c) - self.width / 2
+        if (x - self.tower_1.x) ** 2 + (y - self.tower_1.y) ** 2 < (x - self.tower_2.x) ** 2 + (
+                y - self.tower_2.y) ** 2:
+            return distance(x, y, self.tower_1.x, self.tower_1.y) - self.width / 2
+        return distance(x, y, self.tower_2.x, self.tower_2.y) - self.width / 2
 
     def tick(self):
         if self.spawning < FPS:
@@ -447,6 +493,7 @@ class Unit:
 
     def __init__(self, ID, x, y, side, column, row, game, formation):
         self.entity_type = "unit"
+        self.last_camx, self.last_camy = game.camx, game.camy
         self.ID = ID
         self.lifetime = 0
         self.side = side
@@ -455,8 +502,8 @@ class Unit:
         self.x, self.y = x, y
         self.column, self.row = column, row
         self.game.players[self.side].units.append(self)
-        self.speed = unit_stats[self.name]["speed"] / FPS
         self.size = unit_stats[self.name]["size"]
+        self.speed = unit_stats[self.name]["speed"] / FPS
         self.health = self.max_health = unit_stats[self.name]["hp"]
         self.damage = unit_stats[self.name]["dmg"]
         self.attack_cooldown = unit_stats[self.name]["cd"]
@@ -464,6 +511,7 @@ class Unit:
         self.reach = unit_stats[self.name]["reach"]
         self.exists = False
         self.target = None
+        self.rotation = 0
         self.desired_x, self.desired_y = x, y
         self.vx, self.vy = self.speed, 0
         self.reached_goal = True
@@ -472,28 +520,57 @@ class Unit:
         for e in self.chunks:
             self.game.add_unit_to_chunk(self, e)
 
+    def distance_to_point(self, x, y):
+        return distance(self.x, self.y, x, y) - self.size / 2
+
+    def take_damage(self, amount, source):
+        if not self.exists:
+            return
+        self.health -= amount
+        if self.health <= 0:
+            self.die()
+
     def acquire_target(self):
         if self.target is not None and self.target.exists:
             return
         self.target = self.formation.all_targets[0]
-        dist = distance(self.x, self.y, self.target.x,
-                        self.target.y) - self.size - self.target.size
+        dist = self.target.distance_to_point(self.x, self.y) - self.size
         for e in self.formation.all_targets:
-            new_dist = distance(self.x, self.y, e.x, e.y) - self.size - e.size
+            new_dist = e.distance_to_point(self.x, self.y) - self.size
             if new_dist < dist:
                 dist = new_dist
                 self.target = e
 
     def move_in_range(self, other):
-        dist_sq = (other.x - self.x) ** 2 + (other.y - self.y) ** 2
-        if dist_sq < ((other.size + self.size) * .5 + self.reach * 0.5) ** 2:
-            self.rotate(self.x - other.x, self.y - other.y)
-            self.vx /= 2
-            self.vy /= 2
-        elif dist_sq > ((other.size + self.size) * .5 + self.reach) ** 2:
-            self.rotate(other.x - self.x, other.y - self.y)
-        self.x += self.vx
-        self.y += self.vy
+        if other.entity_type == "wall":
+            d = other.distance_to_point(self.x, self.y)
+            if d > self.reach:
+                direction = other.towards(self.x, self.y)
+                self.vx = self.speed * direction[0]
+                self.vy = self.speed * direction[1]
+                self.x += self.vx
+                self.y += self.vy
+            elif d < self.reach / 2:
+                direction = other.towards(self.x, self.y)
+                self.vx = -self.speed * direction[0] / 2
+                self.vy = -self.speed * direction[1] / 2
+                self.x += self.vx
+                self.y += self.vy
+            return d <= self.reach
+        else:
+            dist_sq = (other.x - self.x) ** 2 + (other.y - self.y) ** 2
+            if dist_sq < ((other.size + self.size) * .5 + self.reach * 0.5) ** 2:
+                self.rotate(self.x - other.x, self.y - other.y)
+                self.vx /= 2
+                self.vy /= 2
+                self.x += self.vx
+                self.y += self.vy
+                return True
+            elif dist_sq > ((other.size + self.size) * .5 + self.reach) ** 2:
+                self.rotate(other.x - self.x, other.y - self.y)
+                self.x += self.vx
+                self.y += self.vy
+            return dist_sq < ((other.size + self.size) * .5 + self.reach) ** 2
 
     def attempt_attack(self, target):
         if self.current_cooldown <= 0:
@@ -502,13 +579,6 @@ class Unit:
 
     def attack(self, target):
         pass
-
-    def take_damage(self, amount, source):
-        if not self.exists:
-            return
-        self.health -= amount
-        if self.health <= 0:
-            self.die()
 
     def die(self):
         self.formation.troops.remove(self)
@@ -543,13 +613,15 @@ class Unit:
         else:
             self.acquire_target()
             if self.move_in_range(self.target):
-                pass  # self.attempt_attack(self.target)
+                self.attempt_attack(self.target)
 
         self.chunks = get_chunks(self.x, self.y, self.size)
         for e in self.chunks:
             self.game.add_unit_to_chunk(self, e)
         self.shove()
         self.lifetime += 1
+        if self.current_cooldown > 0:
+            self.current_cooldown -= 1 / FPS
 
     def rotate(self, x, y):
         if x == 0 == y:
@@ -611,6 +683,7 @@ class Swordsman(Unit):
     def attack(self, target):
         target.take_damage(self.damage, self)
 
+
 class Archer(Unit):
     name = "Archer"
 
@@ -621,6 +694,6 @@ class Archer(Unit):
         target.take_damage(self.damage, self)
 
 
-possible_units = [Swordsman,Archer]
+possible_units = [Swordsman, Archer]
 
 ##################  ---/units---  #################

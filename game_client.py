@@ -82,6 +82,8 @@ class Game:
             self.players[0].tick()
             self.players[1].tick()
             self.ticks += 1
+            if self.ticks % 100 == 0:
+                print(self.ticks//100, self.players[1].units[0].x if self.players[1].units else None)
         self.update_cam()
         self.players[0].graphics_update()
         self.players[1].graphics_update()
@@ -134,6 +136,8 @@ class Game:
         if True in [e.mouse_click(x, y) for e in self.UI_toolbars]:
             return
         self.selected.mouse_click(x, y)
+        for e in self.players[1].walls:
+            print(e.towards(x + self.camx, y + self.camy))
 
     def mouse_release(self, x, y, button, modifiers):
         [e.mouse_release(x, y) for e in self.UI_toolbars]
@@ -261,14 +265,14 @@ class UI_formation(client_utility.toolbar):
 
         super().__init__(SCREEN_WIDTH - self.dot_size * (self.columns + 4), 0, self.dot_size * (self.columns + 4),
                          self.dot_size * (self.rows + 4) + SCREEN_HEIGHT * 0.1, game.batch,
-                         image=images.UnitFormFrame, layer=5)
+                         image=images.UnitFormFrame, layer=7)
 
         self.units = [[None for _ in range(self.rows)] for _ in range(self.columns)]
 
         self.sprites = [[client_utility.sprite_with_scale(images.UnitSlot, self.dot_scale, 1, 1,
                                                           self.x + self.dot_size * (j + 2.5),
                                                           self.y + self.dot_size * (i + 2.5),
-                                                          batch=game.batch, group=groups.g[6])
+                                                          batch=game.batch, group=groups.g[8])
                          for i in range(self.rows)] for j in range(self.columns)]
         self.add(self.send, self.x, self.height - SCREEN_HEIGHT * 0.1, self.width, SCREEN_HEIGHT * 0.1,
                  image=images.Cancelbutton)
@@ -300,13 +304,13 @@ class UI_formation(client_utility.toolbar):
             self.sprites[x][y] = client_utility.sprite_with_scale(a, self.dot_size / a.width, 1, 1,
                                                                   self.x + self.dot_size * (x + 2.5),
                                                                   self.y + self.dot_size * (y + 2.5),
-                                                                  batch=self.game.batch, group=groups.g[6])
+                                                                  batch=self.game.batch, group=groups.g[8])
         else:
             self.sprites[x][y].delete()
             self.sprites[x][y] = client_utility.sprite_with_scale(images.UnitSlot, self.dot_scale, 1, 1,
                                                                   self.x + self.dot_size * (x + 2.5),
                                                                   self.y + self.dot_size * (y + 2.5),
-                                                                  batch=self.game.batch, group=groups.g[6])
+                                                                  batch=self.game.batch, group=groups.g[8])
 
 
 class UI_categories(client_utility.toolbar):
@@ -624,7 +628,9 @@ class TownHall:
                      hpbar_x_centre + hpbar_x_range, hpbar_y_centre + hpbar_y_range,
                      hpbar_x_centre + hpbar_x_range, hpbar_y_centre - hpbar_y_range,
                      hpbar_x_centre + hpbar_x_range, hpbar_y_centre + hpbar_y_range)),
-            ("c3B", (0, 255, 0, 0, 255, 0, 0, 255, 0, 0, 255, 0, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50))
+            ("c3B", (0, 255, 0, 0, 255, 0, 0, 255, 0, 0, 255, 0, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50)
+            if self.game.side == self.side else (
+                163, 73, 163, 163, 73, 163, 163, 73, 163, 163, 73, 163, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50))
         )
 
     def update_hpbar(self):
@@ -652,6 +658,9 @@ class TownHall:
     def die(self):
         self.sprite.delete()
         print("game over")
+
+    def distance_to_point(self, x, y):
+        return distance(self.x, self.y, x, y) - self.size/2
 
     def update_cam(self, x, y):
         self.sprite.update(x=self.x * SPRITE_SIZE_MULT - x,
@@ -718,7 +727,9 @@ class Tower:
                      hpbar_x_centre + hpbar_x_range, hpbar_y_centre + hpbar_y_range,
                      hpbar_x_centre + hpbar_x_range, hpbar_y_centre - hpbar_y_range,
                      hpbar_x_centre + hpbar_x_range, hpbar_y_centre + hpbar_y_range)),
-            ("c3B", (0, 255, 0, 0, 255, 0, 0, 255, 0, 0, 255, 0, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50))
+            ("c3B", (0, 255, 0, 0, 255, 0, 0, 255, 0, 0, 255, 0, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50)
+            if self.game.side == self.side else (
+                163, 73, 163, 163, 73, 163, 163, 73, 163, 163, 73, 163, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50))
         )
 
     def update_hpbar(self):
@@ -737,6 +748,9 @@ class Tower:
                                hpbar_x_centre + health_size, hpbar_y_centre + hpbar_y_range,
                                hpbar_x_centre + hpbar_x_range, hpbar_y_centre + hpbar_y_range,
                                hpbar_x_centre + hpbar_x_range, hpbar_y_centre - hpbar_y_range)
+
+    def distance_to_point(self, x, y):
+        return distance(self.x, self.y, x, y) - self.size/2
 
     def die(self):
         self.game.players[self.side].towers.remove(self)
@@ -799,6 +813,7 @@ class Wall:
         self.line_c = -self.norm_vector[0] * self.x1 - self.norm_vector[1] * self.y1
         self.crossline_c = (-self.norm_vector[1] * (self.x1 + self.x2) + self.norm_vector[0] * (self.y1 + self.y2)) * .5
         self.side = side
+        self.tower_1, self.tower_2 = t1, t2
         self.width = unit_stats[self.name]["width"]
         self.hp = self.maxhp = unit_stats[self.name]["hp"]
         self.game = game
@@ -826,11 +841,32 @@ class Wall:
         )
         self.update_cam(self.game.camx, self.game.camy)
 
+    def towards(self, x, y):
+        if point_line_dist(x, y, (self.norm_vector[1], -self.norm_vector[0]), self.crossline_c) < self.length * .5:
+            if x * self.norm_vector[0] + y * self.norm_vector[1] + self.line_c < 0:
+                return self.norm_vector
+            return -self.norm_vector[0], -self.norm_vector[1]
+        if (x - self.tower_1.x) ** 2 + (y - self.tower_1.y) ** 2 < (x - self.tower_2.x) ** 2 + (
+                y - self.tower_2.y) ** 2:
+            invh = inv_h(self.tower_1.x - x, self.tower_1.y - y)
+            return (self.tower_1.x - x) * invh, (self.tower_1.y - y) * invh
+        invh = inv_h(self.tower_2.x - x, self.tower_2.y - y)
+        return (self.tower_2.x - x) * invh, (self.tower_2.y - y) * invh
+
+    def distance_to_point(self, x, y):
+        if point_line_dist(x, y, (self.norm_vector[1], -self.norm_vector[0]), self.crossline_c) < self.length * .5:
+            return point_line_dist(x, y, self.norm_vector, self.line_c)-self.width/2
+        if (x - self.tower_1.x) ** 2 + (y - self.tower_1.y) ** 2 < (x - self.tower_2.x) ** 2 + (
+                y - self.tower_2.y) ** 2:
+            return distance(x, y, self.tower_1.x, self.tower_1.y)-self.width/2
+        return distance(x, y, self.tower_2.x, self.tower_2.y)-self.width/2
+
     def die(self):
         self.sprite.delete()
         self.crack_sprite.delete()
         self.game.players[self.side].walls.remove(self)
         self.game.players[self.side].all_buildings.remove(self)
+        self.exists=False
 
     def take_damage(self, amount, source):
         if not self.exists:
@@ -1025,7 +1061,7 @@ class Unit:
                                                        1, 1, batch=game.batch, x=x * SPRITE_SIZE_MULT - game.camx,
                                                        y=y * SPRITE_SIZE_MULT - game.camy, group=groups.g[5])
         hpbar_y_centre = self.sprite.y
-        hpbar_y_range = 2 * SPRITE_SIZE_MULT
+        hpbar_y_range = 1.5 * SPRITE_SIZE_MULT
         hpbar_x_centre = self.sprite.x
         hpbar_x_range = self.size * SPRITE_SIZE_MULT / 2
         self.hpbar = game.batch.add(
@@ -1038,7 +1074,9 @@ class Unit:
                      hpbar_x_centre + hpbar_x_range, hpbar_y_centre + hpbar_y_range,
                      hpbar_x_centre + hpbar_x_range, hpbar_y_centre - hpbar_y_range,
                      hpbar_x_centre + hpbar_x_range, hpbar_y_centre + hpbar_y_range)),
-            ("c3B", (0, 255, 0, 0, 255, 0, 0, 255, 0, 0, 255, 0, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50))
+            ("c3B", (0, 255, 0, 0, 255, 0, 0, 255, 0, 0, 255, 0, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50)
+            if self.game.side == self.side else (
+                163, 73, 163, 163, 73, 163, 163, 73, 163, 163, 73, 163, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50))
         )
 
         self.speed = unit_stats[self.name]["speed"] / FPS
@@ -1058,6 +1096,9 @@ class Unit:
         self.chunks = get_chunks(self.x, self.y, self.size)
         for e in self.chunks:
             self.game.add_unit_to_chunk(self, e)
+
+    def distance_to_point(self, x, y):
+        return distance(self.x, self.y, x, y)-self.size/2
 
     def take_damage(self, amount, source):
         if not self.exists:
@@ -1088,25 +1129,43 @@ class Unit:
         if self.target is not None and self.target.exists:
             return
         self.target = self.formation.all_targets[0]
-        dist = distance(self.x, self.y, self.target.x,
-                        self.target.y) - self.size - self.target.size
+        dist = self.target.distance_to_point(self.x, self.y) - self.size
         for e in self.formation.all_targets:
-            new_dist = distance(self.x, self.y, e.x, e.y) - self.size - e.size
+            new_dist = e.distance_to_point(self.x, self.y) - self.size
             if new_dist < dist:
                 dist = new_dist
                 self.target = e
 
     def move_in_range(self, other):
-        dist_sq = (other.x - self.x) ** 2 + (other.y - self.y) ** 2
-        if dist_sq < ((other.size + self.size) * .5 + self.reach * 0.5) ** 2:
-            self.rotate(self.x - other.x, self.y - other.y)
-            self.vx/=2
-            self.vy/=2
-        elif dist_sq > ((other.size + self.size) * .5 + self.reach) ** 2:
-            self.rotate(other.x - self.x, other.y - self.y)
-        self.x += self.vx
-        self.y += self.vy
-        return dist_sq < ((other.size + self.size) * .5 + self.reach) ** 2
+        if other.entity_type == "wall":
+            d = other.distance_to_point(self.x, self.y)
+            if d > self.reach:
+                direction = other.towards(self.x, self.y)
+                self.vx = self.speed * direction[0]
+                self.vy = self.speed * direction[1]
+                self.x += self.vx
+                self.y += self.vy
+            elif d < self.reach / 2:
+                direction = other.towards(self.x, self.y)
+                self.vx = -self.speed * direction[0] / 2
+                self.vy = -self.speed * direction[1] / 2
+                self.x += self.vx
+                self.y += self.vy
+            return d <= self.reach
+        else:
+            dist_sq = (other.x - self.x) ** 2 + (other.y - self.y) ** 2
+            if dist_sq < ((other.size + self.size) * .5 + self.reach * 0.5) ** 2:
+                self.rotate(self.x - other.x, self.y - other.y)
+                self.vx /= 2
+                self.vy /= 2
+                self.x += self.vx
+                self.y += self.vy
+                return True
+            elif dist_sq > ((other.size + self.size) * .5 + self.reach) ** 2:
+                self.rotate(other.x - self.x, other.y - self.y)
+                self.x += self.vx
+                self.y += self.vy
+            return dist_sq < ((other.size + self.size) * .5 + self.reach) ** 2
 
     def attempt_attack(self, target):
         if self.current_cooldown <= 0:
@@ -1170,8 +1229,7 @@ class Unit:
         if source.side != self.side:
             if source.entity_type == "unit" and source not in self.formation.all_targets:
                 self.formation.attack(source.formation)
-            elif source.entity_type == "tower" or source.entity_type == "townhall" \
-                    and source not in self.formation.all_targets:
+            elif source.entity_type in ["tower", "townhall", "wall"] and source not in self.formation.all_targets:
                 self.formation.attack(source)
 
     def rotate(self, x, y):
@@ -1248,7 +1306,7 @@ class selection_swordsman(selection_unit):
 
 
 class Archer(Unit):
-    image = images.Swordsman
+    image = images.Bowman
     name = "Archer"
 
     def __init__(self, ID, x, y, side, column, row, game, formation):

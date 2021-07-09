@@ -118,7 +118,7 @@ class button:
 
 
 class toolbar:
-    def __init__(self, x, y, width, height, batch, image=images.Button, layer=4):
+    def __init__(self, x, y, width, height, batch, image=images.Button, layer=6):
         if image is not None:
             self.sprite = pyglet.sprite.Sprite(image, x=x, y=y, batch=batch, group=groups.g[layer])
             self.layer = layer
