@@ -667,11 +667,11 @@ class Unit:
             return
         self.x += x
         self.y += y
-        if source.entity_type == "unit" and source.side == 1 - self.side and source not in self.formation.all_targets:
-            self.formation.attack(source.formation)
-        elif source.entity_type == "tower" or source.entity_type == "townhall" \
-                and source.side == 1 - self.side and source not in self.formation.all_targets:
-            self.formation.attack(source)
+        if source.side != self.side:
+            if source.entity_type == "unit" and source not in self.formation.all_targets:
+                self.formation.attack(source.formation)
+            elif source.entity_type in ["tower", "townhall", "wall"] and source not in self.formation.all_targets:
+                self.formation.attack(source)
 
     def try_move(self, x, y):
         if self.x == x and self.y == y:
