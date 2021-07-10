@@ -46,15 +46,22 @@ class Game:
     def network(self, data, side):
         if "action" in data:
             if data["action"] == "place_building":
-                entity_type=possible_buildings[data["entity_type"]]
+                entity_type = possible_buildings[data["entity_type"]]
+                for e in self.players[1].all_buildings:
+                    if e.distance_to_point(*data["xy"]) < unit_stats[entity_type.name]["size"]/2:
+                        return
+                for e in self.players[0].all_buildings:
+                    if e.distance_to_point(*data["xy"]) < unit_stats[entity_type.name]["size"]/2:
+                        return
                 if self.players[side].attempt_purchase(entity_type.get_cost([])):
                     entity_type(self.object_ID, data["xy"][0], data["xy"][1], side, self)
                     self.send_both({"action": "place_building", "xy": data["xy"], "tick": self.ticks, "side": side,
-                                    "ID": self.object_ID, "entity_type":data["entity_type"]})
+                                    "ID": self.object_ID, "entity_type": data["entity_type"]})
                     self.object_ID += 1
             elif data["action"] == "place_wall":
                 if self.players[side].attempt_purchase(Wall.get_cost([])):
-                    t1, t2 = self.find_building(data["ID1"], side, "tower"), self.find_building(data["ID2"], side, "tower")
+                    t1, t2 = self.find_building(data["ID1"], side, "tower"), self.find_building(data["ID2"], side,
+                                                                                                "tower")
                     if (None in [t1, t2]) or t1 == t2:
                         return
                     for e in self.players[0].walls:
@@ -254,7 +261,26 @@ class Tower(Building):
     def get_cost(cls, params):
         return unit_stats[cls.name]["cost"]
 
-possible_buildings=[Tower]
+
+class Farm(Building):
+    name = "Farm"
+    entity_type = "farm"
+
+    def __init__(self, ID, x, y, side, game):
+        super().__init__(ID, x, y, side, game)
+        self.production = unit_stats[self.name]["production"]
+
+    @classmethod
+    def get_cost(cls, params):
+        return unit_stats[cls.name]["cost"]
+
+    def tick2(self):
+        super().tick2()
+        self.game.players[self.side].gain_money(self.production)
+
+
+possible_buildings = [Tower, Farm]
+
 
 class Wall:
     name = "Wall"
@@ -636,7 +662,7 @@ class Unit:
         if source.side != self.side:
             if source.entity_type == "unit" and source not in self.formation.all_targets:
                 self.formation.attack(source.formation)
-            elif source.entity_type in ["tower", "townhall", "wall"] and source not in self.formation.all_targets:
+            elif source.entity_type in ["tower", "townhall", "wall", "farm"] and source not in self.formation.all_targets:
                 self.formation.attack(source)
 
     def try_move(self, x, y):

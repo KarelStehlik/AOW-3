@@ -406,6 +406,12 @@ class selection_building(selection):
         self.cancelbutton.mouse_move(x, y)
 
     def mouse_click(self, x, y):
+        for e in self.game.players[1].all_buildings:
+            if e.distance_to_point((x + self.camx) / SPRITE_SIZE_MULT,(y + self.camy) / SPRITE_SIZE_MULT)<self.size/2:
+                return
+        for e in self.game.players[0].all_buildings:
+            if e.distance_to_point((x + self.camx) / SPRITE_SIZE_MULT,(y + self.camy) / SPRITE_SIZE_MULT)<self.size/2:
+                return
         if not self.cancelbutton.mouse_click(x, y):
             self.game.connection.Send({"action": "place_building", "xy": [(x + self.camx) / SPRITE_SIZE_MULT,
                                                                           (y + self.camy) / SPRITE_SIZE_MULT],
@@ -426,6 +432,10 @@ class selection_building(selection):
 class selection_tower(selection_building):
     img = images.Towerbutton
     num = 0
+
+class selection_farm(selection_building):
+    img = images.Towerbutton
+    num = 1
 
 
 class selection_wall(selection):
@@ -755,7 +765,6 @@ class Tower(Building):
     def __init__(self, ID, x, y, tick, side, game):
         assert (game.players[side].attempt_purchase(self.get_cost([])))
         super().__init__(ID, x, y, tick, side, game)
-        self.entity_type = "tower"
         self.sprite2 = pyglet.sprite.Sprite(images.TowerCrack, x=x * SPRITE_SIZE_MULT,
                                             y=y * SPRITE_SIZE_MULT, batch=game.batch,
                                             group=groups.g[4])
@@ -780,7 +789,26 @@ class Tower(Building):
         self.sprite2.update(x=self.x * SPRITE_SIZE_MULT - x, y=self.y * SPRITE_SIZE_MULT - y)
 
 
-possible_buildings = [Tower]
+class Farm(Building):
+    name = "Farm"
+    entity_type = "farm"
+    image = images.Farm
+
+    def __init__(self, ID, x, y, tick, side, game):
+        assert (game.players[side].attempt_purchase(self.get_cost([])))
+        super().__init__(ID, x, y, tick, side, game)
+        self.production=unit_stats[self.name]["production"]
+
+    @classmethod
+    def get_cost(cls, params):
+        return unit_stats[cls.name]["cost"]
+
+    def tick2(self):
+        super().tick2()
+        self.game.players[self.side].gain_money(self.production)
+
+
+possible_buildings = [Tower, Farm]
 
 
 class Wall:
@@ -1231,7 +1259,7 @@ class Unit:
         if source.side != self.side:
             if source.entity_type == "unit" and source not in self.formation.all_targets:
                 self.formation.attack(source.formation)
-            elif source.entity_type in ["tower", "townhall", "wall"] and source not in self.formation.all_targets:
+            elif source.entity_type in ["tower", "townhall", "wall", "farm"] and source not in self.formation.all_targets:
                 self.formation.attack(source)
 
     def rotate(self, x, y):
@@ -1324,7 +1352,7 @@ class selection_archer(selection_unit):
 
 
 possible_units = [Swordsman, Archer]
-selects_p1 = [selection_tower, selection_wall]
+selects_p1 = [selection_tower, selection_wall,selection_farm]
 selects_p2 = [selection_swordsman, selection_archer]
 selects_all = [selects_p1, selects_p2]
 
