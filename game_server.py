@@ -66,7 +66,6 @@ class Game:
                                     "ID": self.object_ID})
                     self.object_ID += 1
             elif data["action"] == "summon_formation":
-                print(time.time()%1000)
                 if self.players[side].attempt_purchase(Formation.get_cost([data["troops"], ])):
                     if is_empty_2d(data["troops"]):
                         return

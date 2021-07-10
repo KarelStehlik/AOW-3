@@ -17,7 +17,6 @@ class Game:
         self.cam_move_speed = 3
         self.start_time = time0
         self.ticks = 0
-        print(time.time(), self.start_time)
         self.camx, self.camy = 0, 0
         self.camx_moving, self.camy_moving = 0, 0
         self.background_texgroup = client_utility.TextureBindGroup(images.Background, layer=0)
@@ -142,8 +141,6 @@ class Game:
         if True in [e.mouse_click(x, y) for e in self.UI_toolbars]:
             return
         self.selected.mouse_click(x, y)
-        for e in self.players[1].walls:
-            print(e.towards(x + self.camx, y + self.camy))
 
     def mouse_release(self, x, y, button, modifiers):
         [e.mouse_release(x, y) for e in self.UI_toolbars]
@@ -953,7 +950,6 @@ class Wall:
 class Formation:
     def __init__(self, ID, instructions, troops, tick, side, game):
         assert (game.players[side].attempt_purchase(self.get_cost([troops])))
-        print(time.time() % 1000)
         self.entity_type = "formation"
         self.exists = False
         self.spawning = game.ticks - tick
@@ -982,8 +978,6 @@ class Formation:
                     i += 1
         self.instr_object = instruction_moving(self, self.x, self.y)
         self.all_targets = []
-        print(time.time() % 1000)
-        print("")
 
     @classmethod
     def get_cost(cls, params):
