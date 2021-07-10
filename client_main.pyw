@@ -24,6 +24,7 @@ class MyNetworkListener(ConnectionListener):
         self.mode = m
 
     def Network(self, data):
+        print(data)
         self.mode.network(data)
 
 
