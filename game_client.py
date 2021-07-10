@@ -953,7 +953,7 @@ class Wall:
 class Formation:
     def __init__(self, ID, instructions, troops, tick, side, game):
         assert (game.players[side].attempt_purchase(self.get_cost([troops])))
-        print(time.time()%1000)
+        print(time.time() % 1000)
         self.entity_type = "formation"
         self.exists = False
         self.spawning = game.ticks - tick
@@ -982,7 +982,8 @@ class Formation:
                     i += 1
         self.instr_object = instruction_moving(self, self.x, self.y)
         self.all_targets = []
-        print(time.time()%1000)
+        print(time.time() % 1000)
+        print("")
 
     @classmethod
     def get_cost(cls, params):

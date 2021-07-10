@@ -54,7 +54,7 @@ def get_chunks(x, y, size):
     return chunks
 
 
-get_chunks(1, 1, 1)
+get_chunks(1.1, 1.1, 1.1)
 
 
 @njit
@@ -65,7 +65,7 @@ def get_rotation(x, y):
     return math.pi - math.asin(max(min(y * inv_hypot, 1), -1))
 
 
-get_rotation(1, 1)
+get_rotation(1.1, 1.1)
 
 
 @njit
@@ -73,7 +73,7 @@ def inv_h(x, y):
     return (x ** 2 + y ** 2) ** -.5
 
 
-inv_h(1, 1)
+inv_h(1.1, 1.1)
 
 
 @njit
@@ -81,4 +81,4 @@ def distance(x1, y1, x2, y2):
     return ((x1 - x2) ** 2 + (y1 - y2) ** 2) ** .5
 
 
-distance(1, 1, 1, 1)
+distance(1.1, 1.1, 1.1, 1.1)
