@@ -10,6 +10,8 @@ class Game:
         self.time_start = time.time()
         self.channels = [channel1, channel2]
         self.players = [player(0, self), player(1, self)]
+        for e in self.players:
+            e.summon_townhall()
         self.server = server
         self.object_ID = 0
         self.ticks = 0
@@ -43,15 +45,16 @@ class Game:
 
     def network(self, data, side):
         if "action" in data:
-            if data["action"] == "place_tower":
-                if self.players[side].attempt_purchase(Tower.get_cost([])):
-                    Tower(self.object_ID, data["xy"][0], data["xy"][1], side, self)
-                    self.send_both({"action": "place_tower", "xy": data["xy"], "tick": self.ticks, "side": side,
-                                    "ID": self.object_ID})
+            if data["action"] == "place_building":
+                entity_type=possible_buildings[data["entity_type"]]
+                if self.players[side].attempt_purchase(entity_type.get_cost([])):
+                    entity_type(self.object_ID, data["xy"][0], data["xy"][1], side, self)
+                    self.send_both({"action": "place_building", "xy": data["xy"], "tick": self.ticks, "side": side,
+                                    "ID": self.object_ID, "entity_type":data["entity_type"]})
                     self.object_ID += 1
             elif data["action"] == "place_wall":
                 if self.players[side].attempt_purchase(Wall.get_cost([])):
-                    t1, t2 = self.find_tower(data["ID1"], side), self.find_tower(data["ID2"], side)
+                    t1, t2 = self.find_building(data["ID1"], side, "tower"), self.find_building(data["ID2"], side, "tower")
                     if (None in [t1, t2]) or t1 == t2:
                         return
                     for e in self.players[0].walls:
@@ -88,29 +91,22 @@ class Game:
         self.chunks[location] = chunk()
         self.chunks[location].units[unit.side].append(unit)
 
-    def add_tower_to_chunk(self, unit, location):
+    def add_building_to_chunk(self, unit, location):
         if location in self.chunks:
-            self.chunks[location].towers[unit.side].append(unit)
+            self.chunks[location].buildings[unit.side].append(unit)
             return
         self.chunks[location] = chunk()
-        self.chunks[location].towers[unit.side].append(unit)
-
-    def add_townhall_to_chunk(self, unit, location):
-        if location in self.chunks:
-            self.chunks[location].townhalls[unit.side].append(unit)
-            return
-        self.chunks[location] = chunk()
-        self.chunks[location].townhalls[unit.side].append(unit)
+        self.chunks[location].buildings[unit.side].append(unit)
 
     def remove_unit_from_chunk(self, unit, location):
         self.chunks[location].units[unit.side].remove(unit)
 
-    def remove_tower_from_chunk(self, unit, location):
-        self.chunks[location].towers[unit.side].remove(unit)
+    def remove_building_from_chunk(self, unit, location):
+        self.chunks[location].buildings[unit.side].remove(unit)
 
-    def find_tower(self, ID, side):
-        for e in self.players[side].towers:
-            if e.ID == ID:
+    def find_building(self, ID, side, entity_type):
+        for e in self.players[side].all_buildings:
+            if e.ID == ID and e.entity_type == entity_type:
                 return e
         return None
 
@@ -128,16 +124,19 @@ class Game:
 
 
 class player:
+
     def __init__(self, side, game):
         self.side = side
         self.game = game
         self.walls = []
         self.units = []
-        self.towers = []
         self.formations = []
-        self.TownHall = TownHall(TH_DISTANCE * side, TH_DISTANCE * side, side, self.game)
-        self.all_buildings = [self.TownHall]
+        self.all_buildings = []
         self.money = 0
+        self.TownHall = None
+
+    def summon_townhall(self):
+        self.TownHall = TownHall(TH_DISTANCE * self.side, TH_DISTANCE * self.side, self.side, self.game)
 
     def gain_money(self, amount):
         self.money += amount
@@ -153,119 +152,58 @@ class player:
         [e.tick() for e in self.units]
 
     def tick(self):
-        [e.tick() for e in self.towers]
+        [e.tick() for e in self.all_buildings]
         [e.tick() for e in self.walls]
         [e.tick() for e in self.formations]
-        self.TownHall.tick()
 
 
 class chunk:
     def __init__(self):
         self.units = [[], []]
-        self.towers = [[], []]
-        self.townhalls = [[], []]
+        self.buildings = [[], []]
 
     def is_empty(self):
-        return self.units[0] == [] == self.units[1] and self.towers[0] == [] == self.towers[1]
+        return self.units[0] == [] == self.units[1] and self.buildings[0] == [] == self.buildings[1]
 
     def clear_units(self):
         self.units = [[], []]
 
-    def shove_units(self):
-        for i in range(len(self.units[0])):
-            for j in range(i):
-                self.units[0][i].check_collision(self.units[0][j])
-            for e in self.units[1]:
-                self.units[0][i].check_collision(e)
-        for i in range(len(self.units[1])):
-            for j in range(i):
-                self.units[1][i].check_collision(self.units[1][j])
-
 
 ##################   ---/core---  #################
 ##################   ---units---  #################
-class TownHall:
+
+class Building:
     name = "TownHall"
-
-    def __init__(self, x, y, side, game):
-        self.entity_type = "townhall"
-        self.x, self.y = x, y
-        self.side = side
-        self.size = unit_stats[self.name]["size"]
-        self.hp = unit_stats[self.name]["hp"]
-        self.game = game
-        self.chunks = get_chunks(x, y, self.size)
-        self.exists = True
-        for e in self.chunks:
-            game.add_townhall_to_chunk(self, e)
-
-    def distance_to_point(self, x, y):
-        return distance(self.x, self.y, x, y) - self.size / 2
-
-    def take_damage(self, amount, source):
-        if not self.exists:
-            return
-        self.hp -= amount
-        if self.hp <= 0:
-            self.die()
-
-    def die(self):
-        print("game over")
-        self.game.end(1 - self.side)
-
-    def tick(self):
-        self.shove()
-
-    def shove(self):
-        for c in self.chunks:
-            for e in self.game.chunks[c].units[1 - self.side]:
-                if e == self:
-                    continue
-                if max(abs(e.x - self.x), abs(e.y - self.y)) < (self.size + e.size) / 2:
-                    dist_sq = (e.x - self.x) ** 2 + (e.y - self.y) ** 2
-                    if dist_sq < ((e.size + self.size) * .5) ** 2:
-                        shovage = (e.size + self.size) * .5 * dist_sq ** -.5 - 1
-                        e.take_knockback((e.x - self.x) * shovage, (e.y - self.y) * shovage, self)
-
-
-class Tower:
-    name = "Tower"
+    entity_type = "townhall"
 
     def __init__(self, ID, x, y, side, game):
-        self.entity_type = "tower"
-        self.game = game
-        self.exists = False
         self.spawning = 0
-        self.x, self.y = x, y
         self.ID = ID
+        self.x, self.y = x, y
         self.side = side
         self.size = unit_stats[self.name]["size"]
         self.hp = self.maxhp = unit_stats[self.name]["hp"]
-        game.players[side].towers.append(self)
-        game.players[side].all_buildings.append(self)
+        self.game = game
         self.chunks = get_chunks(x, y, self.size)
+        self.exists = False
+        self.game.players[side].all_buildings.append(self)
         for e in self.chunks:
-            game.add_townhall_to_chunk(self, e)
+            game.add_building_to_chunk(self, e)
+
+    def take_damage(self, amount, source):
+        if self.exists:
+            self.hp -= amount
+            if self.hp <= 0:
+                self.die()
+
+    def die(self):
+        self.game.players[self.side].all_buildings.remove(self)
+        for e in self.chunks:
+            self.game.remove_building_from_chunk(self, e)
+        self.exists = False
 
     def distance_to_point(self, x, y):
         return distance(self.x, self.y, x, y) - self.size / 2
-
-    @classmethod
-    def get_cost(cls, params):
-        return unit_stats[cls.name]["cost"]
-
-    def die(self):
-        self.game.players[self.side].towers.remove(self)
-        self.game.players[self.side].all_buildings.remove(self)
-        self.exists = False
-
-    def take_damage(self, amount, source):
-        if not self.exists:
-            return
-        self.hp -= amount
-        if self.hp <= 0:
-            self.die()
-            return
 
     def tick(self):
         if self.spawning < FPS:
@@ -277,10 +215,6 @@ class Tower:
     def tick2(self):
         self.shove()
 
-    def delete(self):
-        self.game.players[self.side].towers.remove(self)
-        self.game.players[self.side].all_buildings.remove(self)
-
     def shove(self):
         for c in self.chunks:
             for e in self.game.chunks[c].units[1 - self.side]:
@@ -292,6 +226,35 @@ class Tower:
                         shovage = (e.size + self.size) * .5 * dist_sq ** -.5 - 1
                         e.take_knockback((e.x - self.x) * shovage, (e.y - self.y) * shovage, self)
 
+
+class TownHall(Building):
+    name = "TownHall"
+    entity_type = "townhall"
+
+    def __init__(self, x, y, side, game):
+        super().__init__(None, x, y, side, game)
+        self.exists = True
+
+    def die(self):
+        print("game over")
+        self.game.end(1 - self.side)
+
+    def tick(self):
+        self.shove()
+
+
+class Tower(Building):
+    name = "Tower"
+    entity_type = "tower"
+
+    def __init__(self, ID, x, y, side, game):
+        super().__init__(ID, x, y, side, game)
+
+    @classmethod
+    def get_cost(cls, params):
+        return unit_stats[cls.name]["cost"]
+
+possible_buildings=[Tower]
 
 class Wall:
     name = "Wall"
@@ -317,12 +280,15 @@ class Wall:
     def die(self):
         self.game.players[self.side].walls.remove(self)
         self.game.players[self.side].all_buildings.remove(self)
+        self.exists = False
 
     @classmethod
     def get_cost(cls, params):
         return unit_stats[cls.name]["cost"]
 
     def take_damage(self, amount, source):
+        if not self.exists:
+            return
         self.hp -= amount
         if self.hp <= 0:
             self.die()

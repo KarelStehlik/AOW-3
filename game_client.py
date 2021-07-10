@@ -9,14 +9,16 @@ import client_utility
 
 class Game:
     def __init__(self, side, batch, connection, time0):
+        self.ticks = 0
         self.side, self.batch = side, batch
         self.chunks = {}
         self.players = [player(0, self), player(1, self)]
+        for e in self.players:
+            e.summon_townhall()
         self.connection = connection
         self.batch = batch
         self.cam_move_speed = 3
         self.start_time = time0
-        self.ticks = 0
         self.camx, self.camy = 0, 0
         self.camx_moving, self.camy_moving = 0, 0
         self.background_texgroup = client_utility.TextureBindGroup(images.Background, layer=0)
@@ -46,25 +48,18 @@ class Game:
         self.chunks[location] = chunk()
         self.chunks[location].units[unit.side].append(unit)
 
-    def add_tower_to_chunk(self, unit, location):
+    def add_building_to_chunk(self, unit, location):
         if location in self.chunks:
-            self.chunks[location].towers[unit.side].append(unit)
+            self.chunks[location].buildings[unit.side].append(unit)
             return
         self.chunks[location] = chunk()
-        self.chunks[location].towers[unit.side].append(unit)
-
-    def add_townhall_to_chunk(self, unit, location):
-        if location in self.chunks:
-            self.chunks[location].townhalls[unit.side].append(unit)
-            return
-        self.chunks[location] = chunk()
-        self.chunks[location].townhalls[unit.side].append(unit)
+        self.chunks[location].buildings[unit.side].append(unit)
 
     def remove_unit_from_chunk(self, unit, location):
         self.chunks[location].units[unit.side].remove(unit)
 
-    def remove_tower_from_chunk(self, unit, location):
-        self.chunks[location].towers[unit.side].remove(unit)
+    def remove_building_from_chunk(self, unit, location):
+        self.chunks[location].buildings[unit.side].remove(unit)
 
     def clear_chunks(self):
         for e in self.chunks:
@@ -97,11 +92,14 @@ class Game:
 
     def network(self, data):
         if "action" in data:
-            if data["action"] == "place_tower":
-                Tower(data["ID"], data["xy"][0], data["xy"][1], data["tick"], data["side"], self)
+            if data["action"] == "place_building":
+                possible_buildings[data["entity_type"]](data["ID"], data["xy"][0], data["xy"][1], data["tick"],
+                                                        data["side"], self)
                 return
             if data["action"] == "place_wall":
-                t1, t2 = self.find_tower(data["ID1"], data["side"]), self.find_tower(data["ID2"], data["side"])
+                t1, t2 = self.find_building(data["ID1"], data["side"], "tower"), self.find_building(data["ID2"],
+                                                                                                    data["side"],
+                                                                                                    "tower")
                 Wall(data["ID"], t1, t2, data["tick"], data["side"], self)
                 return
             if data["action"] == "summon_formation":
@@ -158,9 +156,9 @@ class Game:
         [e.update_cam(self.camx, self.camy) for e in self.players]
         self.selected.update_cam(self.camx, self.camy)
 
-    def find_tower(self, ID, side):
-        for e in self.players[side].towers:
-            if e.ID == ID:
+    def find_building(self, ID, side, entity_type):
+        for e in self.players[side].all_buildings:
+            if e.ID == ID and e.entity_type == entity_type:
                 return e
         return None
 
@@ -190,11 +188,13 @@ class player:
         self.game = game
         self.walls = []
         self.units = []
-        self.towers = []
         self.formations = []
-        self.TownHall = TownHall(TH_DISTANCE * side, TH_DISTANCE * side, side, self.game)
-        self.all_buildings = [self.TownHall]
+        self.all_buildings = []
         self.money = 0
+        self.TownHall = None
+
+    def summon_townhall(self):
+        self.TownHall = TownHall(TH_DISTANCE * self.side, TH_DISTANCE * self.side, self.side, self.game)
 
     def gain_money(self, amount):
         self.money += amount
@@ -214,16 +214,14 @@ class player:
         [e.tick() for e in self.units]
 
     def tick(self):
-        [e.tick() for e in self.towers]
+        [e.tick() for e in self.all_buildings]
         [e.tick() for e in self.walls]
         [e.tick() for e in self.formations]
-        self.TownHall.tick()
 
     def graphics_update(self):
         [e.graphics_update() for e in self.units]
-        [e.graphics_update() for e in self.towers]
         [e.graphics_update() for e in self.walls]
-        self.TownHall.graphics_update()
+        [e.graphics_update() for e in self.all_buildings]
 
     def update_cam(self, x, y):
         [e.update_cam(x, y) for e in self.units]
@@ -234,24 +232,13 @@ class player:
 class chunk:
     def __init__(self):
         self.units = [[], []]
-        self.towers = [[], []]
-        self.townhalls = [[], []]
+        self.buildings = [[], []]
 
     def is_empty(self):
-        return self.units[0] == [] == self.units[1] and self.towers[0] == [] == self.towers[1]
+        return self.units[0] == [] == self.units[1] and self.buildings[0] == [] == self.buildings[1]
 
     def clear_units(self):
         self.units = [[], []]
-
-    def shove_units(self):
-        for i in range(len(self.units[0])):
-            for j in range(i):
-                self.units[0][i].check_collision(self.units[0][j])
-            for e in self.units[1]:
-                self.units[0][i].check_collision(e)
-        for i in range(len(self.units[1])):
-            for j in range(i):
-                self.units[1][i].check_collision(self.units[1][j])
 
 
 class UI_bottom_bar(client_utility.toolbar):
@@ -398,14 +385,16 @@ class selection_none(selection):
         pass
 
 
-class selection_tower(selection):
+class selection_building(selection):
     img = images.Towerbutton
+    num = 0
 
     def __init__(self, game):
         super().__init__(game)
         self.camx, self.camy = 0, 0
-        self.size = unit_stats["Tower"]["size"]
-        self.sprite = pyglet.sprite.Sprite(images.Intro, x=0,
+        self.entity_type = possible_buildings[self.num]
+        self.size = unit_stats[self.entity_type.name]["size"]
+        self.sprite = pyglet.sprite.Sprite(self.entity_type.image, x=0,
                                            y=0, batch=game.batch,
                                            group=groups.g[2])
         self.sprite.scale = self.size / self.sprite.width
@@ -413,13 +402,14 @@ class selection_tower(selection):
         self.update_cam(self.game.camx, self.game.camy)
 
     def mouse_move(self, x, y):
-        self.sprite.update(x=x - self.size / 2, y=y - self.size / 2)
+        self.sprite.update(x=x, y=y)
         self.cancelbutton.mouse_move(x, y)
 
     def mouse_click(self, x, y):
         if not self.cancelbutton.mouse_click(x, y):
-            self.game.connection.Send({"action": "place_tower", "xy": [(x + self.camx) / SPRITE_SIZE_MULT,
-                                                                       (y + self.camy) / SPRITE_SIZE_MULT]})
+            self.game.connection.Send({"action": "place_building", "xy": [(x + self.camx) / SPRITE_SIZE_MULT,
+                                                                          (y + self.camy) / SPRITE_SIZE_MULT],
+                                       "entity_type": self.num})
             self.end()
 
     def mouse_release(self, x, y):
@@ -433,6 +423,11 @@ class selection_tower(selection):
         self.camx, self.camy = x, y
 
 
+class selection_tower(selection_building):
+    img = images.Towerbutton
+    num = 0
+
+
 class selection_wall(selection):
     img = images.Towerbutton
 
@@ -441,11 +436,12 @@ class selection_wall(selection):
         self.selected1, self.selected2 = None, None
         self.buttons = []
         self.camx, self.camy = game.camx, game.camy
-        for e in game.players[game.side].towers:
-            self.buttons.append(
-                client_utility.button(self.select, (e.x - 20) * SPRITE_SIZE_MULT, (e.y - 20) * SPRITE_SIZE_MULT,
-                                      40 * SPRITE_SIZE_MULT, 40 * SPRITE_SIZE_MULT,
-                                      self.game.batch, args=(e.ID,)))
+        for e in game.players[game.side].all_buildings:
+            if e.entity_type == "tower":
+                self.buttons.append(
+                    client_utility.button(self.select, (e.x - 20) * SPRITE_SIZE_MULT, (e.y - 20) * SPRITE_SIZE_MULT,
+                                          40 * SPRITE_SIZE_MULT, 40 * SPRITE_SIZE_MULT,
+                                          self.game.batch, args=(e.ID,)))
         self.sprite = None
         self.update_cam(self.game.camx, self.game.camy)
 
@@ -627,24 +623,28 @@ class selection_unit(selection):
 # ################# ---/selects--- #################
 # #################   ---units---  #################
 
-class TownHall:
+class Building:
     name = "TownHall"
+    entity_type = "townhall"
+    image = images.Tower
 
-    def __init__(self, x, y, side, game):
-        self.entity_type = "townhall"
+    def __init__(self, ID, x, y, tick, side, game):
+        self.spawning = game.ticks - tick
+        self.ID = ID
         self.x, self.y = x, y
         self.side = side
         self.size = unit_stats[self.name]["size"]
         self.hp = self.maxhp = unit_stats[self.name]["hp"]
-        self.sprite = pyglet.sprite.Sprite(images.Tower, x=x * SPRITE_SIZE_MULT,
+        self.sprite = pyglet.sprite.Sprite(self.image, x=x * SPRITE_SIZE_MULT,
                                            y=y * SPRITE_SIZE_MULT, batch=game.batch,
                                            group=groups.g[2])
         self.sprite.scale = self.size * SPRITE_SIZE_MULT / self.sprite.width
         self.game = game
         self.chunks = get_chunks(x, y, self.size)
-        self.exists = True
+        self.exists = False
+        self.game.players[side].all_buildings.append(self)
         for e in self.chunks:
-            game.add_townhall_to_chunk(self, e)
+            game.add_building_to_chunk(self, e)
         hpbar_y_centre = self.sprite.y
         hpbar_y_range = 2 * SPRITE_SIZE_MULT
         hpbar_x_centre = self.sprite.x
@@ -663,6 +663,7 @@ class TownHall:
             if self.game.side == self.side else (
                 163, 73, 163, 163, 73, 163, 163, 73, 163, 163, 73, 163, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50))
         )
+        self.sprite.opacity = 70
 
     def update_hpbar(self):
         if not self.exists:
@@ -682,13 +683,18 @@ class TownHall:
                                hpbar_x_centre + hpbar_x_range, hpbar_y_centre - hpbar_y_range)
 
     def take_damage(self, amount, source):
-        self.hp -= amount
-        if self.hp <= 0:
-            self.die()
+        if self.exists:
+            self.hp -= amount
+            if self.hp <= 0:
+                self.die()
 
     def die(self):
+        self.game.players[self.side].all_buildings.remove(self)
         self.sprite.delete()
-        print("game over")
+        for e in self.chunks:
+            self.game.remove_building_from_chunk(self, e)
+        self.hpbar.delete()
+        self.exists = False
 
     def distance_to_point(self, x, y):
         return distance(self.x, self.y, x, y) - self.size / 2
@@ -696,118 +702,6 @@ class TownHall:
     def update_cam(self, x, y):
         self.sprite.update(x=self.x * SPRITE_SIZE_MULT - x,
                            y=self.y * SPRITE_SIZE_MULT - y)
-
-    def tick(self):
-        self.shove()
-
-    def shove(self):
-        for c in self.chunks:
-            for e in self.game.chunks[c].units[1 - self.side]:
-                if e == self:
-                    continue
-                if max(abs(e.x - self.x), abs(e.y - self.y)) < (self.size + e.size) / 2:
-                    dist_sq = (e.x - self.x) ** 2 + (e.y - self.y) ** 2
-                    if dist_sq < ((e.size + self.size) * .5) ** 2:
-                        shovage = (e.size + self.size) * .5 * dist_sq ** -.5 - 1
-                        e.take_knockback((e.x - self.x) * shovage, (e.y - self.y) * shovage, self)
-
-    def graphics_update(self):
-        self.update_hpbar()
-
-
-class Tower:
-    name = "Tower"
-
-    def __init__(self, ID, x, y, tick, side, game):
-        assert (game.players[side].attempt_purchase(self.get_cost([])))
-        self.entity_type = "tower"
-        self.x, self.y = x, y
-        self.exists = False
-        self.spawning = game.ticks - tick
-        self.ID = ID
-        self.side = side
-        self.size = unit_stats[self.name]["size"]
-        self.chunks = get_chunks(x, y, self.size)
-        for e in self.chunks:
-            game.add_tower_to_chunk(self, e)
-        self.hp = self.maxhp = unit_stats[self.name]["hp"]
-        self.sprite = pyglet.sprite.Sprite(images.Tower, x=x * SPRITE_SIZE_MULT,
-                                           y=y * SPRITE_SIZE_MULT, batch=game.batch,
-                                           group=groups.g[3])
-        self.sprite2 = pyglet.sprite.Sprite(images.TowerCrack, x=x * SPRITE_SIZE_MULT,
-                                            y=y * SPRITE_SIZE_MULT, batch=game.batch,
-                                            group=groups.g[4])
-        self.sprite2.opacity = 0
-        self.sprite2.scale = self.size * SPRITE_SIZE_MULT / self.sprite2.width
-        self.sprite.scale = self.size * SPRITE_SIZE_MULT / self.sprite.width
-        self.sprite.opacity = 70
-        game.players[side].towers.append(self)
-        game.players[side].all_buildings.append(self)
-        self.game = game
-        self.update_cam(self.game.camx, self.game.camy)
-        hpbar_y_centre = self.sprite.y
-        hpbar_y_range = 2 * SPRITE_SIZE_MULT
-        hpbar_x_centre = self.sprite.x
-        hpbar_x_range = self.size * SPRITE_SIZE_MULT / 2
-        self.hpbar = game.batch.add(
-            8, pyglet.gl.GL_QUADS, groups.g[6],
-            ("v2f", (hpbar_x_centre - hpbar_x_range, hpbar_y_centre - hpbar_y_range,
-                     hpbar_x_centre - hpbar_x_range, hpbar_y_centre + hpbar_y_range,
-                     hpbar_x_centre + hpbar_x_range, hpbar_y_centre - hpbar_y_range,
-                     hpbar_x_centre + hpbar_x_range, hpbar_y_centre + hpbar_y_range,
-                     hpbar_x_centre + hpbar_x_range, hpbar_y_centre - hpbar_y_range,
-                     hpbar_x_centre + hpbar_x_range, hpbar_y_centre + hpbar_y_range,
-                     hpbar_x_centre + hpbar_x_range, hpbar_y_centre - hpbar_y_range,
-                     hpbar_x_centre + hpbar_x_range, hpbar_y_centre + hpbar_y_range)),
-            ("c3B", (0, 255, 0, 0, 255, 0, 0, 255, 0, 0, 255, 0, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50)
-            if self.game.side == self.side else (
-                163, 73, 163, 163, 73, 163, 163, 73, 163, 163, 73, 163, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50))
-        )
-
-    def update_hpbar(self):
-        if not self.exists:
-            return
-        hpbar_y_centre = self.sprite.y
-        hpbar_y_range = 2 * SPRITE_SIZE_MULT
-        hpbar_x_centre = self.sprite.x
-        hpbar_x_range = self.size * SPRITE_SIZE_MULT / 2
-        health_size = hpbar_x_range * (2 * self.hp / self.maxhp - 1)
-        self.hpbar.vertices = (hpbar_x_centre - hpbar_x_range, hpbar_y_centre - hpbar_y_range,
-                               hpbar_x_centre - hpbar_x_range, hpbar_y_centre + hpbar_y_range,
-                               hpbar_x_centre + health_size, hpbar_y_centre + hpbar_y_range,
-                               hpbar_x_centre + health_size, hpbar_y_centre - hpbar_y_range,
-                               hpbar_x_centre + health_size, hpbar_y_centre - hpbar_y_range,
-                               hpbar_x_centre + health_size, hpbar_y_centre + hpbar_y_range,
-                               hpbar_x_centre + hpbar_x_range, hpbar_y_centre + hpbar_y_range,
-                               hpbar_x_centre + hpbar_x_range, hpbar_y_centre - hpbar_y_range)
-
-    def distance_to_point(self, x, y):
-        return distance(self.x, self.y, x, y) - self.size / 2
-
-    @classmethod
-    def get_cost(cls, params):
-        return unit_stats[cls.name]["cost"]
-
-    def die(self):
-        self.game.players[self.side].towers.remove(self)
-        self.game.players[self.side].all_buildings.remove(self)
-        self.sprite.delete()
-        self.sprite2.delete()
-        self.hpbar.delete()
-        self.exists = False
-
-    def take_damage(self, amount, source):
-        if not self.exists:
-            return
-        self.hp -= amount
-        if self.hp <= 0:
-            self.die()
-            return
-        self.sprite2.opacity = 255 * (self.maxhp - self.hp) / self.maxhp
-
-    def update_cam(self, x, y):
-        self.sprite.update(x=self.x * SPRITE_SIZE_MULT - x, y=self.y * SPRITE_SIZE_MULT - y)
-        self.sprite2.update(x=self.x * SPRITE_SIZE_MULT - x, y=self.y * SPRITE_SIZE_MULT - y)
 
     def tick(self):
         if self.spawning < FPS:
@@ -833,6 +727,60 @@ class Tower:
 
     def graphics_update(self):
         self.update_hpbar()
+
+
+class TownHall(Building):
+    name = "TownHall"
+    entity_type = "townhall"
+    image = images.Tower
+
+    def __init__(self, x, y, side, game):
+        super().__init__(None, x, y, 0, side, game)
+        self.exists = True
+        self.sprite.opacity = 255
+
+    def die(self):
+        self.sprite.delete()
+        print("game over")
+
+    def tick(self):
+        self.shove()
+
+
+class Tower(Building):
+    name = "Tower"
+    entity_type = "tower"
+    image = images.Tower
+
+    def __init__(self, ID, x, y, tick, side, game):
+        assert (game.players[side].attempt_purchase(self.get_cost([])))
+        super().__init__(ID, x, y, tick, side, game)
+        self.entity_type = "tower"
+        self.sprite2 = pyglet.sprite.Sprite(images.TowerCrack, x=x * SPRITE_SIZE_MULT,
+                                            y=y * SPRITE_SIZE_MULT, batch=game.batch,
+                                            group=groups.g[4])
+        self.sprite2.opacity = 0
+        self.sprite2.scale = self.size * SPRITE_SIZE_MULT / self.sprite2.width
+
+    @classmethod
+    def get_cost(cls, params):
+        return unit_stats[cls.name]["cost"]
+
+    def die(self):
+        super().die()
+        self.sprite2.delete()
+
+    def take_damage(self, amount, source):
+        if self.exists:
+            self.sprite2.opacity = 255 * max(0, (self.maxhp - self.hp)) / self.maxhp
+            super().take_damage(amount, source)
+
+    def update_cam(self, x, y):
+        super().update_cam(x, y)
+        self.sprite2.update(x=self.x * SPRITE_SIZE_MULT - x, y=self.y * SPRITE_SIZE_MULT - y)
+
+
+possible_buildings = [Tower]
 
 
 class Wall:
