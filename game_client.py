@@ -90,8 +90,6 @@ class Game:
             self.ticks += 1
             self.players[0].gain_money(PASSIVE_INCOME)
             self.players[1].gain_money(PASSIVE_INCOME)
-            if self.ticks%1000==0:
-                prinnt(self.ticks, time.time()%10000)
         self.update_cam()
         self.players[0].graphics_update()
         self.players[1].graphics_update()
@@ -955,6 +953,7 @@ class Wall:
 class Formation:
     def __init__(self, ID, instructions, troops, tick, side, game):
         assert (game.players[side].attempt_purchase(self.get_cost([troops])))
+        print(time.time()%1000)
         self.entity_type = "formation"
         self.exists = False
         self.spawning = game.ticks - tick
@@ -983,6 +982,7 @@ class Formation:
                     i += 1
         self.instr_object = instruction_moving(self, self.x, self.y)
         self.all_targets = []
+        print(time.time()%1000)
 
     @classmethod
     def get_cost(cls, params):
