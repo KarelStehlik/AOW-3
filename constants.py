@@ -2,19 +2,20 @@ import pyglet
 
 display = pyglet.canvas.Display()
 screen = display.get_default_screen()
-SCREEN_WIDTH = screen.width #//2
-SCREEN_HEIGHT = screen.height #//2
+SCREEN_WIDTH = screen.width  # //2
+SCREEN_HEIGHT = screen.height  # //2
 SPRITE_SIZE_MULT = SCREEN_WIDTH / 1920
 UNIT_SIZE = 20
 FPS = 144
 TH_DISTANCE = 1000
 UNIT_FORMATION_ROWS = 10
 UNIT_FORMATION_COLUMNS = 20
-CHUNK_SIZE=75
-#size   fps
-#30     40
-#40     50
-#50     60
-#60     70
-#70     70
-#100    50
+CHUNK_SIZE = 75
+PASSIVE_INCOME = 220.5
+# size   fps
+# 30     40
+# 40     50
+# 50     60
+# 60     70
+# 70     70
+# 100    50

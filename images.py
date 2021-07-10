@@ -26,9 +26,11 @@ centre_anchor(UnitSlot)
 UnitFormFrame = IL("UnitFormFrame")
 blue_arrow = IL("blue_arrow").get_texture()
 Swordsman = RI("Swordsman")
-centre_anchor(Swordsman)
+Swordsman.anchor_x = 64
+Swordsman.anchor_y = 54
 Bowman = RI("Bowman")
-centre_anchor(Bowman)
+Bowman.anchor_x = 64
+Bowman.anchor_y = 60
 Tower = IL("Tower")
 TowerCrack = IL("tower_crack")
 centre_anchor(Tower)

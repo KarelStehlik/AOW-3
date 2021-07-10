@@ -1,3 +1,5 @@
+from typing import List, Any
+
 from imports import *
 import groups
 from constants import *
@@ -33,6 +35,10 @@ class Game:
         self.unit_formation = UI_formation(self)
         self.UI_toolbars = [self.UI_bottomBar, self.UI_categories, self.unit_formation]
         self.selected = selection_none(self)
+        self.money = pyglet.text.Label(x=SCREEN_WIDTH * 0.995, y=SCREEN_HEIGHT * 0.995, text="Gold:0",
+                                       color=(255, 240, 0, 255),
+                                       group=groups.g[9], batch=self.batch, anchor_y="top", anchor_x="right",
+                                       font_size=20 * SPRITE_SIZE_MULT)
 
     def add_unit_to_chunk(self, unit, location):
         if location in self.chunks:
@@ -82,6 +88,8 @@ class Game:
             self.players[0].tick()
             self.players[1].tick()
             self.ticks += 1
+            self.players[0].gain_money(PASSIVE_INCOME)
+            self.players[1].gain_money(PASSIVE_INCOME)
         self.update_cam()
         self.players[0].graphics_update()
         self.players[1].graphics_update()
@@ -94,8 +102,8 @@ class Game:
                 Tower(data["ID"], data["xy"][0], data["xy"][1], data["tick"], data["side"], self)
                 return
             if data["action"] == "place_wall":
-                Wall(data["ID"], self.find_tower(data["ID1"], data["side"]),
-                     self.find_tower(data["ID2"], data["side"]), data["tick"], data["side"], self)
+                t1, t2 = self.find_tower(data["ID1"], data["side"]), self.find_tower(data["ID2"], data["side"])
+                Wall(data["ID"], t1, t2, data["tick"], data["side"], self)
                 return
             if data["action"] == "summon_formation":
                 Formation(data["ID"], data["instructions"], data["troops"], data["tick"], data["side"], self)
@@ -179,6 +187,7 @@ class Game:
 
 
 class player:
+
     def __init__(self, side, game):
         self.side = side
         self.game = game
@@ -188,6 +197,20 @@ class player:
         self.formations = []
         self.TownHall = TownHall(TH_DISTANCE * side, TH_DISTANCE * side, side, self.game)
         self.all_buildings = [self.TownHall]
+        self.money = 0
+
+    def gain_money(self, amount):
+        self.money += amount
+        if self.side == self.game.side:
+            self.game.money.text = "Gold: " + str(int(self.money))
+
+    def attempt_purchase(self, amount):
+        if self.money < amount:
+            return False
+        self.money -= amount
+        if self.side == self.game.side:
+            self.game.money.text = "Gold: " + str(int(self.money))
+        return True
 
     def tick_units(self):
         # ticks before other stuff to ensure the units are in their chunks
@@ -255,6 +278,8 @@ class UI_bottom_bar(client_utility.toolbar):
 
 
 class UI_formation(client_utility.toolbar):
+    units: list[list[int]]
+
     def __init__(self, game):
         self.rows, self.columns = game.unit_formation_rows, game.unit_formation_columns
         self.dot_size = SCREEN_HEIGHT * 0.1788 / self.rows
@@ -265,7 +290,7 @@ class UI_formation(client_utility.toolbar):
                          self.dot_size * (self.rows + 4) + SCREEN_HEIGHT * 0.1, game.batch,
                          image=images.UnitFormFrame, layer=7)
 
-        self.units = [[None for _ in range(self.rows)] for _ in range(self.columns)]
+        self.units = [[-1 for _ in range(self.rows)] for _ in range(self.columns)]
 
         self.sprites = [[client_utility.sprite_with_scale(images.UnitSlot, self.dot_scale, 1, 1,
                                                           self.x + self.dot_size * (j + 2.5),
@@ -274,6 +299,10 @@ class UI_formation(client_utility.toolbar):
                          for i in range(self.rows)] for j in range(self.columns)]
         self.add(self.send, self.x, self.height - SCREEN_HEIGHT * 0.1, self.width, SCREEN_HEIGHT * 0.1,
                  image=images.Cancelbutton)
+        self.cost_count = pyglet.text.Label(x=self.x + self.width / 2, y=5, text="Cost: 0", color=(255, 240, 0, 255),
+                                            group=groups.g[9], batch=self.batch, anchor_x="center", anchor_y="bottom",
+                                            font_size=20 * SPRITE_SIZE_MULT)
+        self.cost = 0
 
     def sucessful_click(self, x, y):
         if self.x + self.dot_size * 2 < x < self.x + self.dot_size * (2 + self.columns) and \
@@ -292,11 +321,18 @@ class UI_formation(client_utility.toolbar):
     def send(self):
         self.game.select(selection_unit_formation)
 
-    def set_unit(self, x, y, num):
+    def set_unit(self, x, y, num: int):
         if self.units[x][y] == num:
             return
+        if self.units[x][y] == -1:
+            self.cost += possible_units[num].get_cost([])
+        elif num == -1:
+            self.cost -= possible_units[self.units[x][y]].get_cost([])
+        else:
+            self.cost += possible_units[num].get_cost([]) - possible_units[self.units[x][y]].get_cost([])
+        self.cost_count.text = "Cost: " + str(int(self.cost))
         self.units[x][y] = num
-        if num is not None:
+        if num != -1:
             self.sprites[x][y].delete()
             a = possible_units[num].image
             self.sprites[x][y] = client_utility.sprite_with_scale(a, self.dot_size / a.width, 1, 1,
@@ -354,7 +390,7 @@ class selection:
         pass
 
     def clicked_unit_slot(self, x, y):
-        self.game.unit_formation.set_unit(x, y, None)
+        self.game.unit_formation.set_unit(x, y, -1)
 
 
 class selection_none(selection):
@@ -459,7 +495,7 @@ class selection_unit_formation(selection):
         self.camx, self.camy = game.camx, game.camy
         for x in range(self.game.unit_formation_columns):
             for y in range(self.game.unit_formation_rows):
-                if self.troops[x][y] is not None:
+                if self.troops[x][y] != -1:
                     x_location = ((x - self.game.unit_formation_columns * .5) * UNIT_SIZE +
                                   self.game.players[self.game.side].TownHall.x) * SPRITE_SIZE_MULT - self.camx
                     y_location = ((y - self.game.unit_formation_rows * .5) * UNIT_SIZE +
@@ -658,7 +694,7 @@ class TownHall:
         print("game over")
 
     def distance_to_point(self, x, y):
-        return distance(self.x, self.y, x, y) - self.size/2
+        return distance(self.x, self.y, x, y) - self.size / 2
 
     def update_cam(self, x, y):
         self.sprite.update(x=self.x * SPRITE_SIZE_MULT - x,
@@ -686,6 +722,7 @@ class Tower:
     name = "Tower"
 
     def __init__(self, ID, x, y, tick, side, game):
+        assert (game.players[side].attempt_purchase(self.get_cost([])))
         self.entity_type = "tower"
         self.x, self.y = x, y
         self.exists = False
@@ -748,7 +785,11 @@ class Tower:
                                hpbar_x_centre + hpbar_x_range, hpbar_y_centre - hpbar_y_range)
 
     def distance_to_point(self, x, y):
-        return distance(self.x, self.y, x, y) - self.size/2
+        return distance(self.x, self.y, x, y) - self.size / 2
+
+    @classmethod
+    def get_cost(cls, params):
+        return unit_stats[cls.name]["cost"]
 
     def die(self):
         self.game.players[self.side].towers.remove(self)
@@ -801,6 +842,7 @@ class Wall:
     name = "Wall"
 
     def __init__(self, ID, t1, t2, tick, side, game):
+        assert (game.players[side].attempt_purchase(self.get_cost([])))
         self.entity_type = "wall"
         self.exists = False
         self.spawning = game.ticks - tick
@@ -839,6 +881,10 @@ class Wall:
         )
         self.update_cam(self.game.camx, self.game.camy)
 
+    @classmethod
+    def get_cost(cls, params):
+        return unit_stats[cls.name]["cost"]
+
     def towards(self, x, y):
         if point_line_dist(x, y, (self.norm_vector[1], -self.norm_vector[0]), self.crossline_c) < self.length * .5:
             if x * self.norm_vector[0] + y * self.norm_vector[1] + self.line_c < 0:
@@ -853,18 +899,18 @@ class Wall:
 
     def distance_to_point(self, x, y):
         if point_line_dist(x, y, (self.norm_vector[1], -self.norm_vector[0]), self.crossline_c) < self.length * .5:
-            return point_line_dist(x, y, self.norm_vector, self.line_c)-self.width/2
+            return point_line_dist(x, y, self.norm_vector, self.line_c) - self.width / 2
         if (x - self.tower_1.x) ** 2 + (y - self.tower_1.y) ** 2 < (x - self.tower_2.x) ** 2 + (
                 y - self.tower_2.y) ** 2:
-            return distance(x, y, self.tower_1.x, self.tower_1.y)-self.width/2
-        return distance(x, y, self.tower_2.x, self.tower_2.y)-self.width/2
+            return distance(x, y, self.tower_1.x, self.tower_1.y) - self.width / 2
+        return distance(x, y, self.tower_2.x, self.tower_2.y) - self.width / 2
 
     def die(self):
         self.sprite.delete()
         self.crack_sprite.delete()
         self.game.players[self.side].walls.remove(self)
         self.game.players[self.side].all_buildings.remove(self)
-        self.exists=False
+        self.exists = False
 
     def take_damage(self, amount, source):
         if not self.exists:
@@ -906,6 +952,7 @@ class Wall:
 
 class Formation:
     def __init__(self, ID, instructions, troops, tick, side, game):
+        assert (game.players[side].attempt_purchase(self.get_cost([troops])))
         self.entity_type = "formation"
         self.exists = False
         self.spawning = game.ticks - tick
@@ -919,7 +966,7 @@ class Formation:
         self.x, self.y = self.game.players[self.side].TownHall.x, self.game.players[self.side].TownHall.y
         for column in range(UNIT_FORMATION_COLUMNS):
             for row in range(UNIT_FORMATION_ROWS):
-                if troops[column][row] is not None:
+                if troops[column][row] != -1:
                     self.troops.append(
                         possible_units[troops[column][row]](
                             i,
@@ -934,6 +981,15 @@ class Formation:
                     i += 1
         self.instr_object = instruction_moving(self, self.x, self.y)
         self.all_targets = []
+
+    @classmethod
+    def get_cost(cls, params):
+        cost = 0
+        for column in range(UNIT_FORMATION_COLUMNS):
+            for row in range(UNIT_FORMATION_ROWS):
+                if params[0][column][row] != -1:
+                    cost += possible_units[params[0][column][row]].get_cost([])
+        return cost
 
     def tick(self):
         if self.spawning < FPS:
@@ -1042,7 +1098,7 @@ class Unit:
     image = images.Cancelbutton
     name = "None"
 
-    def __init__(self, ID, x, y, side, column, row, game, formation):
+    def __init__(self, ID, x, y, side, column, row, game: Game, formation: Formation):
         self.entity_type = "unit"
         self.last_camx, self.last_camy = game.camx, game.camy
         self.ID = ID
@@ -1096,7 +1152,7 @@ class Unit:
             self.game.add_unit_to_chunk(self, e)
 
     def distance_to_point(self, x, y):
-        return distance(self.x, self.y, x, y)-self.size/2
+        return distance(self.x, self.y, x, y) - self.size / 2
 
     def take_damage(self, amount, source):
         if not self.exists:
@@ -1104,6 +1160,10 @@ class Unit:
         self.health -= amount
         if self.health <= 0:
             self.die()
+
+    @classmethod
+    def get_cost(cls, params):
+        return unit_stats[cls.name]["cost"]
 
     def update_hpbar(self):
         if not self.exists:
@@ -1121,7 +1181,6 @@ class Unit:
                                hpbar_x_centre + health_size, hpbar_y_centre + hpbar_y_range,
                                hpbar_x_centre + hpbar_x_range, hpbar_y_centre + hpbar_y_range,
                                hpbar_x_centre + hpbar_x_range, hpbar_y_centre - hpbar_y_range)
-        # print(list(self.hpbar.vertices))
 
     def acquire_target(self):
         if self.target is not None and self.target.exists:

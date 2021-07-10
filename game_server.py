@@ -33,6 +33,8 @@ class Game:
             self.players[0].tick()
             self.players[1].tick()
             self.ticks += 1
+            self.players[0].gain_money(PASSIVE_INCOME)
+            self.players[1].gain_money(PASSIVE_INCOME)
             # self.debug_ticks += 1
             # if time.time() - self.debug_secs > 1:
             # self.debug_secs += 1
@@ -42,38 +44,36 @@ class Game:
     def network(self, data, side):
         if "action" in data:
             if data["action"] == "place_tower":
-                self.players[side].towers.append(Tower(
-                    self.object_ID, data["xy"][0], data["xy"][1], side, self))
-                self.send_both({"action": "place_tower", "xy": data["xy"], "tick": self.ticks, "side": side,
-                                "ID": self.object_ID})
-                self.object_ID += 1
-                return
-            if data["action"] == "place_wall":
-                t1, t2 = self.find_tower(data["ID1"], side), self.find_tower(data["ID2"], side)
-                if None in [t1, t2] or t1 == t2:
-                    return
-                for e in self.players[0].walls:
-                    if e.tower_1.ID in [data["ID1"], data["ID2"]] and e.tower_2.ID in [data["ID1"], data["ID2"]]:
+                if self.players[side].attempt_purchase(Tower.get_cost([])):
+                    Tower(self.object_ID, data["xy"][0], data["xy"][1], side, self)
+                    self.send_both({"action": "place_tower", "xy": data["xy"], "tick": self.ticks, "side": side,
+                                    "ID": self.object_ID})
+                    self.object_ID += 1
+            elif data["action"] == "place_wall":
+                if self.players[side].attempt_purchase(Wall.get_cost([])):
+                    t1, t2 = self.find_tower(data["ID1"], side), self.find_tower(data["ID2"], side)
+                    if (None in [t1, t2]) or t1 == t2:
                         return
-                for e in self.players[1].walls:
-                    if e.tower_1.ID in [data["ID1"], data["ID2"]] and e.tower_2.ID in [data["ID1"], data["ID2"]]:
+                    for e in self.players[0].walls:
+                        if e.tower_1.ID in [data["ID1"], data["ID2"]] and e.tower_2.ID in [data["ID1"], data["ID2"]]:
+                            return
+                    for e in self.players[1].walls:
+                        if e.tower_1.ID in [data["ID1"], data["ID2"]] and e.tower_2.ID in [data["ID1"], data["ID2"]]:
+                            return
+                    Wall(self.object_ID, t1, t2, side, self)
+                    self.send_both({"action": "place_wall", "ID1": data["ID1"],
+                                    "ID2": data["ID2"], "tick": self.ticks, "side": side,
+                                    "ID": self.object_ID})
+                    self.object_ID += 1
+            elif data["action"] == "summon_formation":
+                if self.players[side].attempt_purchase(Formation.get_cost([data["troops"], ])):
+                    if is_empty_2d(data["troops"]):
                         return
-                self.players[side].walls.append(Wall(
-                    self.object_ID, t1, t2, side, self))
-                self.send_both({"action": "place_wall", "ID1": data["ID1"],
-                                "ID2": data["ID2"], "tick": self.ticks, "side": side,
-                                "ID": self.object_ID})
-                self.object_ID += 1
-                return
-            if data["action"] == "summon_formation":
-                if is_empty_2d(data["troops"]):
-                    return
-                Formation(self.object_ID, data["instructions"], data["troops"], side, self)
-                self.send_both({"action": "summon_formation", "tick": self.ticks, "side": side,
-                                "instructions": data["instructions"], "troops": data["troops"],
-                                "ID": self.object_ID})
-                self.object_ID += 1
-                return
+                    Formation(self.object_ID, data["instructions"], data["troops"], side, self)
+                    self.send_both({"action": "summon_formation", "tick": self.ticks, "side": side,
+                                    "instructions": data["instructions"], "troops": data["troops"],
+                                    "ID": self.object_ID})
+                    self.object_ID += 1
 
     def end(self, winner):
         self.send_both({"action": "game_end", "winner": winner})
@@ -137,6 +137,16 @@ class player:
         self.formations = []
         self.TownHall = TownHall(TH_DISTANCE * side, TH_DISTANCE * side, side, self.game)
         self.all_buildings = [self.TownHall]
+        self.money = 0
+
+    def gain_money(self, amount):
+        self.money += amount
+
+    def attempt_purchase(self, amount):
+        if self.money < amount:
+            return False
+        self.money -= amount
+        return True
 
     def tick_units(self):
         # ticks before other stuff to ensure the units are in their chunks
@@ -240,6 +250,10 @@ class Tower:
     def distance_to_point(self, x, y):
         return distance(self.x, self.y, x, y) - self.size / 2
 
+    @classmethod
+    def get_cost(cls, params):
+        return unit_stats[cls.name]["cost"]
+
     def die(self):
         self.game.players[self.side].towers.remove(self)
         self.game.players[self.side].all_buildings.remove(self)
@@ -303,6 +317,10 @@ class Wall:
     def die(self):
         self.game.players[self.side].walls.remove(self)
         self.game.players[self.side].all_buildings.remove(self)
+
+    @classmethod
+    def get_cost(cls, params):
+        return unit_stats[cls.name]["cost"]
 
     def take_damage(self, amount, source):
         self.hp -= amount
@@ -370,7 +388,7 @@ class Formation:
         self.x, self.y = self.game.players[self.side].TownHall.x, self.game.players[self.side].TownHall.y
         for column in range(UNIT_FORMATION_COLUMNS):
             for row in range(UNIT_FORMATION_ROWS):
-                if troops[column][row] is not None:
+                if troops[column][row] != -1:
                     self.troops.append(
                         possible_units[troops[column][row]](
                             i,
@@ -385,6 +403,15 @@ class Formation:
                     i += 1
         self.instr_object = instruction_moving(self, self.x, self.y)
         self.all_targets = []
+
+    @classmethod
+    def get_cost(cls, params):
+        cost = 0
+        for column in range(UNIT_FORMATION_COLUMNS):
+            for row in range(UNIT_FORMATION_ROWS):
+                if params[0][column][row] != -1:
+                    cost += possible_units[params[0][column][row]].get_cost([])
+        return cost
 
     def tick(self):
         if self.spawning < FPS:
@@ -520,6 +547,10 @@ class Unit:
     def distance_to_point(self, x, y):
         return distance(self.x, self.y, x, y) - self.size / 2
 
+    @classmethod
+    def get_cost(cls, params):
+        return unit_stats[cls.name]["cost"]
+
     def take_damage(self, amount, source):
         if not self.exists:
             return
@@ -578,7 +609,7 @@ class Unit:
         pass
 
     def die(self):
-        self.exists=False
+        self.exists = False
         self.formation.troops.remove(self)
         self.game.players[self.side].units.remove(self)
         self.game = None
