@@ -1450,6 +1450,7 @@ class Arrow(Projectile):
     image = images.Arrow
     scale = .1
 
+
 class animation_explosion:
     def __init__(self, x, y, size, speed, game):
         self.sprite = pyglet.sprite.Sprite(images.Fire, x=x * SPRITE_SIZE_MULT - game.camx,
