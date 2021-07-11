@@ -17,7 +17,7 @@ class Game:
             e.summon_townhall()
         self.connection = connection
         self.batch = batch
-        self.cam_move_speed = 3
+        self.cam_move_speed = 600
         self.start_time = time0
         self.camx, self.camy = 0, 0
         self.camx_moving, self.camy_moving = 0, 0
@@ -40,6 +40,7 @@ class Game:
                                        color=(255, 240, 0, 255),
                                        group=groups.g[9], batch=self.batch, anchor_y="top", anchor_x="right",
                                        font_size=20 * SPRITE_SIZE_MULT)
+        self.last_tick,self.last_dt=0,0
 
     def add_unit_to_chunk(self, unit, location):
         if location in self.chunks:
@@ -84,11 +85,13 @@ class Game:
             self.ticks += 1
             self.players[0].gain_money(PASSIVE_INCOME)
             self.players[1].gain_money(PASSIVE_INCOME)
-        self.update_cam()
+        self.update_cam(self.last_dt)
         self.players[0].graphics_update()
         self.players[1].graphics_update()
         self.selected.tick()
         self.batch.draw()
+        self.last_dt = time.perf_counter() - self.last_tick
+        self.last_tick = time.perf_counter()
 
     def network(self, data):
         if "action" in data:
@@ -147,9 +150,10 @@ class Game:
     def mouse_scroll(self, x, y, scroll_x, scroll_y):
         pass
 
-    def update_cam(self):
-        self.camx += self.camx_moving
-        self.camy += self.camy_moving
+    def update_cam(self, dt):
+        dt = min(dt, 2)
+        self.camx += self.camx_moving * dt
+        self.camy += self.camy_moving * dt
         x, y = self.camx / 512, self.camy / 512
         self.background.tex_coords = (x, y, x + SCREEN_WIDTH / 512, y, x + SCREEN_WIDTH / 512,
                                       y + SCREEN_HEIGHT / 512, x, y + SCREEN_HEIGHT / 512)
@@ -198,15 +202,11 @@ class player:
 
     def gain_money(self, amount):
         self.money += amount
-        if self.side == self.game.side:
-            self.game.money.text = "Gold: " + str(int(self.money))
 
     def attempt_purchase(self, amount):
         if self.money < amount:
             return False
         self.money -= amount
-        if self.side == self.game.side:
-            self.game.money.text = "Gold: " + str(int(self.money))
         return True
 
     def tick_units(self):
@@ -219,6 +219,8 @@ class player:
         [e.tick() for e in self.formations]
 
     def graphics_update(self):
+        if self.side == self.game.side:
+            self.game.money.text = "Gold: " + str(int(self.money))
         [e.graphics_update() for e in self.units]
         [e.graphics_update() for e in self.walls]
         [e.graphics_update() for e in self.all_buildings]
@@ -407,10 +409,12 @@ class selection_building(selection):
 
     def mouse_click(self, x, y):
         for e in self.game.players[1].all_buildings:
-            if e.distance_to_point((x + self.camx) / SPRITE_SIZE_MULT,(y + self.camy) / SPRITE_SIZE_MULT)<self.size/2:
+            if e.distance_to_point((x + self.camx) / SPRITE_SIZE_MULT,
+                                   (y + self.camy) / SPRITE_SIZE_MULT) < self.size / 2:
                 return
         for e in self.game.players[0].all_buildings:
-            if e.distance_to_point((x + self.camx) / SPRITE_SIZE_MULT,(y + self.camy) / SPRITE_SIZE_MULT)<self.size/2:
+            if e.distance_to_point((x + self.camx) / SPRITE_SIZE_MULT,
+                                   (y + self.camy) / SPRITE_SIZE_MULT) < self.size / 2:
                 return
         if not self.cancelbutton.mouse_click(x, y):
             self.game.connection.Send({"action": "place_building", "xy": [(x + self.camx) / SPRITE_SIZE_MULT,
@@ -433,9 +437,21 @@ class selection_tower(selection_building):
     img = images.Towerbutton
     num = 0
 
+
 class selection_farm(selection_building):
     img = images.Towerbutton
     num = 1
+
+    def mouse_click(self, x, y):
+        close_to_friendly = False
+        proximity = unit_stats["Farm"]["proximity"]
+        for e in self.game.players[self.game.side].all_buildings:
+            if (e.entity_type == "farm" or e.entity_type == "townhall") and \
+                    e.distance_to_point((x + self.camx) / SPRITE_SIZE_MULT,
+                                        (y + self.camy) / SPRITE_SIZE_MULT) < proximity:
+                close_to_friendly = True
+        if close_to_friendly:
+            super().mouse_click(x, y)
 
 
 class selection_wall(selection):
@@ -797,7 +813,7 @@ class Farm(Building):
     def __init__(self, ID, x, y, tick, side, game):
         assert (game.players[side].attempt_purchase(self.get_cost([])))
         super().__init__(ID, x, y, tick, side, game)
-        self.production=unit_stats[self.name]["production"]
+        self.production = unit_stats[self.name]["production"]
 
     @classmethod
     def get_cost(cls, params):
@@ -1184,10 +1200,10 @@ class Unit:
             return d <= self.reach
         else:
             dist_sq = (other.x - self.x) ** 2 + (other.y - self.y) ** 2
-            if dist_sq < ((other.size + self.size) * .5 + self.reach * 0.5) ** 2:
+            if dist_sq < ((other.size + self.size) * .5 + self.reach * .8) ** 2:
                 self.rotate(self.x - other.x, self.y - other.y)
-                self.vx /= 2
-                self.vy /= 2
+                self.vx *= .7
+                self.vy *= .7
                 self.x += self.vx
                 self.y += self.vy
                 return True
@@ -1259,7 +1275,8 @@ class Unit:
         if source.side != self.side:
             if source.entity_type == "unit" and source not in self.formation.all_targets:
                 self.formation.attack(source.formation)
-            elif source.entity_type in ["tower", "townhall", "wall", "farm"] and source not in self.formation.all_targets:
+            elif source.entity_type in ["tower", "townhall", "wall",
+                                        "farm"] and source not in self.formation.all_targets:
                 self.formation.attack(source)
 
     def rotate(self, x, y):
@@ -1352,7 +1369,7 @@ class selection_archer(selection_unit):
 
 
 possible_units = [Swordsman, Archer]
-selects_p1 = [selection_tower, selection_wall,selection_farm]
+selects_p1 = [selection_tower, selection_wall, selection_farm]
 selects_p2 = [selection_swordsman, selection_archer]
 selects_all = [selects_p1, selects_p2]
 

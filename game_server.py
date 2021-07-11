@@ -47,11 +47,20 @@ class Game:
         if "action" in data:
             if data["action"] == "place_building":
                 entity_type = possible_buildings[data["entity_type"]]
+                if entity_type.entity_type == "farm":
+                    close_to_friendly = False
+                    proximity = unit_stats["Farm"]["proximity"]
+                    for e in self.players[side].all_buildings:
+                        if (e.entity_type == "farm" or e.entity_type == "townhall") and \
+                                e.distance_to_point(*data["xy"]) < proximity:
+                            close_to_friendly = True
+                    if not close_to_friendly:
+                        return
                 for e in self.players[1].all_buildings:
-                    if e.distance_to_point(*data["xy"]) < unit_stats[entity_type.name]["size"]/2:
+                    if e.distance_to_point(*data["xy"]) < unit_stats[entity_type.name]["size"] / 2:
                         return
                 for e in self.players[0].all_buildings:
-                    if e.distance_to_point(*data["xy"]) < unit_stats[entity_type.name]["size"]/2:
+                    if e.distance_to_point(*data["xy"]) < unit_stats[entity_type.name]["size"] / 2:
                         return
                 if self.players[side].attempt_purchase(entity_type.get_cost([])):
                     entity_type(self.object_ID, data["xy"][0], data["xy"][1], side, self)
@@ -579,10 +588,10 @@ class Unit:
             return d <= self.reach
         else:
             dist_sq = (other.x - self.x) ** 2 + (other.y - self.y) ** 2
-            if dist_sq < ((other.size + self.size) * .5 + self.reach * 0.5) ** 2:
+            if dist_sq < ((other.size + self.size) * .5 + self.reach * .8) ** 2:
                 self.rotate(self.x - other.x, self.y - other.y)
-                self.vx /= 2
-                self.vy /= 2
+                self.vx *= .7
+                self.vy *= .7
                 self.x += self.vx
                 self.y += self.vy
                 return True
@@ -662,7 +671,8 @@ class Unit:
         if source.side != self.side:
             if source.entity_type == "unit" and source not in self.formation.all_targets:
                 self.formation.attack(source.formation)
-            elif source.entity_type in ["tower", "townhall", "wall", "farm"] and source not in self.formation.all_targets:
+            elif source.entity_type in ["tower", "townhall", "wall",
+                                        "farm"] and source not in self.formation.all_targets:
                 self.formation.attack(source)
 
     def try_move(self, x, y):
