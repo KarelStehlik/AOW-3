@@ -29,11 +29,12 @@ class Game:
 
     def tick(self):
         while self.ticks < FPS * (time.time() - self.time_start):
+            odd_tick = self.ticks % 2
             self.clear_chunks()
-            self.players[0].tick_units()
-            self.players[1].tick_units()
-            self.players[0].tick()
-            self.players[1].tick()
+            self.players[odd_tick].tick_units()
+            self.players[odd_tick - 1].tick_units()
+            self.players[odd_tick].tick()
+            self.players[odd_tick - 1].tick()
             self.ticks += 1
             self.players[0].gain_money(PASSIVE_INCOME)
             self.players[1].gain_money(PASSIVE_INCOME)
