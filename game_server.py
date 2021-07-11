@@ -36,8 +36,7 @@ class Game:
             self.players[odd_tick - 1].tick_units()
             self.players[odd_tick].tick()
             self.players[odd_tick - 1].tick()
-            for e in self.projectiles:
-                e.tick()
+            [e.tick() for e in self.projectiles]
             self.ticks += 1
             self.players[0].gain_money(PASSIVE_INCOME)
             self.players[1].gain_money(PASSIVE_INCOME)
@@ -229,6 +228,7 @@ class Building:
 
     def distance_to_point(self, x, y):
         return distance(self.x, self.y, x, y) - self.size / 2
+
     def towards(self, x, y):
         dx, dy = self.x - x, self.y - y
         invh = inv_h(dx, dy)
@@ -560,6 +560,7 @@ class Unit:
 
     def distance_to_point(self, x, y):
         return distance(self.x, self.y, x, y) - self.size / 2
+
     def towards(self, x, y):
         dx, dy = self.x - x, self.y - y
         invh = inv_h(dx, dy)
@@ -739,11 +740,11 @@ class Archer(Unit):
 
     def __init__(self, ID, x, y, side, column, row, game, formation):
         super().__init__(ID, x, y, side, column, row, game, formation)
-        self.bulletspeed=unit_stats[self.name]["bulletspeed"]
+        self.bulletspeed = unit_stats[self.name]["bulletspeed"]
 
     def attack(self, target):
         Arrow(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.damage, self.bulletspeed,
-              self.reach*1.5)
+              self.reach * 1.5)
 
 
 possible_units = [Swordsman, Archer]
@@ -789,7 +790,27 @@ class Projectile:
     def delete(self):
         self.game.projectiles.remove(self)
 
+
 class Arrow(Projectile):
     pass
+
+def AOE_damage(x, y, size, amount, source, game):
+    chunks_affected = get_chunks(x, y, size)
+    side = source.side
+    affected_things=[]
+    for chunk in chunks_affected:
+        c = game.find_chunk(chunk)
+        if c is not None:
+            for unit in c.units[1 - side]:
+                if unit.distance_to_point(x, y) < size and unit not in affected_things:
+                    affected_things.append(unit)
+            for unit in c.buildings[1 - side]:
+                if unit.distance_to_point(x, y) < size and unit not in affected_things:
+                    affected_things.append(unit)
+    for wall in game.players[1-side].walls:
+        if wall.distance_to_point(x, y) < size and wall not in affected_things:
+            affected_things.append(wall)
+    for e in affected_things:
+        e.take_damage(amount,source)
 
 ##################  ---/units---  #################

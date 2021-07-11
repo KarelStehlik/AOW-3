@@ -38,9 +38,13 @@ def is_empty_2d(l):
     return True
 
 
+@njit
 def point_line_dist(x, y, normal_vector, c):
     # assumes vector is normalized
     return abs(x * normal_vector[0] + y * normal_vector[1] + c)
+
+
+point_line_dist(1.1, 1.1, (1.1, 1.1), 1.1)
 
 
 @njit
@@ -62,6 +66,9 @@ def get_chunk(x, y):
     x = int(x // constants.CHUNK_SIZE)
     y = int(y // constants.CHUNK_SIZE)
     return str(x) + " " + str(y)
+
+
+get_chunk(1.1, 1.1)
 
 
 @njit

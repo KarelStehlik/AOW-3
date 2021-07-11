@@ -21,9 +21,9 @@ WallCrack = IL("wall_crack").get_texture()
 Intro = RI("Intro")
 Farm = RI("farm")
 centre_anchor(Farm)
-Arrow=RI("Arrow")
-Arrow.anchor_x=Arrow.width/2
-Arrow.anchor_y=Arrow.height
+Arrow = RI("Arrow")
+Arrow.anchor_x = Arrow.width / 2
+Arrow.anchor_y = Arrow.height
 Cancelbutton = RI("Cancelbutton")
 Towerbutton = RI("Towerbutton")
 UnitSlot = RI("UnitSlot")
@@ -40,6 +40,10 @@ Tower = RI("Tower")
 TowerCrack = RI("tower_crack")
 centre_anchor(Tower)
 centre_anchor(TowerCrack)
+Fire = RI("fire")
+centre_anchor(Fire)
+Shockwave = RI("shockwave")
+centre_anchor(Shockwave)
 
 # #######################  CLONE  ############################
 gunmanR = pyglet.resource.image("imagefolder/BGunman.png")
@@ -103,8 +107,6 @@ for e in [MSmashRR, MSmashGR]:
     e.anchor_x = 50 * SPRITE_SIZE_MULT
 for e in [MSmashRL, MSmashGL]:
     e.anchor_x = 75 * SPRITE_SIZE_MULT
-
-fire = pyglet.resource.image("imagefolder/fire.png")
 
 tankR = pyglet.resource.image("imagefolder/BTank.png")
 tankG = pyglet.resource.image("imagefolder/GTank.png")
@@ -178,7 +180,6 @@ ShieldR.height = 110 * SPRITE_SIZE_MULT
 ShieldG.anchor_x = 20 * SPRITE_SIZE_MULT
 ShieldR.anchor_x = 20 * SPRITE_SIZE_MULT
 
-fire.anchor_y = fire.height // 2
 gunmanG.anchor_x -= 5 * SPRITE_SIZE_MULT
 gunmanR.anchor_x -= 5 * SPRITE_SIZE_MULT
 

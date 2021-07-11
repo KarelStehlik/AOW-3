@@ -44,6 +44,7 @@ class Game:
                                        font_size=20 * SPRITE_SIZE_MULT)
         self.last_tick, self.last_dt = 0, 0
         self.projectiles = []
+        self.animations = []
 
     def add_unit_to_chunk(self, unit, location):
         if location in self.chunks:
@@ -86,17 +87,16 @@ class Game:
             self.players[odd_tick - 1].tick_units()
             self.players[odd_tick].tick()
             self.players[odd_tick - 1].tick()
-            for e in self.projectiles:
-                e.tick()
+            [e.tick() for e in self.projectiles]
             self.ticks += 1
             self.players[0].gain_money(PASSIVE_INCOME)
             self.players[1].gain_money(PASSIVE_INCOME)
         self.update_cam(self.last_dt)
         self.players[0].graphics_update()
         self.players[1].graphics_update()
-        for e in self.projectiles:
-            e.graphics_update()
+        [e.graphics_update() for e in self.projectiles]
         self.selected.tick()
+        [e.tick(self.last_dt) for e in self.animations]
         self.batch.draw()
         self.last_dt = time.perf_counter() - self.last_tick
         self.last_tick = time.perf_counter()
@@ -1380,7 +1380,7 @@ class Archer(Unit):
 
     def attack(self, target):
         Arrow(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.damage, self.bulletspeed,
-              self.reach*1.5)
+              self.reach * 1.5)
 
 
 class selection_archer(selection_unit):
@@ -1450,4 +1450,56 @@ class Arrow(Projectile):
     image = images.Arrow
     scale = .1
 
+class animation_explosion:
+    def __init__(self, x, y, size, speed, game):
+        self.sprite = pyglet.sprite.Sprite(images.Fire, x=x * SPRITE_SIZE_MULT - game.camx,
+                                           y=y * SPRITE_SIZE_MULT - game.camy,
+                                           batch=game.batch, group=groups.g[6])
+        self.sprite2 = pyglet.sprite.Sprite(images.Shockwave, x=x * SPRITE_SIZE_MULT - game.camx,
+                                            y=y * SPRITE_SIZE_MULT - game.camy,
+                                            batch=game.batch, group=groups.g[5])
+        self.sprite.rotation = random.randint(0, 360)
+        self.sprite.scale = 0
+        self.x, self.y = x, y
+        self.game = game
+        self.size, self.speed = size, speed
+        self.exists_time = 0
+        game.animations.append(self)
+
+    def tick(self, dt):
+        self.exists_time += self.speed * dt
+        if self.exists_time > 128:
+            self.delete()
+            return
+        self.sprite.update(x=self.x * SPRITE_SIZE_MULT - self.game.camx, y=self.y * SPRITE_SIZE_MULT - self.game.camy,
+                           scale=self.exists_time / 128 * self.size / images.Fire.width)
+        self.sprite2.update(x=self.x * SPRITE_SIZE_MULT - self.game.camx, y=self.y * SPRITE_SIZE_MULT - self.game.camy,
+                            scale=self.exists_time ** 1.5 / 256 * self.size / images.Shockwave.width)
+        self.sprite.opacity = (256 - 2 * self.exists_time)
+        self.sprite2.opacity = (256 - 2 * self.exists_time)
+
+    def delete(self):
+        self.game.animations.remove(self)
+        self.sprite.delete()
+        self.sprite2.delete()
+
+
+def AOE_damage(x, y, size, amount, source, game):
+    chunks_affected = get_chunks(x, y, size)
+    side = source.side
+    affected_things = []
+    for chunk in chunks_affected:
+        c = game.find_chunk(chunk)
+        if c is not None:
+            for unit in c.units[1 - side]:
+                if unit.distance_to_point(x, y) < size and unit not in affected_things:
+                    affected_things.append(unit)
+            for unit in c.buildings[1 - side]:
+                if unit.distance_to_point(x, y) < size and unit not in affected_things:
+                    affected_things.append(unit)
+    for wall in game.players[1 - side].walls:
+        if wall.distance_to_point(x, y) < size and wall not in affected_things:
+            affected_things.append(wall)
+    for e in affected_things:
+        e.take_damage(amount, source)
 # #################  ---/units---  #################
