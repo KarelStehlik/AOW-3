@@ -1,5 +1,7 @@
 from typing import List, Any
 
+import pyglet.sprite
+
 from imports import *
 import groups
 from constants import *
@@ -40,7 +42,8 @@ class Game:
                                        color=(255, 240, 0, 255),
                                        group=groups.g[9], batch=self.batch, anchor_y="top", anchor_x="right",
                                        font_size=20 * SPRITE_SIZE_MULT)
-        self.last_tick,self.last_dt=0,0
+        self.last_tick, self.last_dt = 0, 0
+        self.projectiles = []
 
     def add_unit_to_chunk(self, unit, location):
         if location in self.chunks:
@@ -66,9 +69,9 @@ class Game:
         for e in self.chunks:
             self.chunks[e].clear_units()
 
-    def get_chunk(self, c):
+    def find_chunk(self, c):
         if c in self.chunks:
-            return c
+            return self.chunks[c]
         return None
 
     def select(self, sel):
@@ -80,15 +83,19 @@ class Game:
             odd_tick = self.ticks % 2
             self.clear_chunks()
             self.players[odd_tick].tick_units()
-            self.players[odd_tick-1].tick_units()
+            self.players[odd_tick - 1].tick_units()
             self.players[odd_tick].tick()
-            self.players[odd_tick-1].tick()
+            self.players[odd_tick - 1].tick()
+            for e in self.projectiles:
+                e.tick()
             self.ticks += 1
             self.players[0].gain_money(PASSIVE_INCOME)
             self.players[1].gain_money(PASSIVE_INCOME)
         self.update_cam(self.last_dt)
         self.players[0].graphics_update()
         self.players[1].graphics_update()
+        for e in self.projectiles:
+            e.graphics_update()
         self.selected.tick()
         self.batch.draw()
         self.last_dt = time.perf_counter() - self.last_tick
@@ -692,6 +699,11 @@ class Building:
         )
         self.sprite.opacity = 70
 
+    def towards(self, x, y):
+        dx, dy = self.x - x, self.y - y
+        invh = inv_h(dx, dy)
+        return dx * invh, dy * invh
+
     def update_hpbar(self):
         if not self.exists:
             return
@@ -1144,6 +1156,11 @@ class Unit:
     def distance_to_point(self, x, y):
         return distance(self.x, self.y, x, y) - self.size / 2
 
+    def towards(self, x, y):
+        dx, dy = self.x - x, self.y - y
+        invh = inv_h(dx, dy)
+        return dx * invh, dy * invh
+
     def take_damage(self, amount, source):
         if not self.exists:
             return
@@ -1359,9 +1376,11 @@ class Archer(Unit):
 
     def __init__(self, ID, x, y, side, column, row, game, formation):
         super().__init__(ID, x, y, side, column, row, game, formation)
+        self.bulletspeed = unit_stats[self.name]["bulletspeed"]
 
     def attack(self, target):
-        target.take_damage(self.damage, self)
+        Arrow(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.damage, self.bulletspeed,
+              self.reach*1.5)
 
 
 class selection_archer(selection_unit):
@@ -1373,5 +1392,62 @@ possible_units = [Swordsman, Archer]
 selects_p1 = [selection_tower, selection_wall, selection_farm]
 selects_p2 = [selection_swordsman, selection_archer]
 selects_all = [selects_p1, selects_p2]
+
+
+class Projectile:
+    image = images.BazookaBullet
+    scale = 1
+
+    def __init__(self, x, y, dx, dy, game, side, damage, speed, reach):
+        # (dx,dy) must be normalized
+        self.x, self.y = x, y
+        self.sprite = pyglet.sprite.Sprite(self.image, self.x, self.y, batch=game.batch, group=groups.g[5])
+        self.sprite.scale = self.scale * SPRITE_SIZE_MULT
+        rotation = get_rotation(dx, dy)
+        self.sprite.rotation = 90 - rotation * 180 / math.pi
+        self.vx, self.vy = speed * math.cos(rotation), speed * math.sin(rotation)
+        self.side = side
+        self.speed = speed
+        self.game = game
+        self.damage = damage
+        game.projectiles.append(self)
+        self.reach = reach
+
+    def tick(self):
+        self.x += self.vx
+        self.y += self.vy
+        c = self.game.find_chunk(get_chunk(self.x, self.y))
+        if c is not None:
+            for unit in c.units[1 - self.side]:
+                if (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= (unit.size ** 2) / 4:
+                    self.collide(unit)
+                    return
+            for unit in c.buildings[1 - self.side]:
+                if (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= (unit.size ** 2) / 4:
+                    self.collide(unit)
+                    return
+        for wall in self.game.players[1 - self.side].walls:
+            if wall.distance_to_point(self.x, self.y) <= 0:
+                self.collide(wall)
+                return
+        self.reach -= self.speed
+        if self.reach <= 0:
+            self.delete()
+
+    def collide(self, unit):
+        unit.take_damage(self.damage, self)
+        self.delete()
+
+    def delete(self):
+        self.game.projectiles.remove(self)
+        self.sprite.delete()
+
+    def graphics_update(self):
+        self.sprite.update(x=self.x * SPRITE_SIZE_MULT - self.game.camx, y=self.y * SPRITE_SIZE_MULT - self.game.camy)
+
+
+class Arrow(Projectile):
+    image = images.Arrow
+    scale = .1
 
 # #################  ---/units---  #################

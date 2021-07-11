@@ -18,6 +18,7 @@ class Game:
         self.unit_formation_columns = UNIT_FORMATION_COLUMNS
         self.unit_formation_rows = UNIT_FORMATION_ROWS
         self.debug_secs, self.debug_ticks = time.time(), 0
+        self.projectiles = []
 
     def send_both(self, msg):
         self.channels[0].Send(msg)
@@ -35,6 +36,8 @@ class Game:
             self.players[odd_tick - 1].tick_units()
             self.players[odd_tick].tick()
             self.players[odd_tick - 1].tick()
+            for e in self.projectiles:
+                e.tick()
             self.ticks += 1
             self.players[0].gain_money(PASSIVE_INCOME)
             self.players[1].gain_money(PASSIVE_INCOME)
@@ -139,6 +142,11 @@ class Game:
                 return e
         return None
 
+    def find_chunk(self, c):
+        if c in self.chunks:
+            return self.chunks[c]
+        return None
+
 
 class player:
 
@@ -221,6 +229,10 @@ class Building:
 
     def distance_to_point(self, x, y):
         return distance(self.x, self.y, x, y) - self.size / 2
+    def towards(self, x, y):
+        dx, dy = self.x - x, self.y - y
+        invh = inv_h(dx, dy)
+        return dx * invh, dy * invh
 
     def tick(self):
         if self.spawning < FPS:
@@ -548,6 +560,10 @@ class Unit:
 
     def distance_to_point(self, x, y):
         return distance(self.x, self.y, x, y) - self.size / 2
+    def towards(self, x, y):
+        dx, dy = self.x - x, self.y - y
+        invh = inv_h(dx, dy)
+        return dx * invh, dy * invh
 
     @classmethod
     def get_cost(cls, params):
@@ -723,11 +739,57 @@ class Archer(Unit):
 
     def __init__(self, ID, x, y, side, column, row, game, formation):
         super().__init__(ID, x, y, side, column, row, game, formation)
+        self.bulletspeed=unit_stats[self.name]["bulletspeed"]
 
     def attack(self, target):
-        target.take_damage(self.damage, self)
+        Arrow(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.damage, self.bulletspeed,
+              self.reach*1.5)
 
 
 possible_units = [Swordsman, Archer]
+
+
+class Projectile:
+
+    def __init__(self, x, y, dx, dy, game, side, damage, speed, reach):
+        self.x, self.y = x, y
+        rotation = get_rotation(dx, dy)
+        self.vx, self.vy = speed * math.cos(rotation), speed * math.sin(rotation)
+        self.side = side
+        self.speed = speed
+        self.game = game
+        self.damage = damage
+        game.projectiles.append(self)
+        self.reach = reach
+
+    def tick(self):
+        self.x += self.vx
+        self.y += self.vy
+        c = self.game.find_chunk(get_chunk(self.x, self.y))
+        if c is not None:
+            for unit in c.units[1 - self.side]:
+                if (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= (unit.size ** 2) / 4:
+                    self.collide(unit)
+                    return
+            for unit in c.buildings[1 - self.side]:
+                if (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= (unit.size ** 2) / 4:
+                    self.collide(unit)
+                    return
+        for wall in self.game.players[1 - self.side].walls:
+            if wall.distance_to_point(self.x, self.y) <= 0:
+                self.collide(wall)
+        self.reach -= self.speed
+        if self.reach <= 0:
+            self.delete()
+
+    def collide(self, unit):
+        unit.take_damage(self.damage, self)
+        self.delete()
+
+    def delete(self):
+        self.game.projectiles.remove(self)
+
+class Arrow(Projectile):
+    pass
 
 ##################  ---/units---  #################

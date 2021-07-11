@@ -58,6 +58,13 @@ get_chunks(1.1, 1.1, 1.1)
 
 
 @njit
+def get_chunk(x, y):
+    x = int(x // constants.CHUNK_SIZE)
+    y = int(y // constants.CHUNK_SIZE)
+    return str(x) + " " + str(y)
+
+
+@njit
 def get_rotation(x, y):
     inv_hypot = (x ** 2 + y ** 2) ** -.5
     if x >= 0:

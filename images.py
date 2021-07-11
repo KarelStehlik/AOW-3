@@ -19,13 +19,16 @@ Background = IL("Background").get_texture()
 Wall = IL("Wall").get_texture()
 WallCrack = IL("wall_crack").get_texture()
 Intro = RI("Intro")
-Farm = IL("farm")
+Farm = RI("farm")
 centre_anchor(Farm)
+Arrow=RI("Arrow")
+Arrow.anchor_x=Arrow.width/2
+Arrow.anchor_y=Arrow.height
 Cancelbutton = RI("Cancelbutton")
-Towerbutton = IL("Towerbutton")
-UnitSlot = IL("UnitSlot")
+Towerbutton = RI("Towerbutton")
+UnitSlot = RI("UnitSlot")
 centre_anchor(UnitSlot)
-UnitFormFrame = IL("UnitFormFrame")
+UnitFormFrame = RI("UnitFormFrame")
 blue_arrow = IL("blue_arrow").get_texture()
 Swordsman = RI("Swordsman")
 Swordsman.anchor_x = 64
@@ -33,8 +36,8 @@ Swordsman.anchor_y = 54
 Bowman = RI("Bowman")
 Bowman.anchor_x = 64
 Bowman.anchor_y = 60
-Tower = IL("Tower")
-TowerCrack = IL("tower_crack")
+Tower = RI("Tower")
+TowerCrack = RI("tower_crack")
 centre_anchor(Tower)
 centre_anchor(TowerCrack)
 
@@ -186,8 +189,7 @@ bullet.anchor_x = bullet.anchor_y = 3 * SPRITE_SIZE_MULT
 BazookaBullet = pyglet.resource.image("imagefolder/BazookaBullet.png")
 BazookaBullet.width = int(BazookaBullet.width * SPRITE_SIZE_MULT / 15)
 BazookaBullet.height = int(BazookaBullet.height * SPRITE_SIZE_MULT / 15)
-BazookaBullet.anchor_x = BazookaBullet.width
-BazookaBullet.anchor_y = BazookaBullet.height // 2
+centre_anchor(BazookaBullet)
 
 Grenade = pyglet.resource.image("imagefolder/Grenade.png")
 Grenade.width = int(25 * SPRITE_SIZE_MULT)

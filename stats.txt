@@ -3,4 +3,4 @@ Tower:size=50,hp=10000,cost=1500
 Farm:size=200,hp=500,cost=1000,production=0.1,proximity=500
 Wall:width=30,hp=10000,cost=1000
 Swordsman:vwidth=20,vheight=20,speed=200,size=19,hp=100,dmg=10,cd=1,reach=10,cost=20
-Archer:vwidth=20,vheight=20,speed=200,size=19,hp=20,dmg=10,cd=1,reach=300,cost=30
+Archer:vwidth=20,vheight=20,speed=200,size=19,hp=20,dmg=20,cd=1.5,reach=300,cost=30,bulletspeed=1
