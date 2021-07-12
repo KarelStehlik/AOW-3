@@ -460,7 +460,7 @@ class selection_tower(selection_building):
 
 class selection_farm(selection_building):
     img = images.Towerbutton
-    num = 1
+    num = 3
 
     def mouse_click(self, x, y):
         if not self.cancelbutton.mouse_click(x, y):
