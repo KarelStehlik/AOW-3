@@ -15,6 +15,8 @@ def centre_anchor(e):
 
 
 Button = RI("Button")
+Toolbar=RI("Toolbar")
+centre_anchor(Button)
 Background = IL("Background").get_texture()
 Wall = IL("Wall").get_texture()
 WallCrack = IL("wall_crack").get_texture()
@@ -25,7 +27,9 @@ Arrow = RI("Arrow")
 Arrow.anchor_x = Arrow.width / 2
 Arrow.anchor_y = Arrow.height
 Cancelbutton = RI("Cancelbutton")
+centre_anchor(Cancelbutton)
 Towerbutton = RI("Towerbutton")
+centre_anchor(Towerbutton)
 UnitSlot = RI("UnitSlot")
 centre_anchor(UnitSlot)
 UnitFormFrame = RI("UnitFormFrame")
@@ -44,6 +48,11 @@ Fire = RI("fire")
 centre_anchor(Fire)
 Shockwave = RI("shockwave")
 centre_anchor(Shockwave)
+Trebuchet=RI("Trebuchet")
+Trebuchet.anchor_x=Trebuchet.width/2
+Trebuchet.anchor_y=Trebuchet.height*.6
+Boulder=RI("Boulder")
+centre_anchor(Boulder)
 
 # #######################  CLONE  ############################
 gunmanR = pyglet.resource.image("imagefolder/BGunman.png")

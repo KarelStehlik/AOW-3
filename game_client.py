@@ -1148,7 +1148,7 @@ class Unit:
         self.desired_x, self.desired_y = x, y
         self.vx, self.vy = self.speed, 0
         self.reached_goal = True
-        self.mass = 1
+        self.mass = unit_stats[self.name]["mass"]
         self.chunks = get_chunks(self.x, self.y, self.size)
         for e in self.chunks:
             self.game.add_unit_to_chunk(self, e)
@@ -1366,7 +1366,7 @@ class Swordsman(Unit):
 
 
 class selection_swordsman(selection_unit):
-    img = images.gunmanR
+    img = images.Swordsman
     num = 0
 
 
@@ -1384,13 +1384,32 @@ class Archer(Unit):
 
 
 class selection_archer(selection_unit):
-    img = images.gunmanG
+    img = images.Bowman
     num = 1
 
 
-possible_units = [Swordsman, Archer]
+class Trebuchet(Unit):
+    image = images.Trebuchet
+    name = "Trebuchet"
+
+    def __init__(self, ID, x, y, side, column, row, game, formation):
+        super().__init__(ID, x, y, side, column, row, game, formation)
+        self.bulletspeed = unit_stats[self.name]["bulletspeed"]
+        self.explosion_radius = unit_stats[self.name]["explosion_radius"]
+
+    def attack(self, target):
+        Boulder(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.damage, self.bulletspeed,
+                target.distance_to_point(self.x, self.y), self.explosion_radius)
+
+
+class selection_trebuchet(selection_unit):
+    img = images.Trebuchet
+    num = 2
+
+
+possible_units = [Swordsman, Archer, Trebuchet]
 selects_p1 = [selection_tower, selection_wall, selection_farm]
-selects_p2 = [selection_swordsman, selection_archer]
+selects_p2 = [selection_swordsman, selection_archer, selection_trebuchet]
 selects_all = [selects_p1, selects_p2]
 
 
@@ -1449,6 +1468,27 @@ class Projectile:
 class Arrow(Projectile):
     image = images.Arrow
     scale = .1
+
+
+class Boulder(Projectile):
+    image = images.Boulder
+    scale = .15
+
+    def __init__(self, x, y, dx, dy, game, side, damage, speed, reach, radius):
+        super().__init__(x, y, dx, dy, game, side, damage, speed, reach)
+        self.radius = radius
+
+    def tick(self):
+        self.x += self.vx
+        self.y += self.vy
+        self.reach -= self.speed
+        if self.reach <= 0:
+            self.explode()
+
+    def explode(self):
+        AOE_damage(self.x, self.y, self.radius, self.damage, self, self.game)
+        animation_explosion(self.x, self.y, 200, 100, self.game)
+        self.delete()
 
 
 class animation_explosion:

@@ -47,7 +47,7 @@ wall_crack_group = TextureBindGroup(images.WallCrack, layer=2)
 
 class button:
     def __init__(self, func, x, y, width, height, batch, image=images.Button, text="", args=(), layer=5):
-        self.sprite = pyglet.sprite.Sprite(image, x=x, y=y, batch=batch, group=groups.g[layer])
+        self.sprite = pyglet.sprite.Sprite(image, x=x + width / 2, y=y + height / 2, batch=batch, group=groups.g[layer])
         self.layer = layer
         self.sprite.scale_x = width / self.sprite.width
         self.sprite.scale_y = height / self.sprite.height
@@ -64,27 +64,25 @@ class button:
         self.big = 0
 
     def set_image(self, img):
-        self.sprite = pyglet.sprite.Sprite(img, x=self.x, y=self.y, batch=self.batch, group=groups.g[self.layer])
+        self.sprite = pyglet.sprite.Sprite(img, x=self.x + self.width / 2, y=self.y + self.height / 2, batch=self.batch,
+                                           group=groups.g[self.layer])
         self.sprite.scale_x = self.width / self.sprite.width
         self.sprite.scale_y = self.height / self.sprite.height
 
     def embiggen(self):
         self.big = 1
         self.sprite.scale = 1.1
-        self.sprite.update(x=self.x - self.width / 20, y=self.y - self.height / 20)
 
     def unbiggen(self):
         self.big = 0
         self.sprite.scale = 1
-        self.sprite.update(x=self.x, y=self.y)
 
     def smallen(self):
         self.big = -1
         self.sprite.scale = 0.9
-        self.sprite.update(x=self.x + self.width / 20, y=self.y + self.height / 20)
 
     def update(self, x, y):
-        self.sprite.update(x=x, y=y)
+        self.sprite.update(x=x+self.width / 2, y=y + self.height / 2)
         self.x, self.y = x, y
         self.text.x = x + self.width // 2
         self.text.y = y + self.height * 4 / 7
@@ -118,7 +116,7 @@ class button:
 
 
 class toolbar:
-    def __init__(self, x, y, width, height, batch, image=images.Button, layer=6):
+    def __init__(self, x, y, width, height, batch, image=images.Toolbar, layer=6):
         if image is not None:
             self.sprite = pyglet.sprite.Sprite(image, x=x, y=y, batch=batch, group=groups.g[layer])
             self.layer = layer

@@ -746,8 +746,20 @@ class Archer(Unit):
         Arrow(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.damage, self.bulletspeed,
               self.reach * 1.5)
 
+class Trebuchet(Unit):
+    name = "Trebuchet"
 
-possible_units = [Swordsman, Archer]
+    def __init__(self, ID, x, y, side, column, row, game, formation):
+        super().__init__(ID, x, y, side, column, row, game, formation)
+        self.bulletspeed = unit_stats[self.name]["bulletspeed"]
+        self.explosion_radius = unit_stats[self.name]["explosion_radius"]
+
+    def attack(self, target):
+        Boulder(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.damage, self.bulletspeed,
+                target.distance_to_point(self.x, self.y), self.explosion_radius)
+
+
+possible_units = [Swordsman, Archer, Trebuchet]
 
 
 class Projectile:
@@ -793,6 +805,23 @@ class Projectile:
 
 class Arrow(Projectile):
     pass
+
+class Boulder(Projectile):
+
+    def __init__(self, x, y, dx, dy, game, side, damage, speed, reach, radius):
+        super().__init__(x, y, dx, dy, game, side, damage, speed, reach)
+        self.radius = radius
+
+    def tick(self):
+        self.x += self.vx
+        self.y += self.vy
+        self.reach -= self.speed
+        if self.reach <= 0:
+            self.explode()
+
+    def explode(self):
+        AOE_damage(self.x, self.y, self.radius, self.damage, self, self.game)
+        self.delete()
 
 def AOE_damage(x, y, size, amount, source, game):
     chunks_affected = get_chunks(x, y, size)
