@@ -715,6 +715,7 @@ class Building:
     image = images.Tower
 
     def __init__(self, ID, x, y, tick, side, game):
+        print(1)
         self.spawning = game.ticks - tick
         self.ID = ID
         self.x, self.y = x, y
@@ -729,6 +730,7 @@ class Building:
         self.chunks = get_chunks(x, y, self.size)
         self.exists = False
         self.game.players[side].all_buildings.append(self)
+        print(2)
         for e in self.chunks:
             game.add_building_to_chunk(self, e)
         hpbar_y_centre = self.sprite.y
@@ -752,6 +754,7 @@ class Building:
         self.sprite.opacity = 70
         self.upgrades_into = []
         self.comes_from = None
+        print(3)
 
     def towards(self, x, y):
         dx, dy = self.x - x, self.y - y
@@ -964,6 +967,7 @@ class Farm(Building):
         game.players[side].money -= self.get_cost([])
         super().__init__(ID, x, y, tick, side, game)
         self.production = unit_stats[self.name]["production"]
+        print("farm done")
 
     @classmethod
     def get_cost(cls, params):
