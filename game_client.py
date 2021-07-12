@@ -89,6 +89,8 @@ class Game:
             self.ticks += 1
             self.players[0].gain_money(PASSIVE_INCOME)
             self.players[1].gain_money(PASSIVE_INCOME)
+            # if self.ticks%200==0:
+            #    print(self.ticks,self.players[0].money,self.players[1].money)
         self.update_cam(self.last_dt)
         self.players[0].graphics_update()
         self.players[1].graphics_update()

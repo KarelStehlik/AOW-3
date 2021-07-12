@@ -40,6 +40,8 @@ class Game:
             self.ticks += 1
             self.players[0].gain_money(PASSIVE_INCOME)
             self.players[1].gain_money(PASSIVE_INCOME)
+            # if self.ticks%200==0:
+            #    print(self.ticks,self.players[0].money,self.players[1].money)
             # self.debug_ticks += 1
             # if time.time() - self.debug_secs > 1:
             # self.debug_secs += 1
@@ -91,7 +93,7 @@ class Game:
                 if self.players[side].attempt_purchase(Formation.get_cost([data["troops"], ])):
                     if is_empty_2d(data["troops"]):
                         return
-                    oid=self.object_ID
+                    oid = self.object_ID
                     Formation(oid, data["instructions"], data["troops"], side, self)
                     self.send_both({"action": "summon_formation", "tick": self.ticks, "side": side,
                                     "instructions": data["instructions"], "troops": data["troops"],
@@ -268,7 +270,7 @@ class TownHall(Building):
     def die(self):
         super().die()
         print("game over")
-        #self.game.end(1 - self.side)
+        # self.game.end(1 - self.side)
 
     def tick(self):
         self.shove()
