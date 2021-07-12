@@ -1,5 +1,3 @@
-from typing import List, Any
-
 import pyglet.sprite
 
 from imports import *
@@ -416,15 +414,15 @@ class selection_building(selection):
         self.cancelbutton.mouse_move(x, y)
 
     def mouse_click(self, x, y):
-        for e in self.game.players[1].all_buildings:
-            if e.distance_to_point((x + self.camx) / SPRITE_SIZE_MULT,
-                                   (y + self.camy) / SPRITE_SIZE_MULT) < self.size / 2:
-                return
-        for e in self.game.players[0].all_buildings:
-            if e.distance_to_point((x + self.camx) / SPRITE_SIZE_MULT,
-                                   (y + self.camy) / SPRITE_SIZE_MULT) < self.size / 2:
-                return
         if not self.cancelbutton.mouse_click(x, y):
+            for e in self.game.players[1].all_buildings:
+                if e.distance_to_point((x + self.camx) / SPRITE_SIZE_MULT,
+                                       (y + self.camy) / SPRITE_SIZE_MULT) < self.size / 2:
+                    return
+            for e in self.game.players[0].all_buildings:
+                if e.distance_to_point((x + self.camx) / SPRITE_SIZE_MULT,
+                                       (y + self.camy) / SPRITE_SIZE_MULT) < self.size / 2:
+                    return
             self.game.connection.Send({"action": "place_building", "xy": [(x + self.camx) / SPRITE_SIZE_MULT,
                                                                           (y + self.camy) / SPRITE_SIZE_MULT],
                                        "entity_type": self.num})
@@ -451,15 +449,16 @@ class selection_farm(selection_building):
     num = 1
 
     def mouse_click(self, x, y):
-        close_to_friendly = False
-        proximity = unit_stats["Farm"]["proximity"]
-        for e in self.game.players[self.game.side].all_buildings:
-            if (e.entity_type == "farm" or e.entity_type == "townhall") and \
-                    e.distance_to_point((x + self.camx) / SPRITE_SIZE_MULT,
-                                        (y + self.camy) / SPRITE_SIZE_MULT) < proximity:
-                close_to_friendly = True
-        if close_to_friendly:
-            super().mouse_click(x, y)
+        if not self.cancelbutton.mouse_click(x, y):
+            close_to_friendly = False
+            proximity = unit_stats["Farm"]["proximity"]
+            for e in self.game.players[self.game.side].all_buildings:
+                if (e.entity_type == "farm" or e.entity_type == "townhall") and \
+                        e.distance_to_point((x + self.camx) / SPRITE_SIZE_MULT,
+                                            (y + self.camy) / SPRITE_SIZE_MULT) < proximity:
+                    close_to_friendly = True
+            if close_to_friendly:
+                super().mouse_click(x, y)
 
 
 class selection_wall(selection):
@@ -799,6 +798,13 @@ class Tower(Building):
                                             group=groups.g[4])
         self.sprite2.opacity = 0
         self.sprite2.scale = self.size * SPRITE_SIZE_MULT / self.sprite2.width
+        self.damage = unit_stats[self.name]["dmg"]
+        self.attack_cooldown = unit_stats[self.name]["cd"]
+        self.current_cooldown = 0
+        self.reach = unit_stats[self.name]["reach"]
+        self.bulletspeed = unit_stats[self.name]["bulletspeed"]
+        self.target = None
+        self.shooting_in_chunks = get_chunks(self.x, self.y, 2*self.reach)
 
     @classmethod
     def get_cost(cls, params):
@@ -807,6 +813,38 @@ class Tower(Building):
     def die(self):
         super().die()
         self.sprite2.delete()
+
+    def tick2(self):
+        self.shove()
+        if self.current_cooldown > 0:
+            self.current_cooldown -= 1 / FPS
+        if self.acquire_target():
+             self.attempt_attack(self.target)
+
+    def attempt_attack(self, target):
+        if self.current_cooldown <= 0:
+            self.current_cooldown += self.attack_cooldown
+            self.attack(target)
+
+    def attack(self, target):
+        Arrow(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.damage, self.bulletspeed,
+              self.reach * 1.5,scale=.2)
+
+    def acquire_target(self):
+        if self.target is not None and self.target.exists and self.target.distance_to_point(self.x, self.y) < self.reach:
+            return True
+        for c in self.shooting_in_chunks:
+            chonker = self.game.find_chunk(c)
+            if chonker is not None:
+                for unit in chonker.units[1 - self.side]:
+                    if unit.distance_to_point(self.x, self.y) < self.reach:
+                        self.target = unit
+                        return True
+                for unit in chonker.buildings[1 - self.side]:
+                    if unit.distance_to_point(self.x, self.y) < self.reach:
+                        self.target = unit
+                        return True
+        return False
 
     def take_damage(self, amount, source):
         if self.exists:
@@ -1417,11 +1455,14 @@ class Projectile:
     image = images.BazookaBullet
     scale = 1
 
-    def __init__(self, x, y, dx, dy, game, side, damage, speed, reach):
+    def __init__(self, x, y, dx, dy, game, side, damage, speed, reach, scale=None):
         # (dx,dy) must be normalized
         self.x, self.y = x, y
         self.sprite = pyglet.sprite.Sprite(self.image, self.x, self.y, batch=game.batch, group=groups.g[5])
-        self.sprite.scale = self.scale * SPRITE_SIZE_MULT
+        if scale is None:
+            self.sprite.scale = self.scale * SPRITE_SIZE_MULT
+        else:
+            self.sprite.scale = scale * SPRITE_SIZE_MULT
         rotation = get_rotation(dx, dy)
         self.sprite.rotation = 90 - rotation * 180 / math.pi
         self.vx, self.vy = speed * math.cos(rotation), speed * math.sin(rotation)

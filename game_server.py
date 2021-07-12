@@ -278,10 +278,49 @@ class Tower(Building):
 
     def __init__(self, ID, x, y, side, game):
         super().__init__(ID, x, y, side, game)
+        self.damage = unit_stats[self.name]["dmg"]
+        self.attack_cooldown = unit_stats[self.name]["cd"]
+        self.current_cooldown = 0
+        self.reach = unit_stats[self.name]["reach"]
+        self.bulletspeed = unit_stats[self.name]["bulletspeed"]
+        self.target = None
+        self.shooting_in_chunks = get_chunks(self.x, self.y, 2 * self.reach)
 
     @classmethod
     def get_cost(cls, params):
         return unit_stats[cls.name]["cost"]
+
+    def tick2(self):
+        self.shove()
+        if self.current_cooldown > 0:
+            self.current_cooldown -= 1 / FPS
+        if self.acquire_target():
+             self.attempt_attack(self.target)
+
+    def attempt_attack(self, target):
+        if self.current_cooldown <= 0:
+            self.current_cooldown += self.attack_cooldown
+            self.attack(target)
+
+    def attack(self, target):
+        Arrow(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.damage, self.bulletspeed,
+              self.reach * 1.5)
+
+    def acquire_target(self):
+        if self.target is not None and self.target.exists and self.target.distance_to_point(self.x, self.y) < self.reach:
+            return True
+        for c in self.shooting_in_chunks:
+            chonker = self.game.find_chunk(c)
+            if chonker is not None:
+                for unit in chonker.units[1 - self.side]:
+                    if unit.distance_to_point(self.x, self.y) < self.reach:
+                        self.target = unit
+                        return True
+                for unit in chonker.buildings[1 - self.side]:
+                    if unit.distance_to_point(self.x, self.y) < self.reach:
+                        self.target = unit
+                        return True
+        return False
 
 
 class Farm(Building):
