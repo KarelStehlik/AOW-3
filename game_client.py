@@ -780,6 +780,8 @@ class TownHall(Building):
     def die(self):
         super().die()
         animation_explosion(self.x,self.y,1000,25,self.game)
+        for i in range(10):
+            animation_explosion(self.x+random.randint(-150,150), self.y+random.randint(-150,150), random.randint(100,500), random.randint(10,40), self.game)
         print("game over")
 
     def tick(self):
