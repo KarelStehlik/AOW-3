@@ -268,7 +268,7 @@ class TownHall(Building):
     def die(self):
         super().die()
         print("game over")
-        self.game.end(1 - self.side)
+        #self.game.end(1 - self.side)
 
     def tick(self):
         self.shove()
