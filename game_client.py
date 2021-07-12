@@ -779,9 +779,10 @@ class TownHall(Building):
 
     def die(self):
         super().die()
-        animation_explosion(self.x,self.y,1000,25,self.game)
+        animation_explosion(self.x, self.y, 1000, 25, self.game)
         for i in range(10):
-            animation_explosion(self.x+random.randint(-150,150), self.y+random.randint(-150,150), random.randint(100,500), random.randint(10,40), self.game)
+            animation_explosion(self.x + random.randint(-150, 150), self.y + random.randint(-150, 150),
+                                random.randint(100, 500), random.randint(10, 40), self.game)
         print("game over")
 
     def tick(self):
@@ -794,7 +795,7 @@ class Tower(Building):
     image = images.Tower
 
     def __init__(self, ID, x, y, tick, side, game):
-        game.players[side].money-=self.get_cost([])
+        game.players[side].money -= self.get_cost([])
         super().__init__(ID, x, y, tick, side, game)
         self.sprite2 = pyglet.sprite.Sprite(images.TowerCrack, x=x * SPRITE_SIZE_MULT,
                                             y=y * SPRITE_SIZE_MULT, batch=game.batch,
@@ -807,7 +808,7 @@ class Tower(Building):
         self.reach = unit_stats[self.name]["reach"]
         self.bulletspeed = unit_stats[self.name]["bulletspeed"]
         self.target = None
-        self.shooting_in_chunks = get_chunks(self.x, self.y, 2*self.reach)
+        self.shooting_in_chunks = get_chunks(self.x, self.y, 2 * self.reach)
 
     @classmethod
     def get_cost(cls, params):
@@ -822,7 +823,7 @@ class Tower(Building):
         if self.current_cooldown > 0:
             self.current_cooldown -= 1 / FPS
         if self.acquire_target():
-             self.attempt_attack(self.target)
+            self.attempt_attack(self.target)
 
     def attempt_attack(self, target):
         if self.current_cooldown <= 0:
@@ -831,10 +832,11 @@ class Tower(Building):
 
     def attack(self, target):
         Arrow(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.damage, self.bulletspeed,
-              self.reach * 1.5,scale=.2)
+              self.reach * 1.5, scale=.2)
 
     def acquire_target(self):
-        if self.target is not None and self.target.exists and self.target.distance_to_point(self.x, self.y) < self.reach:
+        if self.target is not None and self.target.exists and self.target.distance_to_point(self.x,
+                                                                                            self.y) < self.reach:
             return True
         for c in self.shooting_in_chunks:
             chonker = self.game.find_chunk(c)
@@ -865,7 +867,7 @@ class Farm(Building):
     image = images.Farm
 
     def __init__(self, ID, x, y, tick, side, game):
-        game.players[side].money-=self.get_cost([])
+        game.players[side].money -= self.get_cost([])
         super().__init__(ID, x, y, tick, side, game)
         self.production = unit_stats[self.name]["production"]
 
@@ -885,7 +887,7 @@ class Wall:
     name = "Wall"
 
     def __init__(self, ID, t1, t2, tick, side, game):
-        game.players[side].money-=self.get_cost([])
+        game.players[side].money -= self.get_cost([])
         self.entity_type = "wall"
         self.exists = False
         self.spawning = game.ticks - tick
@@ -995,7 +997,7 @@ class Wall:
 
 class Formation:
     def __init__(self, ID, instructions, troops, tick, side, game):
-        assert (game.players[side].attempt_purchase(self.get_cost([troops])))
+        game.players[side].money -= self.get_cost([troops])
         self.entity_type = "formation"
         self.exists = False
         self.spawning = game.ticks - tick
@@ -1012,7 +1014,7 @@ class Formation:
                 if troops[column][row] != -1:
                     self.troops.append(
                         possible_units[troops[column][row]](
-                            i+self.ID+1,
+                            i + self.ID + 1,
                             (column - self.game.unit_formation_columns / 2) * UNIT_SIZE + self.x,
                             (row - self.game.unit_formation_rows / 2) * UNIT_SIZE + self.y,
                             side,
@@ -1561,7 +1563,7 @@ class animation_explosion:
         self.sprite2.update(x=self.x * SPRITE_SIZE_MULT - self.game.camx, y=self.y * SPRITE_SIZE_MULT - self.game.camy,
                             scale=self.exists_time ** 1.6 / 256 * self.size / images.Shockwave.width)
         self.sprite.opacity = (256 - 2 * self.exists_time)
-        self.sprite2.opacity = (256 - 2 * self.exists_time)*0.6
+        self.sprite2.opacity = (256 - 2 * self.exists_time) * 0.6
 
     def delete(self):
         self.game.animations.remove(self)

@@ -835,6 +835,7 @@ class Projectile:
         for wall in self.game.players[1 - self.side].walls:
             if wall.distance_to_point(self.x, self.y) <= 0:
                 self.collide(wall)
+                return
         self.reach -= self.speed
         if self.reach <= 0:
             self.delete()
