@@ -1012,7 +1012,7 @@ class Formation:
                 if troops[column][row] != -1:
                     self.troops.append(
                         possible_units[troops[column][row]](
-                            i,
+                            i+self.ID+1,
                             (column - self.game.unit_formation_columns / 2) * UNIT_SIZE + self.x,
                             (row - self.game.unit_formation_rows / 2) * UNIT_SIZE + self.y,
                             side,

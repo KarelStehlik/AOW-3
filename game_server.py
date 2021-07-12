@@ -91,10 +91,11 @@ class Game:
                 if self.players[side].attempt_purchase(Formation.get_cost([data["troops"], ])):
                     if is_empty_2d(data["troops"]):
                         return
-                    Formation(self.object_ID, data["instructions"], data["troops"], side, self)
+                    oid=self.object_ID
+                    Formation(oid, data["instructions"], data["troops"], side, self)
                     self.send_both({"action": "summon_formation", "tick": self.ticks, "side": side,
                                     "instructions": data["instructions"], "troops": data["troops"],
-                                    "ID": self.object_ID})
+                                    "ID": oid})
                     self.object_ID += 1
 
     def end(self, winner):
@@ -296,7 +297,7 @@ class Tower(Building):
         if self.current_cooldown > 0:
             self.current_cooldown -= 1 / FPS
         if self.acquire_target():
-             self.attempt_attack(self.target)
+            self.attempt_attack(self.target)
 
     def attempt_attack(self, target):
         if self.current_cooldown <= 0:
@@ -308,7 +309,8 @@ class Tower(Building):
               self.reach * 1.5)
 
     def acquire_target(self):
-        if self.target is not None and self.target.exists and self.target.distance_to_point(self.x, self.y) < self.reach:
+        if self.target is not None and self.target.exists and self.target.distance_to_point(self.x,
+                                                                                            self.y) < self.reach:
             return True
         for c in self.shooting_in_chunks:
             chonker = self.game.find_chunk(c)
@@ -443,9 +445,10 @@ class Formation:
         for column in range(UNIT_FORMATION_COLUMNS):
             for row in range(UNIT_FORMATION_ROWS):
                 if troops[column][row] != -1:
+                    self.game.object_ID += 1
                     self.troops.append(
                         possible_units[troops[column][row]](
-                            i,
+                            self.game.object_ID,
                             (column - self.game.unit_formation_columns / 2) * UNIT_SIZE + self.x,
                             (row - self.game.unit_formation_rows / 2) * UNIT_SIZE + self.y,
                             side,
@@ -786,6 +789,7 @@ class Archer(Unit):
         Arrow(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.damage, self.bulletspeed,
               self.reach * 1.5)
 
+
 class Trebuchet(Unit):
     name = "Trebuchet"
 
@@ -846,6 +850,7 @@ class Projectile:
 class Arrow(Projectile):
     pass
 
+
 class Boulder(Projectile):
 
     def __init__(self, x, y, dx, dy, game, side, damage, speed, reach, radius):
@@ -863,10 +868,11 @@ class Boulder(Projectile):
         AOE_damage(self.x, self.y, self.radius, self.damage, self, self.game)
         self.delete()
 
+
 def AOE_damage(x, y, size, amount, source, game):
     chunks_affected = get_chunks(x, y, size)
     side = source.side
-    affected_things=[]
+    affected_things = []
     for chunk in chunks_affected:
         c = game.find_chunk(chunk)
         if c is not None:
@@ -876,10 +882,10 @@ def AOE_damage(x, y, size, amount, source, game):
             for unit in c.buildings[1 - side]:
                 if unit.distance_to_point(x, y) < size and unit not in affected_things:
                     affected_things.append(unit)
-    for wall in game.players[1-side].walls:
+    for wall in game.players[1 - side].walls:
         if wall.distance_to_point(x, y) < size and wall not in affected_things:
             affected_things.append(wall)
     for e in affected_things:
-        e.take_damage(amount,source)
+        e.take_damage(amount, source)
 
 ##################  ---/units---  #################
