@@ -265,6 +265,7 @@ class TownHall(Building):
         self.exists = True
 
     def die(self):
+        super().die()
         print("game over")
         self.game.end(1 - self.side)
 
