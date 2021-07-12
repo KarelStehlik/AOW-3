@@ -794,7 +794,7 @@ class Tower(Building):
     image = images.Tower
 
     def __init__(self, ID, x, y, tick, side, game):
-        assert (game.players[side].attempt_purchase(self.get_cost([])))
+        game.players[side].money-=self.get_cost([])
         super().__init__(ID, x, y, tick, side, game)
         self.sprite2 = pyglet.sprite.Sprite(images.TowerCrack, x=x * SPRITE_SIZE_MULT,
                                             y=y * SPRITE_SIZE_MULT, batch=game.batch,
@@ -865,7 +865,7 @@ class Farm(Building):
     image = images.Farm
 
     def __init__(self, ID, x, y, tick, side, game):
-        assert (game.players[side].attempt_purchase(self.get_cost([])))
+        game.players[side].money-=self.get_cost([])
         super().__init__(ID, x, y, tick, side, game)
         self.production = unit_stats[self.name]["production"]
 
@@ -885,7 +885,7 @@ class Wall:
     name = "Wall"
 
     def __init__(self, ID, t1, t2, tick, side, game):
-        assert (game.players[side].attempt_purchase(self.get_cost([])))
+        game.players[side].money-=self.get_cost([])
         self.entity_type = "wall"
         self.exists = False
         self.spawning = game.ticks - tick
