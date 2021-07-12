@@ -71,6 +71,8 @@ class Game:
                     entity_type(self.object_ID, data["xy"][0], data["xy"][1], side, self)
                     self.send_both({"action": "place_building", "xy": data["xy"], "tick": self.ticks, "side": side,
                                     "ID": self.object_ID, "entity_type": data["entity_type"]})
+                    print({"action": "place_building", "xy": data["xy"], "tick": self.ticks, "side": side,
+                           "ID": self.object_ID, "entity_type": data["entity_type"]})
                     self.object_ID += 1
             elif data["action"] == "place_wall":
                 if self.players[side].attempt_purchase(Wall.get_cost([])):
@@ -302,7 +304,7 @@ class Tower(Building):
         self.bulletspeed = unit_stats[self.name]["bulletspeed"]
         self.target = None
         self.shooting_in_chunks = get_chunks(self.x, self.y, 2 * self.reach)
-        self.upgrades_into = [Tower10,Tower01]
+        self.upgrades_into = [Tower10, Tower01]
 
     @classmethod
     def get_cost(cls, params):
@@ -362,7 +364,7 @@ class Tower01(Tower):
 
     def attack(self, target):
         Boulder(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.damage, self.bulletspeed,
-                target.distance_to_point(self.x,self.y), self.explosion_radius)
+                target.distance_to_point(self.x, self.y), self.explosion_radius)
 
 
 class Farm(Building):

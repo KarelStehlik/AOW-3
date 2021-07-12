@@ -960,6 +960,7 @@ class Farm(Building):
     image = images.Farm
 
     def __init__(self, ID, x, y, tick, side, game):
+        print("new farm")
         game.players[side].money -= self.get_cost([])
         super().__init__(ID, x, y, tick, side, game)
         self.production = unit_stats[self.name]["production"]
