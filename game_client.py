@@ -290,7 +290,7 @@ class UI_formation(client_utility.toolbar):
                                                           batch=game.batch, group=groups.g[8])
                          for i in range(self.rows)] for j in range(self.columns)]
         self.add(self.send, self.x, self.height - SCREEN_HEIGHT * 0.1, self.width, SCREEN_HEIGHT * 0.1,
-                 image=images.Cancelbutton)
+                 image=images.Sendbutton)
         self.cost_count = pyglet.text.Label(x=self.x + self.width / 2, y=5, text="Cost: 0", color=(255, 240, 0, 255),
                                             group=groups.g[9], batch=self.batch, anchor_x="center", anchor_y="bottom",
                                             font_size=20 * SPRITE_SIZE_MULT)
@@ -778,7 +778,8 @@ class TownHall(Building):
         self.sprite.opacity = 255
 
     def die(self):
-        self.sprite.delete()
+        super().die()
+        animation_explosion(self.x,self.y,1000,25,self.game)
         print("game over")
 
     def tick(self):
@@ -1556,9 +1557,9 @@ class animation_explosion:
         self.sprite.update(x=self.x * SPRITE_SIZE_MULT - self.game.camx, y=self.y * SPRITE_SIZE_MULT - self.game.camy,
                            scale=self.exists_time / 128 * self.size / images.Fire.width)
         self.sprite2.update(x=self.x * SPRITE_SIZE_MULT - self.game.camx, y=self.y * SPRITE_SIZE_MULT - self.game.camy,
-                            scale=self.exists_time ** 1.5 / 256 * self.size / images.Shockwave.width)
+                            scale=self.exists_time ** 1.6 / 256 * self.size / images.Shockwave.width)
         self.sprite.opacity = (256 - 2 * self.exists_time)
-        self.sprite2.opacity = (256 - 2 * self.exists_time)
+        self.sprite2.opacity = (256 - 2 * self.exists_time)*0.6
 
     def delete(self):
         self.game.animations.remove(self)

@@ -28,6 +28,8 @@ Arrow.anchor_x = Arrow.width / 2
 Arrow.anchor_y = Arrow.height
 Cancelbutton = RI("Cancelbutton")
 centre_anchor(Cancelbutton)
+Sendbutton = RI("Sendbutton")
+centre_anchor(Sendbutton)
 Towerbutton = RI("Towerbutton")
 centre_anchor(Towerbutton)
 UnitSlot = RI("UnitSlot")
