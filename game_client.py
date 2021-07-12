@@ -17,7 +17,7 @@ class Game:
             e.summon_townhall()
         self.connection = connection
         self.batch = batch
-        self.cam_move_speed = 600
+        self.cam_move_speed = 1000
         self.start_time = time0
         self.camx, self.camy = 0, 0
         self.camx_moving, self.camy_moving = 0, 0
@@ -89,8 +89,8 @@ class Game:
             self.ticks += 1
             self.players[0].gain_money(PASSIVE_INCOME)
             self.players[1].gain_money(PASSIVE_INCOME)
-            # if self.ticks%200==0:
-            #    print(self.ticks,self.players[0].money,self.players[1].money)
+            # if self.ticks % 200 == 0:
+            #   print(self.ticks, len(self.players[0].units), len(self.players[1].units))
         self.update_cam(self.last_dt)
         self.players[0].graphics_update()
         self.players[1].graphics_update()
@@ -116,6 +116,13 @@ class Game:
             if data["action"] == "summon_formation":
                 Formation(data["ID"], data["instructions"], data["troops"], data["tick"], data["side"], self)
                 return
+            if data["action"] == "upgrade":
+                tar = self.find_building(data["ID"], data["side"])
+                if tar is not None:
+                    tar.upgrades_into[data["upgrade num"]](tar, data["tick"])
+                else:
+                    bu = data["backup"]
+                    possible_buildings[bu[0]](x=bu[1], y=bu[2], tick=bu[3], side=bu[4], ID=bu[5], game=self)
 
     def mouse_move(self, x, y, dx, dy):
         [e.mouse_move(x, y) for e in self.UI_toolbars]
@@ -150,6 +157,11 @@ class Game:
         if True in [e.mouse_click(x, y) for e in self.UI_toolbars]:
             return
         self.selected.mouse_click(x, y)
+        for e in self.players[self.side].all_buildings:
+            if e.entity_type != "wall" and self.selected.__class__ is not selection_wall and \
+                    e.distance_to_point((x + self.camx) / SPRITE_SIZE_MULT,
+                                        (y + self.camy) / SPRITE_SIZE_MULT) < e.size // 2:
+                building_upgrade_menu(e.ID, self)
 
     def mouse_release(self, x, y, button, modifiers):
         [e.mouse_release(x, y) for e in self.UI_toolbars]
@@ -168,9 +180,9 @@ class Game:
         [e.update_cam(self.camx, self.camy) for e in self.players]
         self.selected.update_cam(self.camx, self.camy)
 
-    def find_building(self, ID, side, entity_type):
+    def find_building(self, ID, side, entity_type=None):
         for e in self.players[side].all_buildings:
-            if e.ID == ID and e.entity_type == entity_type:
+            if e.ID == ID and (entity_type == None or e.entity_type == entity_type):
                 return e
         return None
 
@@ -657,6 +669,45 @@ class selection_unit(selection):
 
 # ################# ---/selects--- #################
 # #################   ---units---  #################
+class building_upgrade_menu(client_utility.toolbar):
+    def __init__(self, building_ID, game: Game):
+        self.target = game.find_building(building_ID, game.side)
+        if not self.target.upgrades_into:
+            return
+        buttonsize = SCREEN_WIDTH * .1
+        self.width = buttonsize * len(self.target.upgrades_into)
+        self.height = buttonsize
+        super().__init__(self.target.x * SPRITE_SIZE_MULT - game.camx - self.width / 2,
+                         self.target.y * SPRITE_SIZE_MULT - game.camy - self.height / 2, self.width, self.height,
+                         game.batch)
+        self.game = game
+        game.UI_toolbars.append(self)
+        i = 0
+        for e in self.target.upgrades_into:
+            self.add(self.clicked_button,
+                     self.target.x * SPRITE_SIZE_MULT - game.camx - self.width / 2 + buttonsize * i,
+                     self.target.y * SPRITE_SIZE_MULT - game.camy - self.height / 2, buttonsize,
+                     buttonsize, e.image, args=(i,))
+            i += 1
+
+    def clicked_button(self, i):
+        if not self.target.exists:
+            self.close()
+            return
+        self.game.connection.Send({"action": "buy upgrade", "building ID": self.target.ID, "upgrade num": i})
+        self.close()
+
+    def mouse_click(self, x, y):
+        if self.x + self.width >= x >= self.x and self.y + self.height >= y >= self.y:
+            [e.mouse_click(x, y) for e in self.buttons]
+            return True
+        self.close()
+        return False
+
+    def close(self):
+        self.game.UI_toolbars.remove(self)
+        self.delete()
+
 
 class Building:
     name = "TownHall"
@@ -699,6 +750,8 @@ class Building:
                 163, 73, 163, 163, 73, 163, 163, 73, 163, 163, 73, 163, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50))
         )
         self.sprite.opacity = 70
+        self.upgrades_into = []
+        self.comes_from = None
 
     def towards(self, x, y):
         dx, dy = self.x - x, self.y - y
@@ -750,6 +803,8 @@ class Building:
             self.exists = True
             self.sprite.opacity = 255
             self.tick = self.tick2
+            if self.comes_from is not None:
+                self.comes_from.die()
 
     def tick2(self):
         self.shove()
@@ -785,7 +840,7 @@ class TownHall(Building):
         for i in range(10):
             animation_explosion(self.x + random.randint(-150, 150), self.y + random.randint(-150, 150),
                                 random.randint(100, 500), random.randint(10, 40), self.game)
-        print("game over")
+        print("game over", self.game.ticks)
 
     def tick(self):
         self.shove()
@@ -811,6 +866,7 @@ class Tower(Building):
         self.bulletspeed = unit_stats[self.name]["bulletspeed"]
         self.target = None
         self.shooting_in_chunks = get_chunks(self.x, self.y, 2 * self.reach)
+        self.upgrades_into = [Tower10,Tower01]
 
     @classmethod
     def get_cost(cls, params):
@@ -863,6 +919,41 @@ class Tower(Building):
         self.sprite2.update(x=self.x * SPRITE_SIZE_MULT - x, y=self.y * SPRITE_SIZE_MULT - y)
 
 
+class Tower10(Tower):
+    name = "Tower10"
+    entity_type = "tower"
+    image = images.Tower
+
+    def __init__(self, target=None, tick=None, x=None, y=None, side=None, game=None, ID=None):
+        if target is not None:
+            super().__init__(target.ID, target.x, target.y, tick, target.side, target.game)
+            self.comes_from = target
+        else:
+            super().__init__(ID, x, y, tick, side, game)
+            self.comes_from = None
+        self.upgrades_into=[]
+
+
+class Tower01(Tower):
+    name = "Tower01"
+    entity_type = "tower"
+    image = images.Tower
+
+    def __init__(self, target=None, tick=None, x=None, y=None, side=None, game=None, ID=None):
+        if target is not None:
+            super().__init__(target.ID, target.x, target.y, tick, target.side, target.game)
+            self.comes_from = target
+        else:
+            super().__init__(ID, x, y, tick, side, game)
+            self.comes_from = None
+        self.explosion_radius = unit_stats[self.name]["explosion_radius"]
+        self.upgrades_into = []
+
+    def attack(self, target):
+        Boulder(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.damage, self.bulletspeed,
+                target.distance_to_point(self.x,self.y), self.explosion_radius)
+
+
 class Farm(Building):
     name = "Farm"
     entity_type = "farm"
@@ -882,7 +973,7 @@ class Farm(Building):
         self.game.players[self.side].gain_money(self.production)
 
 
-possible_buildings = [Tower, Farm]
+possible_buildings = [Tower, Tower10, Tower01, Farm]
 
 
 class Wall:
@@ -1525,6 +1616,7 @@ class Boulder(Projectile):
     def __init__(self, x, y, dx, dy, game, side, damage, speed, reach, radius):
         super().__init__(x, y, dx, dy, game, side, damage, speed, reach)
         self.radius = radius
+        self.rotation = (random.random() - .5) * 10
 
     def tick(self):
         self.x += self.vx
@@ -1537,6 +1629,10 @@ class Boulder(Projectile):
         AOE_damage(self.x, self.y, self.radius, self.damage, self, self.game)
         animation_explosion(self.x, self.y, 200, 100, self.game)
         self.delete()
+
+    def graphics_update(self):
+        super().graphics_update()
+        self.sprite.rotation += self.rotation
 
 
 class animation_explosion:

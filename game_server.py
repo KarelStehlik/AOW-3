@@ -40,8 +40,8 @@ class Game:
             self.ticks += 1
             self.players[0].gain_money(PASSIVE_INCOME)
             self.players[1].gain_money(PASSIVE_INCOME)
-            # if self.ticks%200==0:
-            #    print(self.ticks,self.players[0].money,self.players[1].money)
+            # if self.ticks % 200 == 0:
+            #    print(self.ticks, len(self.players[0].units), len(self.players[1].units))
             # self.debug_ticks += 1
             # if time.time() - self.debug_secs > 1:
             # self.debug_secs += 1
@@ -99,6 +99,15 @@ class Game:
                                     "instructions": data["instructions"], "troops": data["troops"],
                                     "ID": oid})
                     self.object_ID += 1
+            elif data["action"] == "buy upgrade":
+                target = self.find_building(data["building ID"], side)
+                if target is not None and self.players[side].attempt_purchase(
+                        target.upgrades_into[data["upgrade num"]].get_cost([])):
+                    target.upgrades_into[data["upgrade num"]](target)
+                    self.send_both({"action": "upgrade", "tick": self.ticks, "side": side, "ID": data["building ID"],
+                                    "upgrade num": data["upgrade num"],
+                                    "backup": [possible_buildings.index(target.upgrades_into[data["upgrade num"]]),
+                                               target.x, target.y, self.ticks, side, target.ID]})
 
     def end(self, winner):
         self.send_both({"action": "game_end", "winner": winner})
@@ -126,9 +135,9 @@ class Game:
     def remove_building_from_chunk(self, unit, location):
         self.chunks[location].buildings[unit.side].remove(unit)
 
-    def find_building(self, ID, side, entity_type):
+    def find_building(self, ID, side, entity_type=None):
         for e in self.players[side].all_buildings:
-            if e.ID == ID and e.entity_type == entity_type:
+            if e.ID == ID and (entity_type == None or e.entity_type == entity_type):
                 return e
         return None
 
@@ -216,6 +225,8 @@ class Building:
         self.game.players[side].all_buildings.append(self)
         for e in self.chunks:
             game.add_building_to_chunk(self, e)
+        self.upgrades_into = []
+        self.comes_from = None
 
     def take_damage(self, amount, source):
         if self.exists:
@@ -243,6 +254,8 @@ class Building:
         if self.spawning == FPS:
             self.exists = True
             self.tick = self.tick2
+            if self.comes_from is not None:
+                self.comes_from.die()
 
     def tick2(self):
         self.shove()
@@ -269,7 +282,7 @@ class TownHall(Building):
 
     def die(self):
         super().die()
-        print("game over")
+        print("game over", self.game.ticks)
         # self.game.end(1 - self.side)
 
     def tick(self):
@@ -289,6 +302,7 @@ class Tower(Building):
         self.bulletspeed = unit_stats[self.name]["bulletspeed"]
         self.target = None
         self.shooting_in_chunks = get_chunks(self.x, self.y, 2 * self.reach)
+        self.upgrades_into = [Tower10,Tower01]
 
     @classmethod
     def get_cost(cls, params):
@@ -328,6 +342,29 @@ class Tower(Building):
         return False
 
 
+class Tower10(Tower):
+    name = "Tower10"
+    entity_type = "tower"
+
+    def __init__(self, target):
+        super().__init__(target.ID, target.x, target.y, target.side, target.game)
+        self.comes_from = target
+
+
+class Tower01(Tower):
+    name = "Tower01"
+    entity_type = "tower"
+
+    def __init__(self, target):
+        super().__init__(target.ID, target.x, target.y, target.side, target.game)
+        self.comes_from = target
+        self.explosion_radius = unit_stats[self.name]["explosion_radius"]
+
+    def attack(self, target):
+        Boulder(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.damage, self.bulletspeed,
+                target.distance_to_point(self.x,self.y), self.explosion_radius)
+
+
 class Farm(Building):
     name = "Farm"
     entity_type = "farm"
@@ -345,7 +382,7 @@ class Farm(Building):
         self.game.players[self.side].gain_money(self.production)
 
 
-possible_buildings = [Tower, Farm]
+possible_buildings = [Tower, Tower10, Tower01, Farm]
 
 
 class Wall:
