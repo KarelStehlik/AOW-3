@@ -9,6 +9,7 @@ import client_utility
 
 class Game:
     def __init__(self, side, batch, connection, time0):
+        print(time0)
         self.camx, self.camy = 0, 0
         self.ticks = 0
         self.side, self.batch = side, batch
@@ -843,7 +844,6 @@ class Building:
                            y=self.y * SPRITE_SIZE_MULT - y)
 
     def tick(self):
-        print(self.spawning)
         if self.spawning < FPS * ACTION_DELAY:
             self.spawning += 1
         if self.spawning == FPS * ACTION_DELAY:

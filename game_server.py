@@ -8,6 +8,7 @@ class Game:
         channel1.start(self, 0)
         channel2.start(self, 1)
         self.time_start = time.time()
+        print(time.time())
         self.channels = [channel1, channel2]
         self.players = [player(0, self), player(1, self)]
         for e in self.players:
