@@ -289,7 +289,7 @@ class UI_bottom_bar(client_utility.toolbar):
             self.add(self.game.select, SCREEN_WIDTH * (0.01 + 0.1 * i), SCREEN_WIDTH * 0.01,
                      SCREEN_WIDTH * 0.09, SCREEN_WIDTH * 0.09, e.img, args=(e,))
             i += 1
-        self.page=n
+        self.page = n
 
     def unload_page(self):
         [e.delete() for e in self.buttons]
@@ -343,27 +343,52 @@ class UI_formation(client_utility.toolbar):
     def set_unit(self, x, y, num: int):
         if self.units[x][y] == num:
             return
-        if self.units[x][y] == -1:
-            self.cost += possible_units[num].get_cost([])
-        elif num == -1:
-            self.cost -= possible_units[self.units[x][y]].get_cost([])
-        else:
-            self.cost += possible_units[num].get_cost([]) - possible_units[self.units[x][y]].get_cost([])
-        self.cost_count.text = "Cost: " + str(int(self.cost))
-        self.units[x][y] = num
         if num != -1:
-            self.sprites[x][y].delete()
-            a = possible_units[num].image
-            self.sprites[x][y] = client_utility.sprite_with_scale(a, self.dot_size / a.width, 1, 1,
-                                                                  self.x + self.dot_size * (x + 2.5),
-                                                                  self.y + self.dot_size * (y + 2.5),
-                                                                  batch=self.game.batch, group=groups.g[8])
+            obstruct=self.detect_obstruction(unit_stats[possible_units[num].name]["size"],x,y)
+            if obstruct:
+                pass
+            else:
+                self.units[x][y] = num
+                self.sprites[x][y].delete()
+                a = possible_units[num].get_image()
+                half_size = unit_stats[possible_units[num].name]["size"] / 2
+                a[1] *= self.dot_size / 20
+                self.sprites[x][y] = client_utility.sprite_with_scale(*a,
+                                                                      self.x + self.dot_size * (x + 2.5),
+                                                                      self.y + self.dot_size * (y + 2.5),
+                                                                      batch=self.game.batch, group=groups.g[9])
         else:
-            self.sprites[x][y].delete()
-            self.sprites[x][y] = client_utility.sprite_with_scale(images.UnitSlot, self.dot_scale, 1, 1,
-                                                                  self.x + self.dot_size * (x + 2.5),
-                                                                  self.y + self.dot_size * (y + 2.5),
-                                                                  batch=self.game.batch, group=groups.g[8])
+            obstruct = self.detect_obstruction(0, x, y)
+            if obstruct:
+                x,y=obstruct[0],obstruct[1]
+                self.units[x][y] = num
+                self.sprites[x][y].delete()
+                self.sprites[x][y] = client_utility.sprite_with_scale(images.UnitSlot, self.dot_scale, 1, 1,
+                                                                      self.x + self.dot_size * (x + 2.5),
+                                                                      self.y + self.dot_size * (y + 2.5),
+                                                                      batch=self.game.batch, group=groups.g[8])
+            else:
+                self.units[x][y] = num
+                self.sprites[x][y].delete()
+                self.sprites[x][y] = client_utility.sprite_with_scale(images.UnitSlot, self.dot_scale, 1, 1,
+                                                                      self.x + self.dot_size * (x + 2.5),
+                                                                      self.y + self.dot_size * (y + 2.5),
+                                                                      batch=self.game.batch, group=groups.g[8])
+        self.cost = 0
+        for x in range(UNIT_FORMATION_COLUMNS):
+            for y in range(UNIT_FORMATION_ROWS):
+                if self.units[x][y] != -1:
+                    self.cost += possible_units[self.units[x][y]].get_cost([])
+        self.cost_count.text = "Cost: " + str(int(self.cost))
+
+    def detect_obstruction(self, size, x, y):
+        for x2 in range(UNIT_FORMATION_COLUMNS):
+            for y2 in range(UNIT_FORMATION_ROWS):
+                if self.units[x2][y2] != -1:
+                    if UNIT_SIZE * distance(x, y, x2, y2) < (
+                            size + unit_stats[possible_units[self.units[x2][y2]].name]["size"]) / 2:
+                        return x2, y2
+        return False
 
 
 class UI_categories(client_utility.toolbar):
@@ -1659,7 +1684,7 @@ class selection_Defender(selection_unit):
 
 possible_units = [Swordsman, Archer, Trebuchet, Defender]
 selects_p1 = [selection_tower, selection_wall, selection_farm]
-selects_p2 = [selection_swordsman, selection_archer, selection_trebuchet,selection_Defender]
+selects_p2 = [selection_swordsman, selection_archer, selection_trebuchet, selection_Defender]
 selects_all = [selects_p1, selects_p2]
 
 
