@@ -89,9 +89,9 @@ class Game:
             self.ticks += 1
             self.players[0].gain_money(PASSIVE_INCOME)
             self.players[1].gain_money(PASSIVE_INCOME)
-           # if self.ticks % 200 == 0:
-            #    print(self.ticks, len(self.players[0].units), len(self.players[1].units), self.players[0].money,
-           #           self.players[1].money, time.time() - self.start_time)
+        # if self.ticks % 200 == 0:
+        #    print(self.ticks, len(self.players[0].units), len(self.players[1].units), self.players[0].money,
+        #           self.players[1].money, time.time() - self.start_time)
         self.update_cam(self.last_dt)
         self.players[0].graphics_update()
         self.players[1].graphics_update()
@@ -121,6 +121,7 @@ class Game:
                 tar = self.find_building(data["ID"], data["side"])
                 if tar is not None:
                     tar.upgrades_into[data["upgrade num"]](tar, data["tick"])
+                    tar.upgrades_into=[]
                 else:
                     bu = data["backup"]
                     possible_buildings[bu[0]](x=bu[1], y=bu[2], tick=bu[3], side=bu[4], ID=bu[5], game=self)
@@ -829,7 +830,7 @@ class Building:
 class TownHall(Building):
     name = "TownHall"
     entity_type = "townhall"
-    image = images.Tower
+    image = images.Townhall
 
     def __init__(self, x, y, side, game):
         super().__init__(None, x, y, 0, side, game)
@@ -891,8 +892,8 @@ class Tower(Building):
             self.attack(target)
 
     def attack(self, target):
-        direction=target.towards(self.x, self.y)
-        self.sprite.rotation = 90-get_rotation_norm(*direction)*180/math.pi
+        direction = target.towards(self.x, self.y)
+        self.sprite.rotation = 90 - get_rotation_norm(*direction) * 180 / math.pi
         Arrow(self.x, self.y, *direction, self.game, self.side, self.damage, self.bulletspeed,
               self.reach * 1.5, scale=.2)
 
@@ -935,7 +936,7 @@ class Tower1(Tower):
         else:
             super().__init__(ID, x, y, tick, side, game)
             self.comes_from = None
-        self.upgrades_into = []
+        self.upgrades_into = [Tower11]
 
 
 class Tower2(Tower):
@@ -951,11 +952,58 @@ class Tower2(Tower):
             super().__init__(ID, x, y, tick, side, game)
             self.comes_from = None
         self.explosion_radius = unit_stats[self.name]["explosion_radius"]
+        self.upgrades_into = [Tower21]
+
+    def attack(self, target):
+        direction = target.towards(self.x, self.y)
+        self.sprite.rotation = 90 - get_rotation_norm(*direction) * 180 / math.pi
+        Boulder(self.x, self.y, *direction, self.game, self.side, self.damage, self.bulletspeed,
+                target.distance_to_point(self.x, self.y), self.explosion_radius)
+
+class Tower21(Tower):
+    name = "Tower21"
+    entity_type = "tower"
+    image = images.Tower21
+
+    def __init__(self, target=None, tick=None, x=None, y=None, side=None, game=None, ID=None):
+        if target is not None:
+            super().__init__(target.ID, target.x, target.y, tick, target.side, target.game)
+            self.comes_from = target
+        else:
+            super().__init__(ID, x, y, tick, side, game)
+            self.comes_from = None
+        self.explosion_radius = unit_stats[self.name]["explosion_radius"]
         self.upgrades_into = []
 
     def attack(self, target):
-        Boulder(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.damage, self.bulletspeed,
+        direction = target.towards(self.x, self.y)
+        self.sprite.rotation = 90 - get_rotation_norm(*direction) * 180 / math.pi
+        Meteor(self.x, self.y, *direction, self.game, self.side, self.damage, self.bulletspeed,
                 target.distance_to_point(self.x, self.y), self.explosion_radius)
+
+class Tower11(Tower):
+    name = "Tower11"
+    entity_type = "tower"
+    image = images.Tower11
+
+    def __init__(self, target=None, tick=None, x=None, y=None, side=None, game=None, ID=None):
+        if target is not None:
+            super().__init__(target.ID, target.x, target.y, tick, target.side, target.game)
+            self.comes_from = target
+        else:
+            super().__init__(ID, x, y, tick, side, game)
+            self.comes_from = None
+        self.upgrades_into = []
+        self.shots=unit_stats[self.name]["shots"]
+        self.spread = unit_stats[self.name]["spread"]
+
+    def attack(self, target):
+        direction = target.towards(self.x, self.y)
+        rot=get_rotation_norm(*direction)
+        self.sprite.rotation = 90 - rot * 180 / math.pi
+        for i in range(int(self.shots)):
+            Bullet(self.x, self.y, rot+self.spread*math.sin(self.game.ticks+5*i), self.game, self.side, self.damage, self.bulletspeed,
+                  self.reach * 1.5)
 
 
 class Farm(Building):
@@ -977,7 +1025,7 @@ class Farm(Building):
         self.game.players[self.side].gain_money(self.production)
 
 
-possible_buildings = [Tower, Tower1, Tower2, Farm]
+possible_buildings = [Tower, Tower1, Tower2, Tower21, Tower11, Farm]
 
 
 class Wall:
@@ -1638,6 +1686,30 @@ class Boulder(Projectile):
         self.sprite.rotation += self.rotation
 
 
+class Meteor(Projectile):
+    image = images.Meteor
+    scale = .15
+
+    def __init__(self, x, y, dx, dy, game, side, damage, speed, reach, radius):
+        super().__init__(x, y, dx, dy, game, side, damage, speed, reach)
+        self.radius = radius
+
+    def tick(self):
+        self.x += self.vx
+        self.y += self.vy
+        self.reach -= self.speed
+        if self.reach <= 0:
+            self.explode()
+
+    def explode(self):
+        AOE_damage(self.x, self.y, self.radius, self.damage, self, self.game)
+        animation_explosion(self.x, self.y, 200, 100, self.game)
+        self.delete()
+
+    def graphics_update(self):
+        super().graphics_update()
+
+
 class animation_explosion:
     def __init__(self, x, y, size, speed, game):
         self.sprite = pyglet.sprite.Sprite(images.Fire, x=x * SPRITE_SIZE_MULT - game.camx,
@@ -1670,6 +1742,25 @@ class animation_explosion:
         self.game.animations.remove(self)
         self.sprite.delete()
         self.sprite2.delete()
+
+class Bullet(Projectile):
+    image = images.Bullet
+    scale = 1
+    def __init__(self, x, y, angle, game, side, damage, speed, reach, scale=None):
+        # (dx,dy) must be normalized
+        self.x, self.y = x, y
+        self.sprite = pyglet.sprite.Sprite(self.image, self.x, self.y, batch=game.batch, group=groups.g[5])
+        if scale is None:
+            self.sprite.scale = self.scale * SPRITE_SIZE_MULT
+        else:
+            self.sprite.scale = scale * SPRITE_SIZE_MULT
+        self.vx, self.vy = speed * math.cos(angle), speed * math.sin(angle)
+        self.side = side
+        self.speed = speed
+        self.game = game
+        self.damage = damage
+        game.projectiles.append(self)
+        self.reach = reach
 
 
 def AOE_damage(x, y, size, amount, source, game):

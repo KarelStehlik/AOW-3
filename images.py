@@ -15,7 +15,7 @@ def centre_anchor(e):
 
 
 Button = RI("Button")
-Toolbar=RI("Toolbar")
+Toolbar = RI("Toolbar")
 centre_anchor(Button)
 Background = IL("Background").get_texture()
 Wall = IL("Wall").get_texture()
@@ -54,11 +54,22 @@ Fire = RI("fire")
 centre_anchor(Fire)
 Shockwave = RI("shockwave")
 centre_anchor(Shockwave)
-Trebuchet=RI("Trebuchet")
-Trebuchet.anchor_x=Trebuchet.width/2
-Trebuchet.anchor_y=Trebuchet.height*.6
-Boulder=RI("Boulder")
+Trebuchet = RI("Trebuchet")
+Trebuchet.anchor_x = Trebuchet.width / 2
+Trebuchet.anchor_y = Trebuchet.height * .6
+Boulder = RI("Boulder")
 centre_anchor(Boulder)
+Meteor = RI("Meteor")
+Meteor.anchor_x = Meteor.width / 2
+Meteor.anchor_y = Meteor.height * .7
+Tower11 = RI("Tower11")
+Tower21 = RI("Tower21")
+centre_anchor(Tower11)
+centre_anchor(Tower21)
+Townhall=RI("Townhall")
+centre_anchor(Townhall)
+Bullet = RI("Bullet")
+centre_anchor(Bullet)
 
 # #######################  CLONE  ############################
 gunmanR = pyglet.resource.image("imagefolder/BGunman.png")

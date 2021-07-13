@@ -40,7 +40,7 @@ class Game:
             self.ticks += 1
             self.players[0].gain_money(PASSIVE_INCOME)
             self.players[1].gain_money(PASSIVE_INCOME)
-            #if self.ticks % 200 == 0:
+            # if self.ticks % 200 == 0:
             #    print(self.ticks, len(self.players[0].units), len(self.players[1].units), self.players[0].money,
             #          self.players[1].money, time.time() - self.time_start)
             # self.debug_ticks += 1
@@ -104,6 +104,8 @@ class Game:
                     self.object_ID += 1
             elif data["action"] == "buy upgrade":
                 target = self.find_building(data["building ID"], side)
+                if len(target.upgrades_into) <= data["upgrade num"]:
+                    return
                 if target is not None and target.exists and self.players[side].attempt_purchase(
                         target.upgrades_into[data["upgrade num"]].get_cost([])):
                     target.upgrades_into[data["upgrade num"]](target)
@@ -111,7 +113,7 @@ class Game:
                                     "upgrade num": data["upgrade num"],
                                     "backup": [possible_buildings.index(target.upgrades_into[data["upgrade num"]]),
                                                target.x, target.y, self.ticks, side, target.ID]})
-            self.channels[side].Send({"action": "update_money", "tick": self.ticks, "amount": self.players[side].money})
+                    target.upgrades_into = []
 
     def end(self, winner):
         self.send_both({"action": "game_end", "winner": winner})
@@ -354,6 +356,28 @@ class Tower1(Tower):
     def __init__(self, target):
         super().__init__(target.ID, target.x, target.y, target.side, target.game)
         self.comes_from = target
+        self.upgrades_into = [Tower11]
+
+
+class Tower11(Tower):
+    name = "Tower11"
+    entity_type = "tower"
+
+    def __init__(self, target):
+        super().__init__(target.ID, target.x, target.y, target.side, target.game)
+        self.comes_from = target
+        self.upgrades_into = []
+        self.shots = unit_stats[self.name]["shots"]
+        self.spread = unit_stats[self.name]["spread"]
+
+    def attack(self, target):
+        direction = target.towards(self.x, self.y)
+        rot = get_rotation_norm(*direction)
+        for i in range(int(self.shots)):
+            Bullet(self.x, self.y, rot + self.spread * math.sin(self.game.ticks + 5 * i), self.game, self.side,
+                   self.damage,
+                   self.bulletspeed,
+                   self.reach * 1.5)
 
 
 class Tower2(Tower):
@@ -364,10 +388,26 @@ class Tower2(Tower):
         super().__init__(target.ID, target.x, target.y, target.side, target.game)
         self.comes_from = target
         self.explosion_radius = unit_stats[self.name]["explosion_radius"]
+        self.upgrades_into = [Tower21]
 
     def attack(self, target):
         Boulder(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.damage, self.bulletspeed,
                 target.distance_to_point(self.x, self.y), self.explosion_radius)
+
+
+class Tower21(Tower):
+    name = "Tower21"
+    entity_type = "tower"
+
+    def __init__(self, target):
+        super().__init__(target.ID, target.x, target.y, target.side, target.game)
+        self.comes_from = target
+        self.explosion_radius = unit_stats[self.name]["explosion_radius"]
+        self.upgrades_into = []
+
+    def attack(self, target):
+        Meteor(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.damage, self.bulletspeed,
+               target.distance_to_point(self.x, self.y), self.explosion_radius)
 
 
 class Farm(Building):
@@ -387,7 +427,7 @@ class Farm(Building):
         self.game.players[self.side].gain_money(self.production)
 
 
-possible_buildings = [Tower, Tower1, Tower2, Farm]
+possible_buildings = [Tower, Tower1, Tower2, Tower21, Tower11, Farm]
 
 
 class Wall:
@@ -891,6 +931,19 @@ class Projectile:
         self.game.projectiles.remove(self)
 
 
+class Bullet(Projectile):
+    def __init__(self, x, y, angle, game, side, damage, speed, reach, scale=None):
+        # (dx,dy) must be normalized
+        self.x, self.y = x, y
+        self.vx, self.vy = speed * math.cos(angle), speed * math.sin(angle)
+        self.side = side
+        self.speed = speed
+        self.game = game
+        self.damage = damage
+        game.projectiles.append(self)
+        self.reach = reach
+
+
 class Arrow(Projectile):
     pass
 
@@ -911,6 +964,10 @@ class Boulder(Projectile):
     def explode(self):
         AOE_damage(self.x, self.y, self.radius, self.damage, self, self.game)
         self.delete()
+
+
+class Meteor(Boulder):
+    pass
 
 
 def AOE_damage(x, y, size, amount, source, game):
