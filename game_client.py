@@ -885,10 +885,6 @@ class Building:
                 if e == self:
                     continue
                 if max(abs(e.x - self.x), abs(e.y - self.y)) < (self.size + e.size) / 2:
-                    dist_sq = (e.x - self.x) ** 2 + (e.y - self.y) ** 2
-                    if dist_sq == 0:
-                        dist_sq = .01
-                        self.x+=.01
                     if dist_sq < ((e.size + self.size) * .5) ** 2:
                         shovage = (e.size + self.size) * .5 * dist_sq ** -.5 - 1
                         e.take_knockback((e.x - self.x) * shovage, (e.y - self.y) * shovage, self)
@@ -1617,6 +1613,10 @@ class Unit:
             return
         if max(abs(other.x - self.x), abs(other.y - self.y)) < (self.size + other.size) / 2:
             dist_sq = (other.x - self.x) ** 2 + (other.y - self.y) ** 2
+            dist_sq = (e.x - self.x) ** 2 + (e.y - self.y) ** 2
+            if dist_sq == 0:
+                dist_sq = .01
+                self.x += .01
             if dist_sq < ((other.size + self.size) * .5) ** 2:
                 shovage = (other.size + self.size) * .5 * dist_sq ** -.5 - 1  # desired dist / current dist -1
                 mass_ratio = self.mass / (self.mass + other.mass)
