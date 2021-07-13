@@ -8,7 +8,6 @@ class Game:
         channel1.start(self, 0)
         channel2.start(self, 1)
         self.time_start = time.time()
-        print(time.time())
         self.channels = [channel1, channel2]
         self.players = [player(0, self), player(1, self)]
         for e in self.players:
@@ -115,6 +114,8 @@ class Game:
                                     "backup": [possible_buildings.index(target.upgrades_into[data["upgrade num"]]),
                                                target.x, target.y, self.ticks, side, target.ID]})
                     target.upgrades_into = []
+            elif data["action"] == "ping":
+                self.channels[side].Send({"action": "pong", "time": str(time.time())})
 
     def end(self, winner):
         self.send_both({"action": "game_end", "winner": winner})

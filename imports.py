@@ -39,6 +39,17 @@ def is_empty_2d(l):
 
 
 @njit
+def average(*a):
+    s = 0
+    for e in a:
+        s += e
+    return s / len(a)
+
+
+average(*[1.1, 1.1, 1.2])
+
+
+@njit
 def point_line_dist(x, y, normal_vector, c):
     # assumes vector is normalized
     return abs(x * normal_vector[0] + y * normal_vector[1] + c)

@@ -9,7 +9,6 @@ import client_utility
 
 class Game:
     def __init__(self, side, batch, connection, time0):
-        print(time0)
         self.camx, self.camy = 0, 0
         self.ticks = 0
         self.side, self.batch = side, batch
@@ -45,6 +44,18 @@ class Game:
         self.projectiles = []
         self.animations = []
         self.mousex, self.mousey = 0, 0
+        self.time_difference = 0
+        self.time_diffs = []
+        self.ping_attempts = 10
+        self.ping_time = time.perf_counter()
+        connection.Send({"action": "ping"})
+
+    def determine_time(self):
+        self.time_difference = 0
+        self.time_diffs = []
+        self.ping_attempts = 10
+        self.ping_time = time.perf_counter()
+        self.connection.Send({"action": "ping"})
 
     def add_unit_to_chunk(self, unit, location):
         if location in self.chunks:
@@ -80,7 +91,7 @@ class Game:
         self.selected = sel(self)
 
     def tick(self):
-        while self.ticks < FPS * (time.time() - self.start_time):
+        while self.ticks < FPS * (time.time() - self.time_difference - self.start_time):
             odd_tick = self.ticks % 2
             self.clear_chunks()
             self.players[odd_tick].tick_units()
@@ -106,20 +117,31 @@ class Game:
 
     def network(self, data):
         if "action" in data:
-            if data["action"] == "place_building":
+            if data["action"] == "pong":
+                received=time.time()
+                latency = (time.perf_counter() - self.ping_time) / 2
+                self.time_diffs.append(received - float(data["time"]) - latency)
+                self.ping_attempts -= 1
+                if self.ping_attempts > 0:
+                    self.ping_time = time.perf_counter()
+                    self.connection.Send({"action": "ping"})
+                else:
+                    self.time_difference = average(*self.time_diffs)
+                    print(self.time_difference)
+            elif data["action"] == "place_building":
                 possible_buildings[data["entity_type"]](data["ID"], data["xy"][0], data["xy"][1], data["tick"],
                                                         data["side"], self)
                 return
-            if data["action"] == "place_wall":
+            elif data["action"] == "place_wall":
                 t1, t2 = self.find_building(data["ID1"], data["side"], "tower"), self.find_building(data["ID2"],
                                                                                                     data["side"],
                                                                                                     "tower")
                 Wall(data["ID"], t1, t2, data["tick"], data["side"], self)
                 return
-            if data["action"] == "summon_formation":
+            elif data["action"] == "summon_formation":
                 Formation(data["ID"], data["instructions"], data["troops"], data["tick"], data["side"], self)
                 return
-            if data["action"] == "upgrade":
+            elif data["action"] == "upgrade":
                 tar = self.find_building(data["ID"], data["side"])
                 if tar is not None:
                     tar.upgrades_into[data["upgrade num"]](tar, data["tick"])
@@ -345,7 +367,7 @@ class UI_formation(client_utility.toolbar):
         if self.units[x][y] == num:
             return
         if num != -1:
-            obstruct=self.detect_obstruction(unit_stats[possible_units[num].name]["size"],x,y)
+            obstruct = self.detect_obstruction(unit_stats[possible_units[num].name]["size"], x, y)
             if obstruct:
                 pass
             else:
@@ -361,7 +383,7 @@ class UI_formation(client_utility.toolbar):
         else:
             obstruct = self.detect_obstruction(0, x, y)
             if obstruct:
-                x,y=obstruct[0],obstruct[1]
+                x, y = obstruct[0], obstruct[1]
                 self.units[x][y] = num
                 self.sprites[x][y].delete()
                 self.sprites[x][y] = client_utility.sprite_with_scale(images.UnitSlot, self.dot_scale, 1, 1,
