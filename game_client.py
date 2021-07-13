@@ -137,7 +137,6 @@ class Game:
         self.selected.mouse_move(x, y)
 
     def key_press(self, symbol, modifiers):
-        print(symbol)
         if symbol == key.A:
             self.camx_moving = max(self.camx_moving - self.cam_move_speed, -self.cam_move_speed)
         elif symbol == key.S:
@@ -153,7 +152,7 @@ class Game:
             if len(selects_all[self.UI_bottomBar.page]) > symbol - 49:
                 self.select(selects_all[self.UI_bottomBar.page][symbol - 49])
         elif symbol == 65307:
-            self.select(selection_none(self))
+            self.select(selection_none)
         self.selected.key_press(symbol, modifiers)
 
     def key_release(self, symbol, modifiers):
@@ -173,7 +172,7 @@ class Game:
         for e in self.players[self.side].all_buildings:
             if e.entity_type != "wall" and self.selected.__class__ is not selection_wall and \
                     e.distance_to_point((x + self.camx) / SPRITE_SIZE_MULT,
-                                        (y + self.camy) / SPRITE_SIZE_MULT) < e.size // 2:
+                                        (y + self.camy) / SPRITE_SIZE_MULT) < 0:
                 building_upgrade_menu(e.ID, self)
 
     def mouse_release(self, x, y, button, modifiers):
@@ -290,6 +289,7 @@ class UI_bottom_bar(client_utility.toolbar):
             self.add(self.game.select, SCREEN_WIDTH * (0.01 + 0.1 * i), SCREEN_WIDTH * 0.01,
                      SCREEN_WIDTH * 0.09, SCREEN_WIDTH * 0.09, e.img, args=(e,))
             i += 1
+        self.page=n
 
     def unload_page(self):
         [e.delete() for e in self.buttons]
@@ -1637,7 +1637,7 @@ class Trebuchet(Unit):
 
 
 class Defender(Unit):
-    image = images.Swordsman
+    image = images.Defender
     name = "Defender"
 
     def __init__(self, ID, x, y, side, column, row, game, formation):
@@ -1653,13 +1653,13 @@ class selection_trebuchet(selection_unit):
 
 
 class selection_Defender(selection_unit):
-    img = images.Swordsman
+    img = images.Defender
     num = 3
 
 
 possible_units = [Swordsman, Archer, Trebuchet, Defender]
-selects_p1 = [selection_tower, selection_wall, selection_farm, selection_Defender]
-selects_p2 = [selection_swordsman, selection_archer, selection_trebuchet]
+selects_p1 = [selection_tower, selection_wall, selection_farm]
+selects_p2 = [selection_swordsman, selection_archer, selection_trebuchet,selection_Defender]
 selects_all = [selects_p1, selects_p2]
 
 

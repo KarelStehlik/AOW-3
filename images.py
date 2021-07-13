@@ -1,12 +1,18 @@
 from constants import *
 
 
-def RI(name):
-    return pyglet.resource.image(f"imagefolder/{name}.png")
+def RI(name, centre=True):
+    a = pyglet.resource.image(f"imagefolder/{name}.png")
+    if centre:
+        centre_anchor(a)
+    return a
 
 
-def IL(name):
-    return pyglet.image.load(f"imagefolder/{name}.png")
+def IL(name, centre=True):
+    a = pyglet.image.load(f"imagefolder/{name}.png")
+    if centre:
+        centre_anchor(a)
+    return a
 
 
 def centre_anchor(e):
@@ -14,66 +20,52 @@ def centre_anchor(e):
     e.anchor_y = e.height // 2
 
 
-Button = RI("Button")
-Toolbar = RI("Toolbar")
-centre_anchor(Button)
 Background = IL("Background").get_texture()
 Wall = IL("Wall").get_texture()
 WallCrack = IL("wall_crack").get_texture()
-Intro = RI("Intro")
-Farm = RI("farm")
-centre_anchor(Farm)
-Farm1 = RI("Farm1")
-centre_anchor(Farm1)
-Farm2 = RI("Farm2")
-centre_anchor(Farm2)
-Arrow = RI("Arrow")
-Arrow.anchor_x = Arrow.width / 2
-Arrow.anchor_y = Arrow.height
-Cancelbutton = RI("Cancelbutton")
-centre_anchor(Cancelbutton)
-Sendbutton = RI("Sendbutton")
-centre_anchor(Sendbutton)
-Towerbutton = RI("Towerbutton")
-centre_anchor(Towerbutton)
-UnitSlot = RI("UnitSlot")
-centre_anchor(UnitSlot)
-UnitFormFrame = RI("UnitFormFrame")
 blue_arrow = IL("blue_arrow").get_texture()
-Swordsman = RI("Swordsman")
-Swordsman.anchor_x = 64
-Swordsman.anchor_y = 54
-Bowman = RI("Bowman")
-Bowman.anchor_x = 64
-Bowman.anchor_y = 60
-Tower = RI("Tower")
-centre_anchor(Tower)
-Tower1 = RI("Tower1")
-centre_anchor(Tower1)
-Tower2 = RI("Tower2")
-centre_anchor(Tower2)
-TowerCrack = RI("tower_crack")
-centre_anchor(TowerCrack)
+
+Button = RI("Button")
+Toolbar = RI("Toolbar", False)
+Intro = RI("Intro", False)
+Cancelbutton = RI("Cancelbutton")
+Sendbutton = RI("Sendbutton")
+Towerbutton = RI("Towerbutton")
+UnitSlot = RI("UnitSlot")
+UnitFormFrame = RI("UnitFormFrame",False)
 Fire = RI("fire")
-centre_anchor(Fire)
 Shockwave = RI("shockwave")
-centre_anchor(Shockwave)
-Trebuchet = RI("Trebuchet")
-Trebuchet.anchor_x = Trebuchet.width / 2
-Trebuchet.anchor_y = Trebuchet.height * .6
 Boulder = RI("Boulder")
-centre_anchor(Boulder)
 Meteor = RI("Meteor")
 Meteor.anchor_x = Meteor.width / 2
 Meteor.anchor_y = Meteor.height * .7
+Bullet = RI("Bullet")
+
+Farm = RI("farm")
+Farm1 = RI("Farm1")
+Farm2 = RI("Farm2")
+Tower = RI("Tower")
+Tower1 = RI("Tower1")
+Tower2 = RI("Tower2")
+TowerCrack = RI("tower_crack")
 Tower11 = RI("Tower11")
 Tower21 = RI("Tower21")
-centre_anchor(Tower11)
-centre_anchor(Tower21)
-Townhall=RI("Townhall")
-centre_anchor(Townhall)
-Bullet = RI("Bullet")
-centre_anchor(Bullet)
+Townhall = RI("Townhall")
+
+Arrow = RI("Arrow")
+Arrow.anchor_x = Arrow.width / 2
+Arrow.anchor_y = Arrow.height
+
+Swordsman = RI("Swordsman",False)
+Swordsman.anchor_x = 64
+Swordsman.anchor_y = 54
+Bowman = RI("Bowman",False)
+Bowman.anchor_x = 64
+Bowman.anchor_y = 60
+Trebuchet = RI("Trebuchet")
+Trebuchet.anchor_x = Trebuchet.width / 2
+Trebuchet.anchor_y = Trebuchet.height * .6
+Defender = RI("Defender")
 
 # #######################  CLONE  ############################
 gunmanR = pyglet.resource.image("imagefolder/BGunman.png")
