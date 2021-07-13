@@ -885,8 +885,17 @@ class Trebuchet(Unit):
         Boulder(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.damage, self.bulletspeed,
                 target.distance_to_point(self.x, self.y), self.explosion_radius)
 
+class Defender(Unit):
+    name = "Defender"
 
-possible_units = [Swordsman, Archer, Trebuchet]
+    def __init__(self, ID, x, y, side, column, row, game, formation):
+        super().__init__(ID, x, y, side, column, row, game, formation)
+
+    def attack(self, target):
+        target.take_damage(self.damage, self)
+
+
+possible_units = [Swordsman, Archer, Trebuchet,Defender]
 
 
 class Projectile:

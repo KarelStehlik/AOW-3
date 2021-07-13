@@ -121,7 +121,7 @@ class Game:
                 tar = self.find_building(data["ID"], data["side"])
                 if tar is not None:
                     tar.upgrades_into[data["upgrade num"]](tar, data["tick"])
-                    tar.upgrades_into=[]
+                    tar.upgrades_into = []
                 else:
                     bu = data["backup"]
                     possible_buildings[bu[0]](x=bu[1], y=bu[2], tick=bu[3], side=bu[4], ID=bu[5], game=self)
@@ -685,7 +685,14 @@ class building_upgrade_menu(client_utility.toolbar):
         self.game = game
         game.UI_toolbars.append(self)
         i = 0
+        self.texts = []
         for e in self.target.upgrades_into:
+            self.texts.append(pyglet.text.Label(
+                x=self.target.x * SPRITE_SIZE_MULT - game.camx - self.width / 2 + buttonsize * (i + .5),
+                y=self.target.y * SPRITE_SIZE_MULT - game.camy - self.height / 2, text=str(int(e.get_cost([]))),
+                color=(255, 240, 0, 255),
+                group=groups.g[9], batch=game.batch, anchor_y="bottom", anchor_x="center",
+                font_size=12 * SPRITE_SIZE_MULT))
             self.add(self.clicked_button,
                      self.target.x * SPRITE_SIZE_MULT - game.camx - self.width / 2 + buttonsize * i,
                      self.target.y * SPRITE_SIZE_MULT - game.camy - self.height / 2, buttonsize,
@@ -707,6 +714,7 @@ class building_upgrade_menu(client_utility.toolbar):
         return False
 
     def close(self):
+        [e.delete() for e in self.texts]
         self.game.UI_toolbars.remove(self)
         self.delete()
 
@@ -960,6 +968,7 @@ class Tower2(Tower):
         Boulder(self.x, self.y, *direction, self.game, self.side, self.damage, self.bulletspeed,
                 target.distance_to_point(self.x, self.y), self.explosion_radius)
 
+
 class Tower21(Tower):
     name = "Tower21"
     entity_type = "tower"
@@ -979,7 +988,8 @@ class Tower21(Tower):
         direction = target.towards(self.x, self.y)
         self.sprite.rotation = 90 - get_rotation_norm(*direction) * 180 / math.pi
         Meteor(self.x, self.y, *direction, self.game, self.side, self.damage, self.bulletspeed,
-                target.distance_to_point(self.x, self.y), self.explosion_radius)
+               target.distance_to_point(self.x, self.y), self.explosion_radius)
+
 
 class Tower11(Tower):
     name = "Tower11"
@@ -994,16 +1004,17 @@ class Tower11(Tower):
             super().__init__(ID, x, y, tick, side, game)
             self.comes_from = None
         self.upgrades_into = []
-        self.shots=unit_stats[self.name]["shots"]
+        self.shots = unit_stats[self.name]["shots"]
         self.spread = unit_stats[self.name]["spread"]
 
     def attack(self, target):
         direction = target.towards(self.x, self.y)
-        rot=get_rotation_norm(*direction)
+        rot = get_rotation_norm(*direction)
         self.sprite.rotation = 90 - rot * 180 / math.pi
         for i in range(int(self.shots)):
-            Bullet(self.x, self.y, rot+self.spread*math.sin(self.game.ticks+5*i), self.game, self.side, self.damage, self.bulletspeed,
-                  self.reach * 1.5)
+            Bullet(self.x, self.y, rot + self.spread * math.sin(self.game.ticks + 5 * i), self.game, self.side,
+                   self.damage, self.bulletspeed,
+                   self.reach * 1.5)
 
 
 class Farm(Building):
@@ -1589,13 +1600,29 @@ class Trebuchet(Unit):
                 target.distance_to_point(self.x, self.y), self.explosion_radius)
 
 
+class Defender(Unit):
+    image = images.Swordsman
+    name = "Defender"
+
+    def __init__(self, ID, x, y, side, column, row, game, formation):
+        super().__init__(ID, x, y, side, column, row, game, formation)
+
+    def attack(self, target):
+        target.take_damage(self.damage, self)
+
+
 class selection_trebuchet(selection_unit):
     img = images.Trebuchet
     num = 2
 
 
-possible_units = [Swordsman, Archer, Trebuchet]
-selects_p1 = [selection_tower, selection_wall, selection_farm]
+class selection_Defender(selection_unit):
+    img = images.Swordsman
+    num = 3
+
+
+possible_units = [Swordsman, Archer, Trebuchet, Defender]
+selects_p1 = [selection_tower, selection_wall, selection_farm, selection_Defender]
 selects_p2 = [selection_swordsman, selection_archer, selection_trebuchet]
 selects_all = [selects_p1, selects_p2]
 
@@ -1743,9 +1770,11 @@ class animation_explosion:
         self.sprite.delete()
         self.sprite2.delete()
 
+
 class Bullet(Projectile):
     image = images.Bullet
     scale = 1
+
     def __init__(self, x, y, angle, game, side, damage, speed, reach, scale=None):
         # (dx,dy) must be normalized
         self.x, self.y = x, y
