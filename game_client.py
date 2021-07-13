@@ -43,6 +43,7 @@ class Game:
         self.last_tick, self.last_dt = 0, 0
         self.projectiles = []
         self.animations = []
+        self.mousex, self.mousey = 0, 0
 
     def add_unit_to_chunk(self, unit, location):
         if location in self.chunks:
@@ -129,12 +130,14 @@ class Game:
     def mouse_move(self, x, y, dx, dy):
         [e.mouse_move(x, y) for e in self.UI_toolbars]
         self.selected.mouse_move(x, y)
+        self.mousex, self.mousey = x, y
 
     def mouse_drag(self, x, y, dx, dy, button, modifiers):
         [e.mouse_drag(x, y) for e in self.UI_toolbars]
         self.selected.mouse_move(x, y)
 
     def key_press(self, symbol, modifiers):
+        print(symbol)
         if symbol == key.A:
             self.camx_moving = max(self.camx_moving - self.cam_move_speed, -self.cam_move_speed)
         elif symbol == key.S:
@@ -143,6 +146,14 @@ class Game:
             self.camx_moving = min(self.camx_moving + self.cam_move_speed, self.cam_move_speed)
         elif symbol == key.W:
             self.camy_moving = min(self.camy_moving + self.cam_move_speed, self.cam_move_speed)
+        elif key.NUM_9 >= symbol >= key.NUM_1:
+            if len(selects_all[self.UI_bottomBar.page]) > symbol - key.NUM_1:
+                self.select(selects_all[self.UI_bottomBar.page][symbol - key.NUM_1])
+        elif 57 >= symbol >= 49:
+            if len(selects_all[self.UI_bottomBar.page]) > symbol - 49:
+                self.select(selects_all[self.UI_bottomBar.page][symbol - 49])
+        elif symbol == 65307:
+            self.select(selection_none(self))
         self.selected.key_press(symbol, modifiers)
 
     def key_release(self, symbol, modifiers):
@@ -418,8 +429,8 @@ class selection_building(selection):
         self.camx, self.camy = 0, 0
         self.entity_type = possible_buildings[self.num]
         self.size = unit_stats[self.entity_type.name]["size"]
-        self.sprite = pyglet.sprite.Sprite(self.entity_type.image, x=0,
-                                           y=0, batch=game.batch,
+        self.sprite = pyglet.sprite.Sprite(self.entity_type.image, x=self.game.mousex,
+                                           y=self.game.mousey, batch=game.batch,
                                            group=groups.g[2])
         self.sprite.scale = self.size / self.sprite.width
         self.sprite.opacity = 100
@@ -462,7 +473,7 @@ class selection_tower(selection_building):
 
 class selection_farm(selection_building):
     img = images.Towerbutton
-    num = 3
+    num = 1
 
     def mouse_click(self, x, y):
         if not self.cancelbutton.mouse_click(x, y):
@@ -934,7 +945,6 @@ class Tower(Building):
 
 class Tower1(Tower):
     name = "Tower1"
-    entity_type = "tower"
     image = images.Tower1
 
     def __init__(self, target=None, tick=None, x=None, y=None, side=None, game=None, ID=None):
@@ -949,7 +959,6 @@ class Tower1(Tower):
 
 class Tower2(Tower):
     name = "Tower2"
-    entity_type = "tower"
     image = images.Tower2
 
     def __init__(self, target=None, tick=None, x=None, y=None, side=None, game=None, ID=None):
@@ -971,7 +980,6 @@ class Tower2(Tower):
 
 class Tower21(Tower):
     name = "Tower21"
-    entity_type = "tower"
     image = images.Tower21
 
     def __init__(self, target=None, tick=None, x=None, y=None, side=None, game=None, ID=None):
@@ -993,7 +1001,6 @@ class Tower21(Tower):
 
 class Tower11(Tower):
     name = "Tower11"
-    entity_type = "tower"
     image = images.Tower11
 
     def __init__(self, target=None, tick=None, x=None, y=None, side=None, game=None, ID=None):
@@ -1026,6 +1033,7 @@ class Farm(Building):
         game.players[side].money -= self.get_cost([])
         super().__init__(ID, x, y, tick, side, game)
         self.production = unit_stats[self.name]["production"]
+        self.upgrades_into = [Farm1, Farm2]
 
     @classmethod
     def get_cost(cls, params):
@@ -1036,7 +1044,35 @@ class Farm(Building):
         self.game.players[self.side].gain_money(self.production)
 
 
-possible_buildings = [Tower, Tower1, Tower2, Tower21, Tower11, Farm]
+class Farm1(Farm):
+    name = "Farm1"
+    image = images.Farm1
+
+    def __init__(self, target=None, tick=None, x=None, y=None, side=None, game=None, ID=None):
+        if target is not None:
+            super().__init__(target.ID, target.x, target.y, tick, target.side, target.game)
+            self.comes_from = target
+        else:
+            super().__init__(ID, x, y, tick, side, game)
+            self.comes_from = None
+        self.upgrades_into = []
+
+
+class Farm2(Farm):
+    name = "Farm2"
+    image = images.Farm2
+
+    def __init__(self, target=None, tick=None, x=None, y=None, side=None, game=None, ID=None):
+        if target is not None:
+            super().__init__(target.ID, target.x, target.y, tick, target.side, target.game)
+            self.comes_from = target
+        else:
+            super().__init__(ID, x, y, tick, side, game)
+            self.comes_from = None
+        self.upgrades_into = []
+
+
+possible_buildings = [Tower, Farm, Tower1, Tower2, Tower21, Tower11, Farm1, Farm2]
 
 
 class Wall:

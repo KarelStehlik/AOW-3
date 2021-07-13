@@ -23,6 +23,10 @@ WallCrack = IL("wall_crack").get_texture()
 Intro = RI("Intro")
 Farm = RI("farm")
 centre_anchor(Farm)
+Farm1 = RI("Farm1")
+centre_anchor(Farm1)
+Farm2 = RI("Farm2")
+centre_anchor(Farm2)
 Arrow = RI("Arrow")
 Arrow.anchor_x = Arrow.width / 2
 Arrow.anchor_y = Arrow.height

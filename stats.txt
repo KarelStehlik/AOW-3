@@ -5,6 +5,8 @@ Tower2:size=50,hp=20000,cost=1500,dmg=50,cd=1.2,reach=300,bulletspeed=6,explosio
 Tower11:size=50,hp=9000,cost=3000,dmg=40,cd=0.02,reach=400,bulletspeed=15,spread=0.2,shots=2
 Tower21:size=50,hp=30000,cost=5000,dmg=200,cd=3,reach=600,bulletspeed=20,explosion_radius=150
 Farm:size=200,hp=500,cost=1000,production=0.125,proximity=500
+Farm1:size=200,hp=500,cost=4000,production=0.5,proximity=500
+Farm2:size=200,hp=15000,cost=1000,production=0.125,proximity=500
 Wall:width=30,hp=15000,cost=1000
 Swordsman:vwidth=20,vheight=20,speed=320,size=19,hp=100,dmg=10,cd=1,reach=10,cost=20,mass=1
 Defender:vwidth=20,vheight=20,speed=150,size=19,hp=500,dmg=10,cd=1,reach=10,cost=100,mass=3

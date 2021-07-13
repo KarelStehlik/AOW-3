@@ -351,7 +351,6 @@ class Tower(Building):
 
 class Tower1(Tower):
     name = "Tower1"
-    entity_type = "tower"
 
     def __init__(self, target):
         super().__init__(target.ID, target.x, target.y, target.side, target.game)
@@ -361,7 +360,6 @@ class Tower1(Tower):
 
 class Tower11(Tower):
     name = "Tower11"
-    entity_type = "tower"
 
     def __init__(self, target):
         super().__init__(target.ID, target.x, target.y, target.side, target.game)
@@ -382,7 +380,6 @@ class Tower11(Tower):
 
 class Tower2(Tower):
     name = "Tower2"
-    entity_type = "tower"
 
     def __init__(self, target):
         super().__init__(target.ID, target.x, target.y, target.side, target.game)
@@ -397,7 +394,6 @@ class Tower2(Tower):
 
 class Tower21(Tower):
     name = "Tower21"
-    entity_type = "tower"
 
     def __init__(self, target):
         super().__init__(target.ID, target.x, target.y, target.side, target.game)
@@ -417,6 +413,7 @@ class Farm(Building):
     def __init__(self, ID, x, y, side, game):
         super().__init__(ID, x, y, side, game)
         self.production = unit_stats[self.name]["production"]
+        self.upgrades_into = [Farm1, Farm2]
 
     @classmethod
     def get_cost(cls, params):
@@ -427,7 +424,25 @@ class Farm(Building):
         self.game.players[self.side].gain_money(self.production)
 
 
-possible_buildings = [Tower, Tower1, Tower2, Tower21, Tower11, Farm]
+class Farm1(Farm):
+    name = "Farm1"
+
+    def __init__(self, target):
+        super().__init__(target.ID, target.x, target.y, target.side, target.game)
+        self.comes_from = target
+        self.upgrades_into = []
+
+
+class Farm2(Farm):
+    name = "Farm2"
+
+    def __init__(self, target):
+        super().__init__(target.ID, target.x, target.y, target.side, target.game)
+        self.comes_from = target
+        self.upgrades_into = []
+
+
+possible_buildings = [Tower, Farm, Tower1, Tower2, Tower21, Tower11, Farm1, Farm2]
 
 
 class Wall:
@@ -885,6 +900,7 @@ class Trebuchet(Unit):
         Boulder(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.damage, self.bulletspeed,
                 target.distance_to_point(self.x, self.y), self.explosion_radius)
 
+
 class Defender(Unit):
     name = "Defender"
 
@@ -895,7 +911,7 @@ class Defender(Unit):
         target.take_damage(self.damage, self)
 
 
-possible_units = [Swordsman, Archer, Trebuchet,Defender]
+possible_units = [Swordsman, Archer, Trebuchet, Defender]
 
 
 class Projectile:
