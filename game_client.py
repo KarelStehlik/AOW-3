@@ -89,8 +89,9 @@ class Game:
             self.ticks += 1
             self.players[0].gain_money(PASSIVE_INCOME)
             self.players[1].gain_money(PASSIVE_INCOME)
-            # if self.ticks % 200 == 0:
-            #   print(self.ticks, len(self.players[0].units), len(self.players[1].units))
+            if self.ticks % 200 == 0:
+                print(self.ticks, len(self.players[0].units), len(self.players[1].units), self.players[0].money,
+                      self.players[1].money, time.time() - self.start_time)
         self.update_cam(self.last_dt)
         self.players[0].graphics_update()
         self.players[1].graphics_update()
@@ -214,7 +215,7 @@ class player:
         self.units = []
         self.formations = []
         self.all_buildings = []
-        self.money = 0
+        self.money = 0.0
         self.TownHall = None
 
     def summon_townhall(self):
@@ -715,22 +716,22 @@ class Building:
     image = images.Tower
 
     def __init__(self, ID, x, y, tick, side, game):
-        print(1)
+        # print(1)
         self.spawning = game.ticks - tick
         self.ID = ID
         self.x, self.y = x, y
         self.side = side
         self.size = unit_stats[self.name]["size"]
         self.hp = self.maxhp = unit_stats[self.name]["hp"]
-        self.sprite = pyglet.sprite.Sprite(self.image, x=x * SPRITE_SIZE_MULT-game.camx,
-                                           y=y * SPRITE_SIZE_MULT-game.camy, batch=game.batch,
+        self.sprite = pyglet.sprite.Sprite(self.image, x=x * SPRITE_SIZE_MULT - game.camx,
+                                           y=y * SPRITE_SIZE_MULT - game.camy, batch=game.batch,
                                            group=groups.g[2])
         self.sprite.scale = self.size * SPRITE_SIZE_MULT / self.sprite.width
         self.game = game
         self.chunks = get_chunks(x, y, self.size)
         self.exists = False
         self.game.players[side].all_buildings.append(self)
-        print(2)
+        # print(2)
         for e in self.chunks:
             game.add_building_to_chunk(self, e)
         hpbar_y_centre = self.sprite.y
@@ -754,7 +755,7 @@ class Building:
         self.sprite.opacity = 70
         self.upgrades_into = []
         self.comes_from = None
-        print(3)
+        # print(3)
 
     def towards(self, x, y):
         dx, dy = self.x - x, self.y - y
@@ -785,6 +786,7 @@ class Building:
                 self.die()
 
     def die(self):
+        print("die", self.game.ticks)
         self.game.players[self.side].all_buildings.remove(self)
         self.sprite.delete()
         for e in self.chunks:
@@ -800,17 +802,19 @@ class Building:
                            y=self.y * SPRITE_SIZE_MULT - y)
 
     def tick(self):
-        if self.spawning < FPS*ACTION_DELAY:
+        if self.spawning < FPS * ACTION_DELAY:
             self.spawning += 1
-        if self.spawning == FPS*ACTION_DELAY:
+        if self.spawning == FPS * ACTION_DELAY:
             self.exists = True
             self.sprite.opacity = 255
             self.tick = self.tick2
+            print("spawn",self.game.ticks)
             if self.comes_from is not None:
                 self.comes_from.die()
 
     def tick2(self):
-        self.shove()
+        if self.exists:
+            self.shove()
 
     def shove(self):
         for c in self.chunks:
@@ -869,7 +873,7 @@ class Tower(Building):
         self.bulletspeed = unit_stats[self.name]["bulletspeed"]
         self.target = None
         self.shooting_in_chunks = get_chunks(self.x, self.y, 2 * self.reach)
-        self.upgrades_into = [Tower1,Tower2]
+        self.upgrades_into = [Tower1, Tower2]
 
     @classmethod
     def get_cost(cls, params):
@@ -903,11 +907,11 @@ class Tower(Building):
             chonker = self.game.find_chunk(c)
             if chonker is not None:
                 for unit in chonker.units[1 - self.side]:
-                    if unit.distance_to_point(self.x, self.y) < self.reach:
+                    if unit.exists and unit.distance_to_point(self.x, self.y) < self.reach:
                         self.target = unit
                         return True
                 for unit in chonker.buildings[1 - self.side]:
-                    if unit.distance_to_point(self.x, self.y) < self.reach:
+                    if unit.exists and unit.distance_to_point(self.x, self.y) < self.reach:
                         self.target = unit
                         return True
         return False
@@ -934,7 +938,7 @@ class Tower1(Tower):
         else:
             super().__init__(ID, x, y, tick, side, game)
             self.comes_from = None
-        self.upgrades_into=[]
+        self.upgrades_into = []
 
 
 class Tower2(Tower):
@@ -954,7 +958,7 @@ class Tower2(Tower):
 
     def attack(self, target):
         Boulder(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.damage, self.bulletspeed,
-                target.distance_to_point(self.x,self.y), self.explosion_radius)
+                target.distance_to_point(self.x, self.y), self.explosion_radius)
 
 
 class Farm(Building):
@@ -963,11 +967,11 @@ class Farm(Building):
     image = images.Farm
 
     def __init__(self, ID, x, y, tick, side, game):
-        print("new farm")
+        # print("new farm")
         game.players[side].money -= self.get_cost([])
         super().__init__(ID, x, y, tick, side, game)
         self.production = unit_stats[self.name]["production"]
-        print("farm done")
+        # print("farm done")
 
     @classmethod
     def get_cost(cls, params):
@@ -1079,9 +1083,9 @@ class Wall:
                                                              in range(8)]
 
     def tick(self):
-        if self.spawning < FPS *ACTION_DELAY:
+        if self.spawning < FPS * ACTION_DELAY:
             self.spawning += 1
-        if self.spawning == FPS *ACTION_DELAY:
+        if self.spawning == FPS * ACTION_DELAY:
             self.exists = True
             self.sprite.colors = (255,) * 16
             self.tick = self.tick2
@@ -1135,9 +1139,9 @@ class Formation:
         return cost
 
     def tick(self):
-        if self.spawning < FPS*ACTION_DELAY:
+        if self.spawning < FPS * ACTION_DELAY:
             self.spawning += 1
-        if self.spawning == FPS*ACTION_DELAY:
+        if self.spawning == FPS * ACTION_DELAY:
             self.exists = True
             self.tick = self.tick2
             [e.summon_done() for e in self.troops]
@@ -1582,15 +1586,15 @@ class Projectile:
         c = self.game.find_chunk(get_chunk(self.x, self.y))
         if c is not None:
             for unit in c.units[1 - self.side]:
-                if (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= (unit.size ** 2) / 4:
+                if unit.exists and (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= (unit.size ** 2) / 4:
                     self.collide(unit)
                     return
             for unit in c.buildings[1 - self.side]:
-                if (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= (unit.size ** 2) / 4:
+                if unit.exists and (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= (unit.size ** 2) / 4:
                     self.collide(unit)
                     return
         for wall in self.game.players[1 - self.side].walls:
-            if wall.distance_to_point(self.x, self.y) <= 0:
+            if wall.exists and wall.distance_to_point(self.x, self.y) <= 0:
                 self.collide(wall)
                 return
         self.reach -= self.speed

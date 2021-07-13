@@ -40,8 +40,9 @@ class Game:
             self.ticks += 1
             self.players[0].gain_money(PASSIVE_INCOME)
             self.players[1].gain_money(PASSIVE_INCOME)
-            # if self.ticks % 200 == 0:
-            #    print(self.ticks, len(self.players[0].units), len(self.players[1].units))
+            if self.ticks % 200 == 0:
+                print(self.ticks, len(self.players[0].units), len(self.players[1].units), self.players[0].money,
+                      self.players[1].money, time.time() - self.time_start)
             # self.debug_ticks += 1
             # if time.time() - self.debug_secs > 1:
             # self.debug_secs += 1
@@ -71,8 +72,8 @@ class Game:
                     entity_type(self.object_ID, data["xy"][0], data["xy"][1], side, self)
                     self.send_both({"action": "place_building", "xy": data["xy"], "tick": self.ticks, "side": side,
                                     "ID": self.object_ID, "entity_type": data["entity_type"]})
-                    print({"action": "place_building", "xy": data["xy"], "tick": self.ticks, "side": side,
-                           "ID": self.object_ID, "entity_type": data["entity_type"]})
+                    # print({"action": "place_building", "xy": data["xy"], "tick": self.ticks, "side": side,
+                    #       "ID": self.object_ID, "entity_type": data["entity_type"]})
                     self.object_ID += 1
             elif data["action"] == "place_wall":
                 if self.players[side].attempt_purchase(Wall.get_cost([])):
@@ -110,6 +111,7 @@ class Game:
                                     "upgrade num": data["upgrade num"],
                                     "backup": [possible_buildings.index(target.upgrades_into[data["upgrade num"]]),
                                                target.x, target.y, self.ticks, side, target.ID]})
+            self.channels[side].Send({"action": "update_money", "tick": self.ticks, "amount": self.players[side].money})
 
     def end(self, winner):
         self.send_both({"action": "game_end", "winner": winner})
@@ -170,7 +172,7 @@ class player:
         self.units = []
         self.formations = []
         self.all_buildings = []
-        self.money = 0
+        self.money = 0.0
         self.TownHall = None
 
     def summon_townhall(self):
@@ -237,6 +239,7 @@ class Building:
                 self.die()
 
     def die(self):
+        print("die", self.game.ticks)
         self.game.players[self.side].all_buildings.remove(self)
         for e in self.chunks:
             self.game.remove_building_from_chunk(self, e)
@@ -251,16 +254,18 @@ class Building:
         return dx * invh, dy * invh
 
     def tick(self):
-        if self.spawning < FPS*ACTION_DELAY:
+        if self.spawning < FPS * ACTION_DELAY:
             self.spawning += 1
-        if self.spawning == FPS*ACTION_DELAY:
+        if self.spawning == FPS * ACTION_DELAY:
             self.exists = True
             self.tick = self.tick2
+            print("spawn", self.game.ticks)
             if self.comes_from is not None:
                 self.comes_from.die()
 
     def tick2(self):
-        self.shove()
+        if self.exists:
+            self.shove()
 
     def shove(self):
         for c in self.chunks:
@@ -334,11 +339,11 @@ class Tower(Building):
             chonker = self.game.find_chunk(c)
             if chonker is not None:
                 for unit in chonker.units[1 - self.side]:
-                    if unit.distance_to_point(self.x, self.y) < self.reach:
+                    if unit.exists and unit.distance_to_point(self.x, self.y) < self.reach:
                         self.target = unit
                         return True
                 for unit in chonker.buildings[1 - self.side]:
-                    if unit.distance_to_point(self.x, self.y) < self.reach:
+                    if unit.exists and unit.distance_to_point(self.x, self.y) < self.reach:
                         self.target = unit
                         return True
         return False
@@ -456,9 +461,9 @@ class Wall:
         return distance(x, y, self.tower_2.x, self.tower_2.y) - self.width / 2
 
     def tick(self):
-        if self.spawning < FPS*ACTION_DELAY:
+        if self.spawning < FPS * ACTION_DELAY:
             self.spawning += 1
-        if self.spawning == FPS*ACTION_DELAY:
+        if self.spawning == FPS * ACTION_DELAY:
             self.exists = True
             self.tick = self.tick2
 
@@ -512,9 +517,9 @@ class Formation:
         return cost
 
     def tick(self):
-        if self.spawning < FPS*ACTION_DELAY:
+        if self.spawning < FPS * ACTION_DELAY:
             self.spawning += 1
-        if self.spawning == FPS*ACTION_DELAY:
+        if self.spawning == FPS * ACTION_DELAY:
             self.exists = True
             self.tick = self.tick2
             [e.summon_done() for e in self.troops]
@@ -866,15 +871,15 @@ class Projectile:
         c = self.game.find_chunk(get_chunk(self.x, self.y))
         if c is not None:
             for unit in c.units[1 - self.side]:
-                if (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= (unit.size ** 2) / 4:
+                if unit.exists and (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= (unit.size ** 2) / 4:
                     self.collide(unit)
                     return
             for unit in c.buildings[1 - self.side]:
-                if (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= (unit.size ** 2) / 4:
+                if unit.exists and (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= (unit.size ** 2) / 4:
                     self.collide(unit)
                     return
         for wall in self.game.players[1 - self.side].walls:
-            if wall.distance_to_point(self.x, self.y) <= 0:
+            if wall.exists and wall.distance_to_point(self.x, self.y) <= 0:
                 self.collide(wall)
                 return
         self.reach -= self.speed
