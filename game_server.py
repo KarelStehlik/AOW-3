@@ -103,7 +103,7 @@ class Game:
                     self.object_ID += 1
             elif data["action"] == "buy upgrade":
                 target = self.find_building(data["building ID"], side)
-                if target is not None and self.players[side].attempt_purchase(
+                if target is not None and target.exists and self.players[side].attempt_purchase(
                         target.upgrades_into[data["upgrade num"]].get_cost([])):
                     target.upgrades_into[data["upgrade num"]](target)
                     self.send_both({"action": "upgrade", "tick": self.ticks, "side": side, "ID": data["building ID"],
@@ -251,9 +251,9 @@ class Building:
         return dx * invh, dy * invh
 
     def tick(self):
-        if self.spawning < FPS:
+        if self.spawning < FPS*ACTION_DELAY:
             self.spawning += 1
-        if self.spawning == FPS:
+        if self.spawning == FPS*ACTION_DELAY:
             self.exists = True
             self.tick = self.tick2
             if self.comes_from is not None:
@@ -304,7 +304,7 @@ class Tower(Building):
         self.bulletspeed = unit_stats[self.name]["bulletspeed"]
         self.target = None
         self.shooting_in_chunks = get_chunks(self.x, self.y, 2 * self.reach)
-        self.upgrades_into = [Tower10, Tower01]
+        self.upgrades_into = [Tower1, Tower2]
 
     @classmethod
     def get_cost(cls, params):
@@ -344,8 +344,8 @@ class Tower(Building):
         return False
 
 
-class Tower10(Tower):
-    name = "Tower10"
+class Tower1(Tower):
+    name = "Tower1"
     entity_type = "tower"
 
     def __init__(self, target):
@@ -353,8 +353,8 @@ class Tower10(Tower):
         self.comes_from = target
 
 
-class Tower01(Tower):
-    name = "Tower01"
+class Tower2(Tower):
+    name = "Tower2"
     entity_type = "tower"
 
     def __init__(self, target):
@@ -384,7 +384,7 @@ class Farm(Building):
         self.game.players[self.side].gain_money(self.production)
 
 
-possible_buildings = [Tower, Tower10, Tower01, Farm]
+possible_buildings = [Tower, Tower1, Tower2, Farm]
 
 
 class Wall:
@@ -456,9 +456,9 @@ class Wall:
         return distance(x, y, self.tower_2.x, self.tower_2.y) - self.width / 2
 
     def tick(self):
-        if self.spawning < FPS:
+        if self.spawning < FPS*ACTION_DELAY:
             self.spawning += 1
-        if self.spawning == FPS:
+        if self.spawning == FPS*ACTION_DELAY:
             self.exists = True
             self.tick = self.tick2
 
@@ -512,9 +512,9 @@ class Formation:
         return cost
 
     def tick(self):
-        if self.spawning < FPS:
+        if self.spawning < FPS*ACTION_DELAY:
             self.spawning += 1
-        if self.spawning == FPS:
+        if self.spawning == FPS*ACTION_DELAY:
             self.exists = True
             self.tick = self.tick2
             [e.summon_done() for e in self.troops]

@@ -43,8 +43,12 @@ Bowman = RI("Bowman")
 Bowman.anchor_x = 64
 Bowman.anchor_y = 60
 Tower = RI("Tower")
-TowerCrack = RI("tower_crack")
 centre_anchor(Tower)
+Tower1 = RI("Tower1")
+centre_anchor(Tower1)
+Tower2 = RI("Tower2")
+centre_anchor(Tower2)
+TowerCrack = RI("tower_crack")
 centre_anchor(TowerCrack)
 Fire = RI("fire")
 centre_anchor(Fire)

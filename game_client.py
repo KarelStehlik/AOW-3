@@ -9,6 +9,7 @@ import client_utility
 
 class Game:
     def __init__(self, side, batch, connection, time0):
+        self.camx, self.camy = 0, 0
         self.ticks = 0
         self.side, self.batch = side, batch
         self.chunks = {}
@@ -19,7 +20,6 @@ class Game:
         self.batch = batch
         self.cam_move_speed = 1000
         self.start_time = time0
-        self.camx, self.camy = 0, 0
         self.camx_moving, self.camy_moving = 0, 0
         self.background_texgroup = client_utility.TextureBindGroup(images.Background, layer=0)
         self.background = batch.add(
@@ -722,8 +722,8 @@ class Building:
         self.side = side
         self.size = unit_stats[self.name]["size"]
         self.hp = self.maxhp = unit_stats[self.name]["hp"]
-        self.sprite = pyglet.sprite.Sprite(self.image, x=x * SPRITE_SIZE_MULT,
-                                           y=y * SPRITE_SIZE_MULT, batch=game.batch,
+        self.sprite = pyglet.sprite.Sprite(self.image, x=x * SPRITE_SIZE_MULT-game.camx,
+                                           y=y * SPRITE_SIZE_MULT-game.camy, batch=game.batch,
                                            group=groups.g[2])
         self.sprite.scale = self.size * SPRITE_SIZE_MULT / self.sprite.width
         self.game = game
@@ -800,9 +800,9 @@ class Building:
                            y=self.y * SPRITE_SIZE_MULT - y)
 
     def tick(self):
-        if self.spawning < FPS:
+        if self.spawning < FPS*ACTION_DELAY:
             self.spawning += 1
-        if self.spawning == FPS:
+        if self.spawning == FPS*ACTION_DELAY:
             self.exists = True
             self.sprite.opacity = 255
             self.tick = self.tick2
@@ -869,7 +869,7 @@ class Tower(Building):
         self.bulletspeed = unit_stats[self.name]["bulletspeed"]
         self.target = None
         self.shooting_in_chunks = get_chunks(self.x, self.y, 2 * self.reach)
-        self.upgrades_into = [Tower10,Tower01]
+        self.upgrades_into = [Tower1,Tower2]
 
     @classmethod
     def get_cost(cls, params):
@@ -922,10 +922,10 @@ class Tower(Building):
         self.sprite2.update(x=self.x * SPRITE_SIZE_MULT - x, y=self.y * SPRITE_SIZE_MULT - y)
 
 
-class Tower10(Tower):
-    name = "Tower10"
+class Tower1(Tower):
+    name = "Tower1"
     entity_type = "tower"
-    image = images.Tower
+    image = images.Tower1
 
     def __init__(self, target=None, tick=None, x=None, y=None, side=None, game=None, ID=None):
         if target is not None:
@@ -937,10 +937,10 @@ class Tower10(Tower):
         self.upgrades_into=[]
 
 
-class Tower01(Tower):
-    name = "Tower01"
+class Tower2(Tower):
+    name = "Tower2"
     entity_type = "tower"
-    image = images.Tower
+    image = images.Tower2
 
     def __init__(self, target=None, tick=None, x=None, y=None, side=None, game=None, ID=None):
         if target is not None:
@@ -978,7 +978,7 @@ class Farm(Building):
         self.game.players[self.side].gain_money(self.production)
 
 
-possible_buildings = [Tower, Tower10, Tower01, Farm]
+possible_buildings = [Tower, Tower1, Tower2, Farm]
 
 
 class Wall:
@@ -1079,9 +1079,9 @@ class Wall:
                                                              in range(8)]
 
     def tick(self):
-        if self.spawning < FPS:
+        if self.spawning < FPS *ACTION_DELAY:
             self.spawning += 1
-        if self.spawning == FPS:
+        if self.spawning == FPS *ACTION_DELAY:
             self.exists = True
             self.sprite.colors = (255,) * 16
             self.tick = self.tick2
@@ -1135,9 +1135,9 @@ class Formation:
         return cost
 
     def tick(self):
-        if self.spawning < FPS:
+        if self.spawning < FPS*ACTION_DELAY:
             self.spawning += 1
-        if self.spawning == FPS:
+        if self.spawning == FPS*ACTION_DELAY:
             self.exists = True
             self.tick = self.tick2
             [e.summon_done() for e in self.troops]
