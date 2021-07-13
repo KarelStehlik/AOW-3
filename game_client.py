@@ -89,9 +89,9 @@ class Game:
             self.ticks += 1
             self.players[0].gain_money(PASSIVE_INCOME)
             self.players[1].gain_money(PASSIVE_INCOME)
-            if self.ticks % 200 == 0:
-                print(self.ticks, len(self.players[0].units), len(self.players[1].units), self.players[0].money,
-                      self.players[1].money, time.time() - self.start_time)
+           # if self.ticks % 200 == 0:
+            #    print(self.ticks, len(self.players[0].units), len(self.players[1].units), self.players[0].money,
+           #           self.players[1].money, time.time() - self.start_time)
         self.update_cam(self.last_dt)
         self.players[0].graphics_update()
         self.players[1].graphics_update()
@@ -716,7 +716,6 @@ class Building:
     image = images.Tower
 
     def __init__(self, ID, x, y, tick, side, game):
-        # print(1)
         self.spawning = game.ticks - tick
         self.ID = ID
         self.x, self.y = x, y
@@ -731,7 +730,6 @@ class Building:
         self.chunks = get_chunks(x, y, self.size)
         self.exists = False
         self.game.players[side].all_buildings.append(self)
-        # print(2)
         for e in self.chunks:
             game.add_building_to_chunk(self, e)
         hpbar_y_centre = self.sprite.y
@@ -755,7 +753,6 @@ class Building:
         self.sprite.opacity = 70
         self.upgrades_into = []
         self.comes_from = None
-        # print(3)
 
     def towards(self, x, y):
         dx, dy = self.x - x, self.y - y
@@ -786,7 +783,6 @@ class Building:
                 self.die()
 
     def die(self):
-        print("die", self.game.ticks)
         self.game.players[self.side].all_buildings.remove(self)
         self.sprite.delete()
         for e in self.chunks:
@@ -808,7 +804,6 @@ class Building:
             self.exists = True
             self.sprite.opacity = 255
             self.tick = self.tick2
-            print("spawn",self.game.ticks)
             if self.comes_from is not None:
                 self.comes_from.die()
 
@@ -896,7 +891,9 @@ class Tower(Building):
             self.attack(target)
 
     def attack(self, target):
-        Arrow(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.damage, self.bulletspeed,
+        direction=target.towards(self.x, self.y)
+        self.sprite.rotation = 90-get_rotation_norm(*direction)*180/math.pi
+        Arrow(self.x, self.y, *direction, self.game, self.side, self.damage, self.bulletspeed,
               self.reach * 1.5, scale=.2)
 
     def acquire_target(self):
@@ -967,11 +964,9 @@ class Farm(Building):
     image = images.Farm
 
     def __init__(self, ID, x, y, tick, side, game):
-        # print("new farm")
         game.players[side].money -= self.get_cost([])
         super().__init__(ID, x, y, tick, side, game)
         self.production = unit_stats[self.name]["production"]
-        # print("farm done")
 
     @classmethod
     def get_cost(cls, params):
@@ -1157,7 +1152,6 @@ class Formation:
             if len(self.instructions) > 0:
                 instruction = self.instructions.pop(0)
                 if instruction[0] == "walk":
-                    self.desired_x, self.desired_y = instruction[1], instruction[2]
                     self.instr_object = instruction_moving(self, instruction[1], instruction[2])
             else:
                 return
@@ -1473,7 +1467,7 @@ class Unit:
                 self.check_collision(e)
 
     def check_collision(self, other):
-        if other.ID == self.ID:
+        if other.ID == self.ID or not other.exists:
             return
         if max(abs(other.x - self.x), abs(other.y - self.y)) < (self.size + other.size) / 2:
             dist_sq = (other.x - self.x) ** 2 + (other.y - self.y) ** 2
@@ -1570,7 +1564,7 @@ class Projectile:
             self.sprite.scale = self.scale * SPRITE_SIZE_MULT
         else:
             self.sprite.scale = scale * SPRITE_SIZE_MULT
-        rotation = get_rotation(dx, dy)
+        rotation = get_rotation_norm(dx, dy)
         self.sprite.rotation = 90 - rotation * 180 / math.pi
         self.vx, self.vy = speed * math.cos(rotation), speed * math.sin(rotation)
         self.side = side

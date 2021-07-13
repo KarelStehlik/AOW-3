@@ -83,6 +83,16 @@ get_rotation(1.1, 1.1)
 
 
 @njit
+def get_rotation_norm(x, y):
+    if x >= 0:
+        return math.asin(max(min(y, 1), -1))
+    return math.pi - math.asin(max(min(y, 1), -1))
+
+
+get_rotation_norm(.1, .1)
+
+
+@njit
 def inv_h(x, y):
     return (x ** 2 + y ** 2) ** -.5
 

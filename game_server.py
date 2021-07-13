@@ -40,9 +40,9 @@ class Game:
             self.ticks += 1
             self.players[0].gain_money(PASSIVE_INCOME)
             self.players[1].gain_money(PASSIVE_INCOME)
-            if self.ticks % 200 == 0:
-                print(self.ticks, len(self.players[0].units), len(self.players[1].units), self.players[0].money,
-                      self.players[1].money, time.time() - self.time_start)
+            #if self.ticks % 200 == 0:
+            #    print(self.ticks, len(self.players[0].units), len(self.players[1].units), self.players[0].money,
+            #          self.players[1].money, time.time() - self.time_start)
             # self.debug_ticks += 1
             # if time.time() - self.debug_secs > 1:
             # self.debug_secs += 1
@@ -239,7 +239,6 @@ class Building:
                 self.die()
 
     def die(self):
-        print("die", self.game.ticks)
         self.game.players[self.side].all_buildings.remove(self)
         for e in self.chunks:
             self.game.remove_building_from_chunk(self, e)
@@ -259,7 +258,6 @@ class Building:
         if self.spawning == FPS * ACTION_DELAY:
             self.exists = True
             self.tick = self.tick2
-            print("spawn", self.game.ticks)
             if self.comes_from is not None:
                 self.comes_from.die()
 
@@ -535,7 +533,6 @@ class Formation:
             if len(self.instructions) > 0:
                 instruction = self.instructions.pop(0)
                 if instruction[0] == "walk":
-                    self.desired_x, self.desired_y = instruction[1], instruction[2]
                     self.instr_object = instruction_moving(self, instruction[1], instruction[2])
             else:
                 return
@@ -642,7 +639,7 @@ class Unit:
         self.desired_x, self.desired_y = x, y
         self.vx, self.vy = self.speed, 0
         self.reached_goal = True
-        self.mass = 1
+        self.mass = unit_stats[self.name]["mass"]
         self.chunks = get_chunks(self.x, self.y, self.size)
         for e in self.chunks:
             self.game.add_unit_to_chunk(self, e)
@@ -799,7 +796,7 @@ class Unit:
                 self.check_collision(e)
 
     def check_collision(self, other):
-        if other.ID == self.ID:
+        if other.ID == self.ID or not other.exists:
             return
         if max(abs(other.x - self.x), abs(other.y - self.y)) < (self.size + other.size) / 2:
             dist_sq = (other.x - self.x) ** 2 + (other.y - self.y) ** 2
@@ -856,7 +853,7 @@ class Projectile:
 
     def __init__(self, x, y, dx, dy, game, side, damage, speed, reach):
         self.x, self.y = x, y
-        rotation = get_rotation(dx, dy)
+        rotation = get_rotation_norm(dx, dy)
         self.vx, self.vy = speed * math.cos(rotation), speed * math.sin(rotation)
         self.side = side
         self.speed = speed
