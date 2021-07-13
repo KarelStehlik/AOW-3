@@ -886,6 +886,9 @@ class Building:
                     continue
                 if max(abs(e.x - self.x), abs(e.y - self.y)) < (self.size + e.size) / 2:
                     dist_sq = (e.x - self.x) ** 2 + (e.y - self.y) ** 2
+                    if dist_sq == 0:
+                        dist_sq = .01
+                        self.x+=.01
                     if dist_sq < ((e.size + self.size) * .5) ** 2:
                         shovage = (e.size + self.size) * .5 * dist_sq ** -.5 - 1
                         e.take_knockback((e.x - self.x) * shovage, (e.y - self.y) * shovage, self)
