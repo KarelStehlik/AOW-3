@@ -2,6 +2,32 @@ from imports import *
 from constants import *
 
 
+def generate_units(money):
+    original_money = money
+    units = [[-1 for _ in range(UNIT_FORMATION_ROWS)] for _ in range(UNIT_FORMATION_COLUMNS)]
+    big, medium, small = [], [], []
+    for e in possible_units:
+        if e.get_cost([]) >= 2000:
+            big.append(e)
+        elif e.get_cost([]) <= 100:
+            small.append(e)
+        else:
+            medium.append(e)
+    for x in range(UNIT_FORMATION_COLUMNS):
+        for y in range(UNIT_FORMATION_ROWS):
+            if money > 10000:
+                choice = random.choice(big)
+            elif money > 1000:
+                choice = random.choice(medium)
+            elif money > 0:
+                choice = random.choice(small)
+            else:
+                return units, original_money / (original_money - money)
+            money -= choice.get_cost([])
+            units[x][y] = possible_units.index(choice)
+    return units, original_money / (original_money - money)
+
+
 class Game:
     def __init__(self, channel1, channel2, server):
         self.chunks = {}
@@ -117,6 +143,23 @@ class Game:
             elif data["action"] == "ping":
                 self.channels[side].Send({"action": "pong", "time": str(time.time())})
 
+    def summon_ai_wave(self, side):
+        self.players[side].ai_wave += 1
+        power = 1000 * self.players[side].ai_wave ** 2
+        worth = power
+        self.players[side].gain_money(worth)
+        self.players[side].time_until_wave=WAVE_INTERVAL
+        units = generate_units(power)
+        angle = random.random() * 2 * math.pi
+        distance = 1000 * self.players[side].ai_wave ** .5
+        x = self.players[side].TownHall.x + distance * math.cos(angle)
+        y = self.players[side].TownHall.y + distance * math.sin(angle)
+        args = [self.object_ID, side, x, y, units[0], self.ticks, worth, units[1]]
+        wave = Formation(self.object_ID, [], units[0], 1 - side, self, x=x, y=y, amplifier=units[1])
+        self.object_ID += 1
+        wave.attack(self.players[side].TownHall)
+        self.send_both({"action": "summon_wave", "args": args})
+
     def end(self, winner):
         self.send_both({"action": "game_end", "winner": winner})
         self.server.games.remove(self)
@@ -178,6 +221,8 @@ class player:
         self.all_buildings = []
         self.money = 0.0
         self.TownHall = None
+        self.ai_wave = 0
+        self.time_until_wave = WAVE_INTERVAL
 
     def summon_townhall(self):
         self.TownHall = TownHall(TH_DISTANCE * self.side, TH_DISTANCE * self.side, self.side, self.game)
@@ -199,6 +244,9 @@ class player:
         [e.tick() for e in self.all_buildings]
         [e.tick() for e in self.walls]
         [e.tick() for e in self.formations]
+        self.time_until_wave -= 1
+        if self.time_until_wave == 0:
+            self.game.summon_ai_wave(self.side)
 
 
 class chunk:
@@ -312,7 +360,7 @@ class Tower(Building):
         self.target = None
         self.shooting_in_chunks = get_chunks(self.x, self.y, 2 * self.reach)
         self.upgrades_into = [Tower1, Tower2]
-        self.turns_without_target=0
+        self.turns_without_target = 0
 
     @classmethod
     def get_cost(cls, params):
@@ -337,7 +385,7 @@ class Tower(Building):
         if self.target is not None and self.target.exists and self.target.distance_to_point(self.x,
                                                                                             self.y) < self.reach:
             return True
-        if self.turns_without_target %30 == 0:
+        if self.turns_without_target % 30 == 0:
             for c in self.shooting_in_chunks:
                 chonker = self.game.find_chunk(c)
                 if chonker is not None:
@@ -534,7 +582,7 @@ class Wall:
 
 
 class Formation:
-    def __init__(self, ID, instructions, troops, side, game):
+    def __init__(self, ID, instructions, troops, side, game, x=None, y=None, amplifier=1):
         self.entity_type = "formation"
         self.exists = False
         self.spawning = 0
@@ -545,7 +593,10 @@ class Formation:
         self.troops = []
         self.game.players[self.side].formations.append(self)
         i = 0
-        self.x, self.y = self.game.players[self.side].TownHall.x, self.game.players[self.side].TownHall.y
+        if x is None:
+            self.x, self.y = self.game.players[self.side].TownHall.x, self.game.players[self.side].TownHall.y
+        else:
+            self.x, self.y = x, y
         for column in range(UNIT_FORMATION_COLUMNS):
             for row in range(UNIT_FORMATION_ROWS):
                 if troops[column][row] != -1:
@@ -558,7 +609,7 @@ class Formation:
                             side,
                             column - self.game.unit_formation_columns / 2,
                             row - self.game.unit_formation_rows / 2,
-                            game, self
+                            game, self, amplifier=amplifier
                         )
                     )
                     i += 1
@@ -610,7 +661,7 @@ class Formation:
             enemy = [enemy, ]
         self.all_targets += enemy
         for e in self.troops:
-            e.target=None
+            e.target = None
 
 
 class instruction:
@@ -678,7 +729,7 @@ class instruction_moving(instruction):
 class Unit:
     name = "None"
 
-    def __init__(self, ID, x, y, side, column, row, game, formation):
+    def __init__(self, ID, x, y, side, column, row, game, formation, amplifier=1):
         self.entity_type = "unit"
         self.ID = ID
         self.lifetime = 0
@@ -690,8 +741,8 @@ class Unit:
         self.game.players[self.side].units.append(self)
         self.size = unit_stats[self.name]["size"]
         self.speed = unit_stats[self.name]["speed"] / FPS
-        self.health = self.max_health = unit_stats[self.name]["hp"]
-        self.damage = unit_stats[self.name]["dmg"]
+        self.health = self.max_health = unit_stats[self.name]["hp"] * amplifier
+        self.damage = unit_stats[self.name]["dmg"] * amplifier
         self.attack_cooldown = unit_stats[self.name]["cd"]
         self.current_cooldown = 0
         self.reach = unit_stats[self.name]["reach"]
@@ -879,8 +930,8 @@ class Unit:
 class Swordsman(Unit):
     name = "Swordsman"
 
-    def __init__(self, ID, x, y, side, column, row, game, formation):
-        super().__init__(ID, x, y, side, column, row, game, formation)
+    def __init__(self, ID, x, y, side, column, row, game, formation, amplifier=1):
+        super().__init__(ID, x, y, side, column, row, game, formation, amplifier=amplifier)
 
     def attack(self, target):
         target.take_damage(self.damage, self)
@@ -889,8 +940,8 @@ class Swordsman(Unit):
 class Archer(Unit):
     name = "Archer"
 
-    def __init__(self, ID, x, y, side, column, row, game, formation):
-        super().__init__(ID, x, y, side, column, row, game, formation)
+    def __init__(self, ID, x, y, side, column, row, game, formation, amplifier=1):
+        super().__init__(ID, x, y, side, column, row, game, formation, amplifier=amplifier)
         self.bulletspeed = unit_stats[self.name]["bulletspeed"]
 
     def attack(self, target):
@@ -901,8 +952,8 @@ class Archer(Unit):
 class Trebuchet(Unit):
     name = "Trebuchet"
 
-    def __init__(self, ID, x, y, side, column, row, game, formation):
-        super().__init__(ID, x, y, side, column, row, game, formation)
+    def __init__(self, ID, x, y, side, column, row, game, formation, amplifier=1):
+        super().__init__(ID, x, y, side, column, row, game, formation, amplifier=amplifier)
         self.bulletspeed = unit_stats[self.name]["bulletspeed"]
         self.explosion_radius = unit_stats[self.name]["explosion_radius"]
 
@@ -914,8 +965,8 @@ class Trebuchet(Unit):
 class Defender(Unit):
     name = "Defender"
 
-    def __init__(self, ID, x, y, side, column, row, game, formation):
-        super().__init__(ID, x, y, side, column, row, game, formation)
+    def __init__(self, ID, x, y, side, column, row, game, formation, amplifier=1):
+        super().__init__(ID, x, y, side, column, row, game, formation, amplifier=amplifier)
 
     def attack(self, target):
         target.take_damage(self.damage, self)
@@ -924,8 +975,8 @@ class Defender(Unit):
 class Bear(Unit):
     name = "Bear"
 
-    def __init__(self, ID, x, y, side, column, row, game, formation):
-        super().__init__(ID, x, y, side, column, row, game, formation)
+    def __init__(self, ID, x, y, side, column, row, game, formation, amplifier=1):
+        super().__init__(ID, x, y, side, column, row, game, formation, amplifier=amplifier)
 
     def attack(self, target):
         target.take_damage(self.damage, self)

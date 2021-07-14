@@ -149,6 +149,13 @@ class Game:
                 else:
                     bu = data["backup"]
                     possible_buildings[bu[0]](x=bu[1], y=bu[2], tick=bu[3], side=bu[4], ID=bu[5], game=self)
+            elif data["action"] == "summon_wave":
+                self.summon_ai_wave(*data["args"])
+
+    def summon_ai_wave(self, ID, side, x, y, units, tick, worth, amplifier):
+        wave = Formation(ID, [], units, tick, 1 - side, self, x=x, y=y, AI=True, amplifier=amplifier)
+        wave.attack(self.players[side].TownHall)
+        self.players[side].gain_money(worth)
 
     def mouse_move(self, x, y, dx, dy):
         [e.mouse_move(x, y) for e in self.UI_toolbars]
@@ -1239,8 +1246,9 @@ class Wall:
 
 
 class Formation:
-    def __init__(self, ID, instructions, troops, tick, side, game):
-        game.players[side].money -= self.get_cost([troops])
+    def __init__(self, ID, instructions, troops, tick, side, game, x=None, y=None, AI=False, amplifier=1):
+        if not AI:
+            game.players[side].money -= self.get_cost([troops])
         self.entity_type = "formation"
         self.exists = False
         self.spawning = game.ticks - tick
@@ -1251,7 +1259,10 @@ class Formation:
         self.troops = []
         self.game.players[self.side].formations.append(self)
         i = 0
-        self.x, self.y = self.game.players[self.side].TownHall.x, self.game.players[self.side].TownHall.y
+        if x is None:
+            self.x, self.y = self.game.players[self.side].TownHall.x, self.game.players[self.side].TownHall.y
+        else:
+            self.x, self.y = x, y
         for column in range(UNIT_FORMATION_COLUMNS):
             for row in range(UNIT_FORMATION_ROWS):
                 if troops[column][row] != -1:
@@ -1263,7 +1274,7 @@ class Formation:
                             side,
                             column - self.game.unit_formation_columns / 2,
                             row - self.game.unit_formation_rows / 2,
-                            game, self
+                            game, self, amplifier=amplifier
                         )
                     )
                     i += 1
@@ -1318,7 +1329,7 @@ class Formation:
             enemy = [enemy, ]
         self.all_targets += enemy
         for e in self.troops:
-            e.target=None
+            e.target = None
 
 
 class instruction:
@@ -1387,7 +1398,7 @@ class Unit:
     image = images.Cancelbutton
     name = "None"
 
-    def __init__(self, ID, x, y, side, column, row, game: Game, formation: Formation):
+    def __init__(self, ID, x, y, side, column, row, game: Game, formation: Formation, amplifier=1):
         self.entity_type = "unit"
         self.last_camx, self.last_camy = game.camx, game.camy
         self.ID = ID
@@ -1423,8 +1434,8 @@ class Unit:
         )
 
         self.speed = unit_stats[self.name]["speed"] / FPS
-        self.health = self.max_health = unit_stats[self.name]["hp"]
-        self.damage = unit_stats[self.name]["dmg"]
+        self.health = self.max_health = unit_stats[self.name]["hp"] * amplifier
+        self.damage = unit_stats[self.name]["dmg"] * amplifier
         self.attack_cooldown = unit_stats[self.name]["cd"]
         self.current_cooldown = 0
         self.reach = unit_stats[self.name]["reach"]
@@ -1648,8 +1659,8 @@ class Swordsman(Unit):
     image = images.Swordsman
     name = "Swordsman"
 
-    def __init__(self, ID, x, y, side, column, row, game, formation):
-        super().__init__(ID, x, y, side, column, row, game, formation)
+    def __init__(self, ID, x, y, side, column, row, game, formation, amplifier=1):
+        super().__init__(ID, x, y, side, column, row, game, formation, amplifier=amplifier)
 
     def attack(self, target):
         target.take_damage(self.damage, self)
@@ -1664,8 +1675,8 @@ class Archer(Unit):
     image = images.Bowman
     name = "Archer"
 
-    def __init__(self, ID, x, y, side, column, row, game, formation):
-        super().__init__(ID, x, y, side, column, row, game, formation)
+    def __init__(self, ID, x, y, side, column, row, game, formation, amplifier=1):
+        super().__init__(ID, x, y, side, column, row, game, formation, amplifier=amplifier)
         self.bulletspeed = unit_stats[self.name]["bulletspeed"]
 
     def attack(self, target):
@@ -1682,8 +1693,8 @@ class Trebuchet(Unit):
     image = images.Trebuchet
     name = "Trebuchet"
 
-    def __init__(self, ID, x, y, side, column, row, game, formation):
-        super().__init__(ID, x, y, side, column, row, game, formation)
+    def __init__(self, ID, x, y, side, column, row, game, formation, amplifier=1):
+        super().__init__(ID, x, y, side, column, row, game, formation, amplifier=amplifier)
         self.bulletspeed = unit_stats[self.name]["bulletspeed"]
         self.explosion_radius = unit_stats[self.name]["explosion_radius"]
 
@@ -1696,8 +1707,8 @@ class Defender(Unit):
     image = images.Defender
     name = "Defender"
 
-    def __init__(self, ID, x, y, side, column, row, game, formation):
-        super().__init__(ID, x, y, side, column, row, game, formation)
+    def __init__(self, ID, x, y, side, column, row, game, formation, amplifier=1):
+        super().__init__(ID, x, y, side, column, row, game, formation, amplifier=amplifier)
 
     def attack(self, target):
         target.take_damage(self.damage, self)
@@ -1707,8 +1718,8 @@ class Bear(Unit):
     image = images.Bear
     name = "Bear"
 
-    def __init__(self, ID, x, y, side, column, row, game, formation):
-        super().__init__(ID, x, y, side, column, row, game, formation)
+    def __init__(self, ID, x, y, side, column, row, game, formation, amplifier=1):
+        super().__init__(ID, x, y, side, column, row, game, formation, amplifier=amplifier)
 
     def attack(self, target):
         target.take_damage(self.damage, self)
