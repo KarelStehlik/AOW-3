@@ -484,6 +484,7 @@ class selection_building(selection):
         self.camx, self.camy = 0, 0
         self.entity_type = possible_buildings[self.num]
         self.size = unit_stats[self.entity_type.name]["size"]
+        self.proximity = unit_stats[self.entity_type.name]["proximity"]
         self.sprite = pyglet.sprite.Sprite(self.entity_type.image, x=self.game.mousex,
                                            y=self.game.mousey, batch=game.batch,
                                            group=groups.g[2])
@@ -505,6 +506,13 @@ class selection_building(selection):
                 if e.distance_to_point((x + self.camx) / SPRITE_SIZE_MULT,
                                        (y + self.camy) / SPRITE_SIZE_MULT) < self.size / 2:
                     return
+            close_to_friendly = False
+            for e in self.game.players[self.game.side].all_buildings:
+                if e.distance_to_point((x + self.camx) / SPRITE_SIZE_MULT,
+                                            (y + self.camy) / SPRITE_SIZE_MULT) < self.proximity:
+                    close_to_friendly = True
+            if not close_to_friendly:
+                return
             self.game.connection.Send({"action": "place_building", "xy": [(x + self.camx) / SPRITE_SIZE_MULT,
                                                                           (y + self.camy) / SPRITE_SIZE_MULT],
                                        "entity_type": self.num})
@@ -529,18 +537,6 @@ class selection_tower(selection_building):
 class selection_farm(selection_building):
     img = images.Towerbutton
     num = 1
-
-    def mouse_click(self, x, y):
-        if not self.cancelbutton.mouse_click(x, y):
-            close_to_friendly = False
-            proximity = unit_stats["Farm"]["proximity"]
-            for e in self.game.players[self.game.side].all_buildings:
-                if (e.entity_type == "farm" or e.entity_type == "townhall") and \
-                        e.distance_to_point((x + self.camx) / SPRITE_SIZE_MULT,
-                                            (y + self.camy) / SPRITE_SIZE_MULT) < proximity:
-                    close_to_friendly = True
-            if close_to_friendly:
-                super().mouse_click(x, y)
 
 
 class selection_wall(selection):
@@ -1892,7 +1888,7 @@ class animation_explosion:
 
 class Bullet(Projectile):
     image = images.Boulder
-    scale = .05
+    scale = .035
 
     def __init__(self, x, y, angle, game, side, damage, speed, reach, scale=None):
         # (dx,dy) must be normalized

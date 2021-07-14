@@ -85,15 +85,13 @@ class Game:
         if "action" in data:
             if data["action"] == "place_building":
                 entity_type = possible_buildings[data["entity_type"]]
-                if entity_type.entity_type == "farm":
-                    close_to_friendly = False
-                    proximity = unit_stats["Farm"]["proximity"]
-                    for e in self.players[side].all_buildings:
-                        if (e.entity_type == "farm" or e.entity_type == "townhall") and \
-                                e.distance_to_point(*data["xy"]) < proximity:
-                            close_to_friendly = True
-                    if not close_to_friendly:
-                        return
+                close_to_friendly = False
+                proximity = unit_stats[entity_type.name]["proximity"]
+                for e in self.players[side].all_buildings:
+                    if e.distance_to_point(*data["xy"]) < proximity:
+                        close_to_friendly = True
+                if not close_to_friendly:
+                    return
                 for e in self.players[1].all_buildings:
                     if e.distance_to_point(*data["xy"]) < unit_stats[entity_type.name]["size"] / 2:
                         return

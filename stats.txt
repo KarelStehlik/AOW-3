@@ -1,5 +1,5 @@
 TownHall:size=200,hp=10000
-Tower:size=50,hp=9000,cost=1500,dmg=80,cd=0.2,reach=400,bulletspeed=6
+Tower:size=50,hp=9000,cost=1500,dmg=80,cd=0.2,reach=400,bulletspeed=6,proximity=500
 Tower1:size=50,hp=9000,cost=1500,dmg=50,cd=0.05,reach=400,bulletspeed=14
 Tower2:size=50,hp=20000,cost=1500,dmg=50,cd=1.2,reach=300,bulletspeed=8,explosion_radius=120
 Tower11:size=50,hp=15000,cost=3000,dmg=40,cd=0.02,reach=300,bulletspeed=15,spread=0.2,shots=2
