@@ -854,6 +854,8 @@ class Building:
                 self.die()
 
     def die(self):
+        if not self.exists:
+            return
         self.game.players[self.side].all_buildings.remove(self)
         self.sprite.delete()
         for e in self.chunks:
@@ -908,6 +910,8 @@ class TownHall(Building):
         self.sprite.opacity = 255
 
     def die(self):
+        if not self.exists:
+            return
         super().die()
         animation_explosion(self.x, self.y, 1000, 25, self.game)
         for i in range(10):
@@ -947,6 +951,8 @@ class Tower(Building):
         return unit_stats[cls.name]["cost"]
 
     def die(self):
+        if not self.exists:
+            return
         super().die()
         self.sprite2.delete()
 
@@ -1218,6 +1224,8 @@ class Wall:
         return distance(x, y, self.tower_2.x, self.tower_2.y) - self.width / 2
 
     def die(self):
+        if not self.exists:
+            return
         self.sprite.delete()
         self.crack_sprite.delete()
         self.game.players[self.side].walls.remove(self)
@@ -1590,6 +1598,8 @@ class Unit:
             self.current_cooldown -= 1 / FPS
 
     def die(self):
+        if not self.exists:
+            return
         self.formation.troops.remove(self)
         self.game.players[self.side].units.remove(self)
         self.game = None
@@ -1922,6 +1932,7 @@ class Bullet(Projectile):
 
     def __init__(self, x, y, angle, game, side, damage, speed, reach, scale=None):
         # (dx,dy) must be normalized
+        self.x, self.y = x, y
         self.x, self.y = x, y
         self.sprite = pyglet.sprite.Sprite(self.image, self.x, self.y, batch=game.batch, group=groups.g[5])
         if scale is None:

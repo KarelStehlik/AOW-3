@@ -297,6 +297,8 @@ class Building:
                 self.die()
 
     def die(self):
+        if not self.exists:
+            return
         self.game.players[self.side].all_buildings.remove(self)
         for e in self.chunks:
             self.game.remove_building_from_chunk(self, e)
@@ -344,6 +346,8 @@ class TownHall(Building):
         self.exists = True
 
     def die(self):
+        if not self.exists:
+            return
         super().die()
         print("game over", self.game.ticks)
         # self.game.end(1 - self.side)
@@ -540,6 +544,8 @@ class Wall:
         game.players[side].all_buildings.append(self)
 
     def die(self):
+        if not self.exists:
+            return
         self.game.players[self.side].walls.remove(self)
         self.game.players[self.side].all_buildings.remove(self)
         self.exists = False
@@ -847,6 +853,8 @@ class Unit:
         pass
 
     def die(self):
+        if not self.exists:
+            return
         self.exists = False
         self.formation.troops.remove(self)
         self.game.players[self.side].units.remove(self)
