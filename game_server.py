@@ -66,6 +66,8 @@ class Game:
             self.ticks += 1
             self.players[0].gain_money(PASSIVE_INCOME)
             self.players[1].gain_money(PASSIVE_INCOME)
+            self.players[odd_tick].tick_wave_timer()
+            self.players[odd_tick - 1].tick_wave_timer()
             # if self.ticks % 200 == 0:
             #    print(self.ticks, len(self.players[0].units), len(self.players[1].units), self.players[0].money,
             #          self.players[1].money, time.time() - self.time_start)
@@ -148,7 +150,7 @@ class Game:
         power = 1000 * self.players[side].ai_wave ** 2
         worth = power
         self.players[side].gain_money(worth)
-        self.players[side].time_until_wave=WAVE_INTERVAL
+        self.players[side].time_until_wave = WAVE_INTERVAL
         units = generate_units(power)
         angle = random.random() * 2 * math.pi
         distance = 1000 * self.players[side].ai_wave ** .5
@@ -224,6 +226,11 @@ class player:
         self.ai_wave = 0
         self.time_until_wave = WAVE_INTERVAL
 
+    def tick_wave_timer(self):
+        self.time_until_wave -= 1
+        if self.time_until_wave == 0:
+            self.game.summon_ai_wave(self.side)
+
     def summon_townhall(self):
         self.TownHall = TownHall(TH_DISTANCE * self.side, TH_DISTANCE * self.side, self.side, self.game)
 
@@ -244,9 +251,6 @@ class player:
         [e.tick() for e in self.all_buildings]
         [e.tick() for e in self.walls]
         [e.tick() for e in self.formations]
-        self.time_until_wave -= 1
-        if self.time_until_wave == 0:
-            self.game.summon_ai_wave(self.side)
 
 
 class chunk:
