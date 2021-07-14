@@ -12,3 +12,4 @@ Swordsman:vwidth=20,vheight=20,speed=320,size=19,hp=100,dmg=10,cd=1,reach=10,cos
 Defender:vwidth=20,vheight=20,speed=150,size=19,hp=1000,dmg=10,cd=1,reach=10,cost=100,mass=3
 Archer:vwidth=20,vheight=20,speed=200,size=19,hp=20,dmg=20,cd=0.8,reach=300,cost=30,bulletspeed=4,mass=1
 Trebuchet:vwidth=50,vheight=50,speed=50,size=50,hp=700,dmg=500,cd=8,reach=500,cost=300,bulletspeed=1.2,explosion_radius=100,mass=20
+Bear:vwidth=80,vheight=150,speed=250,size=60,hp=6000,dmg=100,cd=0.1,reach=30,cost=2000,mass=10

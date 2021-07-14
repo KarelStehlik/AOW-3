@@ -118,7 +118,7 @@ class Game:
     def network(self, data):
         if "action" in data:
             if data["action"] == "pong":
-                received=time.time()
+                received = time.time()
                 latency = (time.perf_counter() - self.ping_time) / 2
                 self.time_diffs.append(received - float(data["time"]) - latency)
                 self.ping_attempts -= 1
@@ -407,7 +407,7 @@ class UI_formation(client_utility.toolbar):
     def detect_obstruction(self, size, x, y):
         for x2 in range(UNIT_FORMATION_COLUMNS):
             for y2 in range(UNIT_FORMATION_ROWS):
-                if self.units[x2][y2] != -1:
+                if self.units[x2][y2] != -1 and not (x2 == x and y2 == y):
                     if UNIT_SIZE * distance(x, y, x2, y2) < (
                             size + unit_stats[possible_units[self.units[x2][y2]].name]["size"]) / 2:
                         return x2, y2
@@ -885,6 +885,7 @@ class Building:
                 if e == self:
                     continue
                 if max(abs(e.x - self.x), abs(e.y - self.y)) < (self.size + e.size) / 2:
+                    dist_sq = (e.x - self.x) ** 2 + (e.y - self.y) ** 2
                     if dist_sq < ((e.size + self.size) * .5) ** 2:
                         shovage = (e.size + self.size) * .5 * dist_sq ** -.5 - 1
                         e.take_knockback((e.x - self.x) * shovage, (e.y - self.y) * shovage, self)
@@ -1613,7 +1614,6 @@ class Unit:
             return
         if max(abs(other.x - self.x), abs(other.y - self.y)) < (self.size + other.size) / 2:
             dist_sq = (other.x - self.x) ** 2 + (other.y - self.y) ** 2
-            dist_sq = (e.x - self.x) ** 2 + (e.y - self.y) ** 2
             if dist_sq == 0:
                 dist_sq = .01
                 self.x += .01
@@ -1698,19 +1698,35 @@ class Defender(Unit):
         target.take_damage(self.damage, self)
 
 
+class Bear(Unit):
+    image = images.Bear
+    name = "Bear"
+
+    def __init__(self, ID, x, y, side, column, row, game, formation):
+        super().__init__(ID, x, y, side, column, row, game, formation)
+
+    def attack(self, target):
+        target.take_damage(self.damage, self)
+
+
 class selection_trebuchet(selection_unit):
     img = images.Trebuchet
     num = 2
 
 
-class selection_Defender(selection_unit):
+class selection_defender(selection_unit):
     img = images.Defender
     num = 3
 
 
-possible_units = [Swordsman, Archer, Trebuchet, Defender]
+class selection_bear(selection_unit):
+    img = images.Bear
+    num = 4
+
+
+possible_units = [Swordsman, Archer, Trebuchet, Defender, Bear]
 selects_p1 = [selection_tower, selection_wall, selection_farm]
-selects_p2 = [selection_swordsman, selection_archer, selection_trebuchet, selection_Defender]
+selects_p2 = [selection_swordsman, selection_archer, selection_trebuchet, selection_defender, selection_bear]
 selects_all = [selects_p1, selects_p2]
 
 

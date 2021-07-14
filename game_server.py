@@ -859,7 +859,7 @@ class Unit:
             dist_sq = (other.x - self.x) ** 2 + (other.y - self.y) ** 2
             if dist_sq == 0:
                 dist_sq = .01
-                self.x+=.01
+                self.x += .01
             if dist_sq < ((other.size + self.size) * .5) ** 2:
                 shovage = (other.size + self.size) * .5 * dist_sq ** -.5 - 1  # desired dist / current dist -1
                 mass_ratio = self.mass / (self.mass + other.mass)
@@ -916,7 +916,17 @@ class Defender(Unit):
         target.take_damage(self.damage, self)
 
 
-possible_units = [Swordsman, Archer, Trebuchet, Defender]
+class Bear(Unit):
+    name = "Bear"
+
+    def __init__(self, ID, x, y, side, column, row, game, formation):
+        super().__init__(ID, x, y, side, column, row, game, formation)
+
+    def attack(self, target):
+        target.take_damage(self.damage, self)
+
+
+possible_units = [Swordsman, Archer, Trebuchet, Defender, Bear]
 
 
 class Projectile:
