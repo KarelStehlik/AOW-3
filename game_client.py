@@ -18,7 +18,7 @@ class Game:
             e.summon_townhall()
         self.connection = connection
         self.batch = batch
-        self.cam_move_speed = 1000
+        self.cam_move_speed = 1500
         self.start_time = time0
         self.camx_moving, self.camy_moving = 0, 0
         self.background_texgroup = client_utility.TextureBindGroup(images.Background, layer=0)
