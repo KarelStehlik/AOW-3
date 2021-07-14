@@ -5,6 +5,10 @@ from constants import *
 def generate_units(money):
     original_money = money
     units = [[-1 for _ in range(UNIT_FORMATION_ROWS)] for _ in range(UNIT_FORMATION_COLUMNS)]
+
+    #units[1][1]=len(possible_units)-1
+    #return units, 1
+
     big, medium, small = [], [], []
     for e in possible_units:
         if e.get_cost([]) >= 2000:
@@ -154,9 +158,9 @@ class Game:
         units = generate_units(power)
         angle = random.random() * 2 * math.pi
         distance = 1000 * self.players[side].ai_wave ** .5
-        x = self.players[side].TownHall.x + distance * math.cos(angle)
-        y = self.players[side].TownHall.y + distance * math.sin(angle)
-        args = [self.object_ID, side, x, y, units[0], self.ticks, worth, units[1]]
+        x = int(self.players[side].TownHall.x + distance * math.cos(angle))
+        y = int(self.players[side].TownHall.y + distance * math.sin(angle))
+        args = [self.object_ID, side, x, y, units[0], self.ticks, worth, str(units[1])]
         wave = Formation(self.object_ID, [], units[0], 1 - side, self, x=x, y=y, amplifier=units[1])
         self.object_ID += 1
         wave.attack(self.players[side].TownHall)
@@ -733,7 +737,7 @@ class instruction_moving(instruction):
 class Unit:
     name = "None"
 
-    def __init__(self, ID, x, y, side, column, row, game, formation, amplifier=1):
+    def __init__(self, ID, x, y, side, column, row, game, formation, amplifier):
         self.entity_type = "unit"
         self.ID = ID
         self.lifetime = 0

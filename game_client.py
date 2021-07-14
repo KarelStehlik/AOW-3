@@ -153,7 +153,7 @@ class Game:
                 self.summon_ai_wave(*data["args"])
 
     def summon_ai_wave(self, ID, side, x, y, units, tick, worth, amplifier):
-        wave = Formation(ID, [], units, tick, 1 - side, self, x=x, y=y, AI=True, amplifier=amplifier)
+        wave = Formation(ID, [], units, tick, 1 - side, self, x=x, y=y, AI=True, amplifier=float(amplifier))
         wave.attack(self.players[side].TownHall)
         self.players[side].gain_money(worth)
 
@@ -1398,7 +1398,7 @@ class Unit:
     image = images.Cancelbutton
     name = "None"
 
-    def __init__(self, ID, x, y, side, column, row, game: Game, formation: Formation, amplifier=1):
+    def __init__(self, ID, x, y, side, column, row, game: Game, formation: Formation, amplifier):
         self.entity_type = "unit"
         self.last_camx, self.last_camy = game.camx, game.camy
         self.ID = ID
