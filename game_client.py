@@ -1891,8 +1891,8 @@ class animation_explosion:
 
 
 class Bullet(Projectile):
-    image = images.Bullet
-    scale = 1
+    image = images.Boulder
+    scale = .05
 
     def __init__(self, x, y, angle, game, side, damage, speed, reach, scale=None):
         # (dx,dy) must be normalized
