@@ -509,7 +509,7 @@ class selection_building(selection):
             close_to_friendly = False
             for e in self.game.players[self.game.side].all_buildings:
                 if e.distance_to_point((x + self.camx) / SPRITE_SIZE_MULT,
-                                            (y + self.camy) / SPRITE_SIZE_MULT) < self.proximity:
+                                       (y + self.camy) / SPRITE_SIZE_MULT) < self.proximity:
                     close_to_friendly = True
             if not close_to_friendly:
                 return
@@ -1023,7 +1023,7 @@ class Tower2(Tower):
             super().__init__(ID, x, y, tick, side, game)
             self.comes_from = None
         self.explosion_radius = unit_stats[self.name]["explosion_radius"]
-        self.upgrades_into = [Tower21]
+        self.upgrades_into = [Tower21, Tower22]
 
     def attack(self, target):
         direction = target.towards(self.x, self.y)
@@ -1051,6 +1051,27 @@ class Tower21(Tower):
         self.sprite.rotation = 90 - get_rotation_norm(*direction) * 180 / math.pi
         Meteor(self.x, self.y, *direction, self.game, self.side, self.damage, self.bulletspeed,
                target.distance_to_point(self.x, self.y), self.explosion_radius)
+
+
+class Tower22(Tower):
+    name = "Tower22"
+    image = images.Tower21
+
+    def __init__(self, target=None, tick=None, x=None, y=None, side=None, game=None, ID=None):
+        if target is not None:
+            super().__init__(target.ID, target.x, target.y, tick, target.side, target.game)
+            self.comes_from = target
+        else:
+            super().__init__(ID, x, y, tick, side, game)
+            self.comes_from = None
+        self.explosion_radius = unit_stats[self.name]["explosion_radius"]
+        self.upgrades_into = []
+
+    def attack(self, target):
+        direction = target.towards(self.x, self.y)
+        self.sprite.rotation = 90 - get_rotation_norm(*direction) * 180 / math.pi
+        Egg(self.x, self.y, *direction, self.game, self.side, self.damage, self.bulletspeed,
+            target.distance_to_point(self.x, self.y), self.explosion_radius)
 
 
 class Tower11(Tower):
@@ -1126,7 +1147,7 @@ class Farm2(Farm):
         self.upgrades_into = []
 
 
-possible_buildings = [Tower, Farm, Tower1, Tower2, Tower21, Tower11, Farm1, Farm2]
+possible_buildings = [Tower, Farm, Tower1, Tower2, Tower21, Tower11, Farm1, Farm2, Tower22]
 
 
 class Wall:
@@ -1831,6 +1852,8 @@ class Boulder(Projectile):
 class Meteor(Projectile):
     image = images.Meteor
     scale = .15
+    explosion_size = 200
+    explosion_speed = 100
 
     def __init__(self, x, y, dx, dy, game, side, damage, speed, reach, radius):
         super().__init__(x, y, dx, dy, game, side, damage, speed, reach)
@@ -1845,11 +1868,18 @@ class Meteor(Projectile):
 
     def explode(self):
         AOE_damage(self.x, self.y, self.radius, self.damage, self, self.game)
-        animation_explosion(self.x, self.y, 200, 100, self.game)
+        animation_explosion(self.x, self.y, self.explosion_size, self.explosion_speed, self.game)
         self.delete()
 
     def graphics_update(self):
         super().graphics_update()
+
+
+class Egg(Meteor):
+    image = images.Meteor
+    scale = .15
+    explosion_size = 80
+    explosion_speed = 100
 
 
 class animation_explosion:

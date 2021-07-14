@@ -6,8 +6,8 @@ def generate_units(money):
     original_money = money
     units = [[-1 for _ in range(UNIT_FORMATION_ROWS)] for _ in range(UNIT_FORMATION_COLUMNS)]
 
-    #units[1][1]=len(possible_units)-1
-    #return units, 1
+    # units[1][1]=len(possible_units)-1
+    # return units, 1
 
     big, medium, small = [], [], []
     for e in possible_units:
@@ -444,7 +444,7 @@ class Tower2(Tower):
         super().__init__(target.ID, target.x, target.y, target.side, target.game)
         self.comes_from = target
         self.explosion_radius = unit_stats[self.name]["explosion_radius"]
-        self.upgrades_into = [Tower21]
+        self.upgrades_into = [Tower21, Tower22]
 
     def attack(self, target):
         Boulder(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.damage, self.bulletspeed,
@@ -463,6 +463,20 @@ class Tower21(Tower):
     def attack(self, target):
         Meteor(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.damage, self.bulletspeed,
                target.distance_to_point(self.x, self.y), self.explosion_radius)
+
+
+class Tower22(Tower):
+    name = "Tower22"
+
+    def __init__(self, target):
+        super().__init__(target.ID, target.x, target.y, target.side, target.game)
+        self.comes_from = target
+        self.explosion_radius = unit_stats[self.name]["explosion_radius"]
+        self.upgrades_into = []
+
+    def attack(self, target):
+        Egg(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.damage, self.bulletspeed,
+            target.distance_to_point(self.x, self.y), self.explosion_radius)
 
 
 class Farm(Building):
@@ -501,7 +515,7 @@ class Farm2(Farm):
         self.upgrades_into = []
 
 
-possible_buildings = [Tower, Farm, Tower1, Tower2, Tower21, Tower11, Farm1, Farm2]
+possible_buildings = [Tower, Farm, Tower1, Tower2, Tower21, Tower11, Farm1, Farm2, Tower22]
 
 
 class Wall:
@@ -1069,6 +1083,10 @@ class Boulder(Projectile):
 
 
 class Meteor(Boulder):
+    pass
+
+
+class Egg(Meteor):
     pass
 
 
