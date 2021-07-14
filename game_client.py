@@ -937,6 +937,7 @@ class Tower(Building):
         self.target = None
         self.shooting_in_chunks = get_chunks(self.x, self.y, 2 * self.reach)
         self.upgrades_into = [Tower1, Tower2]
+        self.turns_without_target = 0
 
     @classmethod
     def get_cost(cls, params):
@@ -950,13 +951,12 @@ class Tower(Building):
         self.shove()
         if self.current_cooldown > 0:
             self.current_cooldown -= 1 / FPS
-        if self.acquire_target():
-            self.attempt_attack(self.target)
-
-    def attempt_attack(self, target):
         if self.current_cooldown <= 0:
-            self.current_cooldown += self.attack_cooldown
-            self.attack(target)
+            if self.acquire_target():
+                self.current_cooldown += self.attack_cooldown
+                self.attack(self.target)
+            else:
+                self.turns_without_target += 1
 
     def attack(self, target):
         direction = target.towards(self.x, self.y)
@@ -968,18 +968,21 @@ class Tower(Building):
         if self.target is not None and self.target.exists and self.target.distance_to_point(self.x,
                                                                                             self.y) < self.reach:
             return True
-        for c in self.shooting_in_chunks:
-            chonker = self.game.find_chunk(c)
-            if chonker is not None:
-                for unit in chonker.units[1 - self.side]:
-                    if unit.exists and unit.distance_to_point(self.x, self.y) < self.reach:
-                        self.target = unit
-                        return True
-                for unit in chonker.buildings[1 - self.side]:
-                    if unit.exists and unit.distance_to_point(self.x, self.y) < self.reach:
-                        self.target = unit
-                        return True
-        return False
+        if self.turns_without_target % 30 == 0:
+            for c in self.shooting_in_chunks:
+                chonker = self.game.find_chunk(c)
+                if chonker is not None:
+                    for unit in chonker.units[1 - self.side]:
+                        if unit.exists and unit.distance_to_point(self.x, self.y) < self.reach:
+                            self.target = unit
+                            self.turns_without_target = 0
+                            return True
+                    for unit in chonker.buildings[1 - self.side]:
+                        if unit.exists and unit.distance_to_point(self.x, self.y) < self.reach:
+                            self.target = unit
+                            self.turns_without_target = 0
+                            return True
+            return False
 
     def take_damage(self, amount, source):
         if self.exists:
