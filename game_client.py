@@ -342,7 +342,7 @@ class UI_formation(client_utility.toolbar):
         self.add(self.send, self.x, self.height - SCREEN_HEIGHT * 0.1, self.width, SCREEN_HEIGHT * 0.1,
                  image=images.Sendbutton)
         self.cost_count = pyglet.text.Label(x=self.x + self.width / 2, y=5, text="Cost: 0", color=(255, 240, 0, 255),
-                                            group=groups.g[9], batch=self.batch, anchor_x="center", anchor_y="bottom",
+                                            group=groups.g[10], batch=self.batch, anchor_x="center", anchor_y="bottom",
                                             font_size=20 * SPRITE_SIZE_MULT)
         self.cost = 0
 
@@ -1314,6 +1314,8 @@ class Formation:
         else:
             enemy = [enemy, ]
         self.all_targets += enemy
+        for e in self.troops:
+            e.target=None
 
 
 class instruction:

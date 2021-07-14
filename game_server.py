@@ -606,6 +606,8 @@ class Formation:
         else:
             enemy = [enemy, ]
         self.all_targets += enemy
+        for e in self.troops:
+            e.target=None
 
 
 class instruction:
