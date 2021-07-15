@@ -146,6 +146,8 @@ class Game:
                     target.upgrades_into = []
             elif data["action"] == "ping":
                 self.channels[side].Send({"action": "pong", "time": str(time.time())})
+            elif data["action"]=="send_wave":
+                self.summon_ai_wave(side)
 
     def summon_ai_wave(self, side):
         self.players[side].ai_wave += 1

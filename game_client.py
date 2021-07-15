@@ -29,17 +29,14 @@ class Game:
             ("t2f", (0, 0, SCREEN_WIDTH / 512, 0, SCREEN_WIDTH / 512, SCREEN_HEIGHT / 512,
                      0, SCREEN_HEIGHT / 512))
         )
+        self.UI_topBar = UI_top_bar(self)
         self.UI_bottomBar = UI_bottom_bar(self)
         self.UI_categories = UI_categories(self, self.UI_bottomBar)
         self.unit_formation_rows = UNIT_FORMATION_ROWS
         self.unit_formation_columns = UNIT_FORMATION_COLUMNS
         self.unit_formation = UI_formation(self)
-        self.UI_toolbars = [self.UI_bottomBar, self.UI_categories, self.unit_formation]
+        self.UI_toolbars = [self.UI_bottomBar, self.UI_categories, self.unit_formation, self.UI_topBar]
         self.selected = selection_none(self)
-        self.money = pyglet.text.Label(x=SCREEN_WIDTH * 0.995, y=SCREEN_HEIGHT * 0.995, text="Gold:0",
-                                       color=(255, 240, 0, 255),
-                                       group=groups.g[9], batch=self.batch, anchor_y="top", anchor_x="right",
-                                       font_size=20 * SPRITE_SIZE_MULT)
         self.last_tick, self.last_dt = 0, 0
         self.projectiles = []
         self.animations = []
@@ -112,6 +109,7 @@ class Game:
         self.selected.tick()
         [e.tick(self.last_dt) for e in self.animations]
         self.batch.draw()
+        self.UI_topBar.update()
         self.last_dt = time.perf_counter() - self.last_tick
         self.last_tick = time.perf_counter()
 
@@ -156,6 +154,11 @@ class Game:
         wave = Formation(ID, [], units, tick, 1 - side, self, x=x, y=y, AI=True, amplifier=float(amplifier))
         wave.attack(self.players[side].TownHall)
         self.players[side].gain_money(worth)
+        if side == self.side:
+            self.UI_topBar.last_wave_tick = self.ticks
+
+    def send_wave(self):
+        self.connection.Send({"action": "send_wave"})
 
     def mouse_move(self, x, y, dx, dy):
         [e.mouse_move(x, y) for e in self.UI_toolbars]
@@ -222,6 +225,10 @@ class Game:
         [e.update_cam(self.camx, self.camy) for e in self.players]
         self.selected.update_cam(self.camx, self.camy)
 
+    def centre_cam(self):
+        self.camx=self.players[self.side].TownHall.x-SCREEN_WIDTH/2
+        self.camy=self.players[self.side].TownHall.y-SCREEN_HEIGHT/2
+
     def find_building(self, ID, side, entity_type=None):
         for e in self.players[side].all_buildings:
             if e.ID == ID and (entity_type == None or e.entity_type == entity_type):
@@ -282,7 +289,7 @@ class player:
 
     def graphics_update(self):
         if self.side == self.game.side:
-            self.game.money.text = "Gold: " + str(int(self.money))
+            self.game.UI_topBar.money.text = "Gold: " + str(int(self.money))
         [e.graphics_update() for e in self.units]
         [e.graphics_update() for e in self.walls]
         [e.graphics_update() for e in self.all_buildings]
@@ -422,13 +429,53 @@ class UI_formation(client_utility.toolbar):
 
 
 class UI_categories(client_utility.toolbar):
-    def __init__(self, game, bb):
-        super().__init__(0, bb.height, SCREEN_WIDTH, SCREEN_HEIGHT * 0.05, game.batch)
+    def __init__(self, game, bottombar):
+        super().__init__(0, bottombar.height, SCREEN_WIDTH, SCREEN_HEIGHT * 0.05, game.batch)
         i = 0
         for _ in selects_all:
-            self.add(bb.load_page, SCREEN_WIDTH * (0.01 + 0.1 * i), bb.height + SCREEN_HEIGHT * 0.005,
+            self.add(bottombar.load_page, SCREEN_WIDTH * (0.01 + 0.1 * i), bottombar.height + SCREEN_HEIGHT * 0.005,
                      SCREEN_WIDTH * 0.09, SCREEN_HEIGHT * 0.04, args=(i,))
             i += 1
+
+
+class UI_top_bar(client_utility.toolbar):
+    def __init__(self, game: Game):
+        self.height = SCREEN_HEIGHT * .05
+        self.game = game
+        super().__init__(0, SCREEN_HEIGHT - self.height, SCREEN_WIDTH, self.height, game.batch)
+        self.add(game.send_wave, self.height * 4, self.y, self.height * 3, self.height, text="send")
+        self.add(game.centre_cam, self.height * 7, self.y, self.height, self.height)
+        self.money = pyglet.text.Label(x=SCREEN_WIDTH * 0.995, y=SCREEN_HEIGHT * 0.995, text="Gold:0",
+                                       color=(255, 240, 0, 255),
+                                       group=groups.g[9], batch=self.batch, anchor_y="top", anchor_x="right",
+                                       font_size=20 * SPRITE_SIZE_MULT)
+        timer_x_centre = self.height * 2
+        timer_x_range = self.height * 2
+        timer_y_centre = self.y + self.height * .85
+        timer_y_range = self.height * .07
+        self.timer = game.batch.add(
+            8, pyglet.gl.GL_QUADS, groups.g[self.layer + 1],
+            ("v2f", (timer_x_centre - timer_x_range, timer_y_centre - timer_y_range,
+                     timer_x_centre - timer_x_range, timer_y_centre + timer_y_range,
+                     timer_x_centre + timer_x_range, timer_y_centre + timer_y_range,
+                     timer_x_centre + timer_x_range, timer_y_centre - timer_y_range,
+                     timer_x_centre + timer_x_range, timer_y_centre - timer_y_range,
+                     timer_x_centre + timer_x_range, timer_y_centre + timer_y_range,
+                     timer_x_centre + timer_x_range, timer_y_centre + timer_y_range,
+                     timer_x_centre + timer_x_range, timer_y_centre - timer_y_range)),
+            ("c3B", (255, 0, 0, 255, 0, 0, 255, 0, 0, 255, 0, 0, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50))
+        )
+        self.timer_width = timer_x_range * 2
+        self.last_wave_tick = 0
+        self.timer_text = pyglet.text.Label(x=self.height*2, y=self.y+self.height*.1, text="next wave in: 10",
+                                            color=(255, 100, 0, 255),
+                                            group=groups.g[9], batch=self.batch, anchor_y="bottom", anchor_x="center",
+                                            font_size=20 * SPRITE_SIZE_MULT)
+
+    def update(self):
+        x = self.timer_width * (self.last_wave_tick + WAVE_INTERVAL - self.game.ticks) / WAVE_INTERVAL
+        self.timer.vertices[4:11:2] = [x] * 4
+        self.timer_text.text = "next wave in: "+str(int((self.last_wave_tick + WAVE_INTERVAL - self.game.ticks) / FPS)+1)
 
 
 # #################   ---/core---  #################
@@ -436,7 +483,7 @@ class UI_categories(client_utility.toolbar):
 
 class selection:
     def __init__(self, game):
-        self.cancelbutton = client_utility.button(self.end, SCREEN_WIDTH * 0.01, SCREEN_HEIGHT * 0.9,
+        self.cancelbutton = client_utility.button(self.end, SCREEN_WIDTH * 0.01, SCREEN_HEIGHT * 0.85,
                                                   SCREEN_WIDTH * 0.1, SCREEN_HEIGHT * 0.09, game.batch,
                                                   image=images.Cancelbutton)
         self.game = game
@@ -811,12 +858,12 @@ class Building:
             8, pyglet.gl.GL_QUADS, groups.g[6],
             ("v2f", (hpbar_x_centre - hpbar_x_range, hpbar_y_centre - hpbar_y_range,
                      hpbar_x_centre - hpbar_x_range, hpbar_y_centre + hpbar_y_range,
-                     hpbar_x_centre + hpbar_x_range, hpbar_y_centre - hpbar_y_range,
                      hpbar_x_centre + hpbar_x_range, hpbar_y_centre + hpbar_y_range,
                      hpbar_x_centre + hpbar_x_range, hpbar_y_centre - hpbar_y_range,
-                     hpbar_x_centre + hpbar_x_range, hpbar_y_centre + hpbar_y_range,
                      hpbar_x_centre + hpbar_x_range, hpbar_y_centre - hpbar_y_range,
-                     hpbar_x_centre + hpbar_x_range, hpbar_y_centre + hpbar_y_range)),
+                     hpbar_x_centre + hpbar_x_range, hpbar_y_centre + hpbar_y_range,
+                     hpbar_x_centre + hpbar_x_range, hpbar_y_centre + hpbar_y_range,
+                     hpbar_x_centre + hpbar_x_range, hpbar_y_centre - hpbar_y_range)),
             ("c3B", (0, 255, 0, 0, 255, 0, 0, 255, 0, 0, 255, 0, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50)
             if self.game.side == self.side else (
                 163, 73, 163, 163, 73, 163, 163, 73, 163, 163, 73, 163, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50))
@@ -1271,7 +1318,7 @@ class Wall:
 
 
 class Formation:
-    def __init__(self, ID, instructions, troops, tick, side, game, x=None, y=None, AI=False, amplifier=1):
+    def __init__(self, ID, instructions, troops, tick, side, game, x=None, y=None, AI=False, amplifier=1.0):
         if not AI:
             game.players[side].money -= self.get_cost([troops])
         self.entity_type = "formation"
@@ -1447,12 +1494,12 @@ class Unit:
             8, pyglet.gl.GL_QUADS, groups.g[6],
             ("v2f", (hpbar_x_centre - hpbar_x_range, hpbar_y_centre - hpbar_y_range,
                      hpbar_x_centre - hpbar_x_range, hpbar_y_centre + hpbar_y_range,
-                     hpbar_x_centre + hpbar_x_range, hpbar_y_centre - hpbar_y_range,
                      hpbar_x_centre + hpbar_x_range, hpbar_y_centre + hpbar_y_range,
                      hpbar_x_centre + hpbar_x_range, hpbar_y_centre - hpbar_y_range,
-                     hpbar_x_centre + hpbar_x_range, hpbar_y_centre + hpbar_y_range,
                      hpbar_x_centre + hpbar_x_range, hpbar_y_centre - hpbar_y_range,
-                     hpbar_x_centre + hpbar_x_range, hpbar_y_centre + hpbar_y_range)),
+                     hpbar_x_centre + hpbar_x_range, hpbar_y_centre + hpbar_y_range,
+                     hpbar_x_centre + hpbar_x_range, hpbar_y_centre + hpbar_y_range,
+                     hpbar_x_centre + hpbar_x_range, hpbar_y_centre - hpbar_y_range)),
             ("c3B", (0, 255, 0, 0, 255, 0, 0, 255, 0, 0, 255, 0, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50)
             if self.game.side == self.side else (
                 163, 73, 163, 163, 73, 163, 163, 73, 163, 163, 73, 163, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50))
@@ -1686,7 +1733,7 @@ class Swordsman(Unit):
     image = images.Swordsman
     name = "Swordsman"
 
-    def __init__(self, ID, x, y, side, column, row, game, formation, amplifier=1):
+    def __init__(self, ID, x, y, side, column, row, game, formation, amplifier=1.0):
         super().__init__(ID, x, y, side, column, row, game, formation, amplifier=amplifier)
 
     def attack(self, target):
@@ -1702,7 +1749,7 @@ class Archer(Unit):
     image = images.Bowman
     name = "Archer"
 
-    def __init__(self, ID, x, y, side, column, row, game, formation, amplifier=1):
+    def __init__(self, ID, x, y, side, column, row, game, formation, amplifier=1.0):
         super().__init__(ID, x, y, side, column, row, game, formation, amplifier=amplifier)
         self.bulletspeed = unit_stats[self.name]["bulletspeed"]
 
@@ -1720,7 +1767,7 @@ class Trebuchet(Unit):
     image = images.Trebuchet
     name = "Trebuchet"
 
-    def __init__(self, ID, x, y, side, column, row, game, formation, amplifier=1):
+    def __init__(self, ID, x, y, side, column, row, game, formation, amplifier=1.0):
         super().__init__(ID, x, y, side, column, row, game, formation, amplifier=amplifier)
         self.bulletspeed = unit_stats[self.name]["bulletspeed"]
         self.explosion_radius = unit_stats[self.name]["explosion_radius"]
@@ -1734,7 +1781,7 @@ class Defender(Unit):
     image = images.Defender
     name = "Defender"
 
-    def __init__(self, ID, x, y, side, column, row, game, formation, amplifier=1):
+    def __init__(self, ID, x, y, side, column, row, game, formation, amplifier=1.0):
         super().__init__(ID, x, y, side, column, row, game, formation, amplifier=amplifier)
 
     def attack(self, target):
@@ -1745,7 +1792,7 @@ class Bear(Unit):
     image = images.Bear
     name = "Bear"
 
-    def __init__(self, ID, x, y, side, column, row, game, formation, amplifier=1):
+    def __init__(self, ID, x, y, side, column, row, game, formation, amplifier=1.0):
         super().__init__(ID, x, y, side, column, row, game, formation, amplifier=amplifier)
 
     def attack(self, target):
