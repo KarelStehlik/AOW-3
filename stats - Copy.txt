@@ -1,0 +1,16 @@
+TownHall:size=200,hp=10000
+Tower:size=50,hp=9000,cost=1500,dmg=80,cd=0.2,reach=400,bulletspeed=6,proximity=500
+Tower1:size=50,hp=9000,cost=1500,dmg=50,cd=0.05,reach=400,bulletspeed=14
+Tower2:size=50,hp=20000,cost=1500,dmg=50,cd=1.2,reach=300,bulletspeed=8,explosion_radius=120
+Tower11:size=50,hp=15000,cost=3000,dmg=20,cd=0.02,reach=300,bulletspeed=15,spread=0.2,shots=2
+Tower21:size=50,hp=30000,cost=5000,dmg=600,cd=2,reach=700,bulletspeed=20,explosion_radius=100
+Tower22:size=50,hp=50000,cost=100000,dmg=200,cd=0.03,reach=900,bulletspeed=40,explosion_radius=80
+Farm:size=200,hp=500,cost=1000,production=0.125,proximity=500
+Farm1:size=200,hp=500,cost=4000,production=0.5,proximity=500
+Farm2:size=200,hp=15000,cost=1000,production=0.125,proximity=500
+Wall:width=30,hp=30000,cost=1000
+Swordsman:vwidth=20,vheight=20,speed=320,size=19,hp=100,dmg=15,cd=1,reach=10,cost=20,mass=1
+Defender:vwidth=20,vheight=20,speed=150,size=19,hp=1000,dmg=10,cd=1,reach=10,cost=100,mass=3
+Archer:vwidth=20,vheight=20,speed=200,size=19,hp=20,dmg=30,cd=1,reach=300,cost=30,bulletspeed=7,mass=1
+Trebuchet:vwidth=50,vheight=50,speed=50,size=50,hp=700,dmg=500,cd=8,reach=500,cost=300,bulletspeed=1.2,explosion_radius=100,mass=20
+Bear:vwidth=80,vheight=150,speed=300,size=60,hp=5000,dmg=200,cd=0.1,reach=30,cost=5000,mass=10
