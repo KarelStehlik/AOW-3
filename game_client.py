@@ -1345,6 +1345,7 @@ class Formation:
         else:
             self.has_warning = False
             self.warning = None
+        self.warn_opacity = 255
         self.AI = AI
         self.entity_type = "formation"
         self.exists = False
@@ -1384,6 +1385,8 @@ class Formation:
         return cost
 
     def tick(self):
+        if self.warn_opacity>0:
+            self.warn_opacity-=1
         if self.spawning < FPS * ACTION_DELAY:
             self.spawning += 1
         if self.spawning == FPS * ACTION_DELAY:
@@ -1392,6 +1395,8 @@ class Formation:
             [e.summon_done() for e in self.troops]
 
     def tick2(self):
+        if self.warn_opacity>0:
+            self.warn_opacity-=1
         i = 0
         while i < len(self.all_targets):
             if not self.all_targets[i].exists:
@@ -1431,10 +1436,8 @@ class Formation:
         else:
             self.warning.update(x=self.x * SPRITE_SIZE_MULT - x,
                                 y=self.y * SPRITE_SIZE_MULT - y)
-        o = self.warning.opacity
-        o -= 1
-        if o > 0:
-            self.warning.opacity = o
+        if self.warn_opacity > 0:
+            self.warning.opacity = self.warn_opacity
         else:
             self.warning.delete()
             self.has_warning = False
