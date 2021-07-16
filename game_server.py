@@ -157,7 +157,7 @@ class Game:
 
     def summon_ai_wave(self, side):
         self.players[side].ai_wave += 1
-        power = 1000 * self.players[side].ai_wave ** 1.5
+        power = 1000 * self.players[side].ai_wave ** 1.8
         worth = power
         self.players[side].gain_money(worth)
         self.players[side].time_until_wave = WAVE_INTERVAL

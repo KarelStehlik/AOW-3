@@ -193,7 +193,7 @@ class Game:
         elif symbol in [key.E, key.R, key.T]:
             x, y = (self.mousex + self.camx) / SPRITE_SIZE_MULT, (self.mousey + self.camy) / SPRITE_SIZE_MULT
             for e in self.players[self.side].all_buildings:
-                if e.distance_to_point(x, y) <= 0:
+                if e.entity_type!="wall" and e.distance_to_point(x, y) <= 0:
                     i = [key.E, key.R, key.T].index(symbol)
                     if len(e.upgrades_into) > i:
                         self.connection.Send({"action": "buy upgrade", "building ID": e.ID, "upgrade num": i})
@@ -458,7 +458,7 @@ class UI_top_bar(client_utility.toolbar):
         self.game = game
         super().__init__(0, SCREEN_HEIGHT - self.height, SCREEN_WIDTH, self.height, game.batch)
         self.add(game.send_wave, self.height * 4, self.y, self.height * 3, self.height, text="send")
-        self.add(game.centre_cam, self.height * 7, self.y, self.height, self.height)
+        self.add(game.centre_cam, self.height * 7, self.y, self.height, self.height, image=images.TargetButton)
         self.money = pyglet.text.Label(x=SCREEN_WIDTH * 0.995, y=SCREEN_HEIGHT * 0.995, text="Gold:0",
                                        color=(255, 240, 0, 255),
                                        group=groups.g[9], batch=self.batch, anchor_y="top", anchor_x="right",
