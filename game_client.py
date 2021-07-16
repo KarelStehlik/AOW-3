@@ -230,8 +230,8 @@ class Game:
         self.selected.update_cam(self.camx, self.camy)
 
     def centre_cam(self):
-        self.camx=self.players[self.side].TownHall.x-SCREEN_WIDTH/2
-        self.camy=self.players[self.side].TownHall.y-SCREEN_HEIGHT/2
+        self.camx = self.players[self.side].TownHall.x - SCREEN_WIDTH / 2
+        self.camy = self.players[self.side].TownHall.y - SCREEN_HEIGHT / 2
 
     def find_building(self, ID, side, entity_type=None):
         for e in self.players[side].all_buildings:
@@ -471,7 +471,7 @@ class UI_top_bar(client_utility.toolbar):
         )
         self.timer_width = timer_x_range * 2
         self.last_wave_tick = 0
-        self.timer_text = pyglet.text.Label(x=self.height*2, y=self.y+self.height*.1, text="next wave in: 10",
+        self.timer_text = pyglet.text.Label(x=self.height * 2, y=self.y + self.height * .1, text="next wave in: 10",
                                             color=(255, 100, 0, 255),
                                             group=groups.g[9], batch=self.batch, anchor_y="bottom", anchor_x="center",
                                             font_size=20 * SPRITE_SIZE_MULT)
@@ -479,7 +479,8 @@ class UI_top_bar(client_utility.toolbar):
     def update(self):
         x = self.timer_width * (self.last_wave_tick + WAVE_INTERVAL - self.game.ticks) / WAVE_INTERVAL
         self.timer.vertices[4:11:2] = [x] * 4
-        self.timer_text.text = "next wave in: "+str(int((self.last_wave_tick + WAVE_INTERVAL - self.game.ticks) / FPS)+1)
+        self.timer_text.text = "next wave in: " + str(
+            int((self.last_wave_tick + WAVE_INTERVAL - self.game.ticks) / FPS) + 1)
 
 
 # #################   ---/core---  #################
@@ -1483,6 +1484,7 @@ class Unit:
         self.game = game
         self.formation = formation
         self.x, self.y = x, y
+        self.last_x, self.last_y = x, y
         self.column, self.row = column, row
         self.game.players[self.side].units.append(self)
         self.size = unit_stats[self.name]["size"]
@@ -1647,6 +1649,10 @@ class Unit:
         self.lifetime += 1
         if self.current_cooldown > 0:
             self.current_cooldown -= 1 / FPS
+        if not self.reached_goal and self.x == self.last_x and self.y == self.last_y:
+            self.reached_goal = True
+            print("xdff")
+        self.last_x, self.last_y = self.x, self.y
 
     def die(self):
         if not self.exists:

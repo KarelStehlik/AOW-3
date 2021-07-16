@@ -8,9 +8,9 @@ def generate_units(money):
 
     # units[1][1]=len(possible_units)-1
     # return units, 1
-    #units[1][1] = 1
-    #money-=possible_units[1].get_cost([])
-    #return units, original_money / (original_money - money)
+    # units[1][1] = 1
+    # money-=possible_units[1].get_cost([])
+    # return units, original_money / (original_money - money)
 
     big, medium, small = [], [], []
     for e in possible_units:
@@ -154,7 +154,7 @@ class Game:
 
     def summon_ai_wave(self, side):
         self.players[side].ai_wave += 1
-        power = 1000 * self.players[side].ai_wave# ** 2
+        power = 1000 * self.players[side].ai_wave  # ** 2
         worth = power
         self.players[side].gain_money(worth)
         self.players[side].time_until_wave = WAVE_INTERVAL
@@ -768,6 +768,7 @@ class Unit:
         self.game = game
         self.formation = formation
         self.x, self.y = x, y
+        self.last_x, self.last_y = x, y
         self.column, self.row = column, row
         self.game.players[self.side].units.append(self)
         self.size = unit_stats[self.name]["size"]
@@ -902,6 +903,10 @@ class Unit:
         self.lifetime += 1
         if self.current_cooldown > 0:
             self.current_cooldown -= 1 / FPS
+        if not self.reached_goal and self.x == self.last_x and self.y == self.last_y:
+            self.reached_goal = True
+            print("xdff")
+        self.last_x, self.last_y = self.x, self.y
 
     def rotate(self, x, y):
         if x == 0 == y:

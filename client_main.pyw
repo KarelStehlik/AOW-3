@@ -11,7 +11,9 @@ pyglet.options['debug_gl'] = False
 pyglet.gl.glEnable(pyglet.gl.GL_BLEND)
 
 connection.DoConnect(('192.168.1.237', 5071))
-#connection.DoConnect(('127.0.0.1', 5071))
+
+
+# connection.DoConnect(('127.0.0.1', 5071))
 
 
 class MyNetworkListener(ConnectionListener):
@@ -24,7 +26,7 @@ class MyNetworkListener(ConnectionListener):
         self.mode = m
 
     def Network(self, data):
-        #print(data)
+        # print(data)
         self.mode.network(data)
 
 
@@ -189,7 +191,7 @@ class windoo(pyglet.window.Window):
         self.clear()
         self.current_mode.tick()
         self.flip()
-        self.last_tick=time.time()
+        self.last_tick = time.time()
 
     def on_key_press(self, symbol, modifiers):
         self.current_mode.key_press(symbol, modifiers)
