@@ -1385,8 +1385,8 @@ class Formation:
         return cost
 
     def tick(self):
-        if self.warn_opacity>0:
-            self.warn_opacity-=1
+        if self.warn_opacity > 0:
+            self.warn_opacity -= 2
         if self.spawning < FPS * ACTION_DELAY:
             self.spawning += 1
         if self.spawning == FPS * ACTION_DELAY:
@@ -1395,8 +1395,8 @@ class Formation:
             [e.summon_done() for e in self.troops]
 
     def tick2(self):
-        if self.warn_opacity>0:
-            self.warn_opacity-=1
+        if self.warn_opacity > 0:
+            self.warn_opacity -= 2
         i = 0
         while i < len(self.all_targets):
             if not self.all_targets[i].exists:
