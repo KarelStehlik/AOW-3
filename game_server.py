@@ -910,7 +910,7 @@ class Unit:
         if self.current_cooldown > 0:
             self.current_cooldown -= 1 / FPS
         if (not self.formation.all_targets) and (not self.reached_goal) and self.x == self.last_x and self.y == self.last_y:
-            self.reached_goal = True
+            self.x+=10
             print("xdff")
         self.last_x, self.last_y = self.x, self.y
 
