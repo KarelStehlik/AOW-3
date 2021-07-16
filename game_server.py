@@ -150,6 +150,9 @@ class Game:
             elif data["action"] == "ping":
                 self.channels[side].Send({"action": "pong", "time": str(time.time())})
             elif data["action"] == "send_wave":
+                for e in self.players[1-side].formations:
+                    if e.AI:
+                        return
                 self.summon_ai_wave(side)
 
     def summon_ai_wave(self, side):
@@ -164,7 +167,7 @@ class Game:
         x = int(self.players[side].TownHall.x + distance * math.cos(angle))
         y = int(self.players[side].TownHall.y + distance * math.sin(angle))
         args = [self.object_ID, side, x, y, units[0], self.ticks, worth, str(units[1])]
-        wave = Formation(self.object_ID, [], units[0], 1 - side, self, x=x, y=y, amplifier=units[1])
+        wave = Formation(self.object_ID, [], units[0], 1 - side, self, x=x, y=y, amplifier=units[1], AI=True)
         self.object_ID += 1
         wave.attack(self.players[side].TownHall)
         self.send_both({"action": "summon_wave", "args": args})
@@ -615,7 +618,8 @@ class Wall:
 
 
 class Formation:
-    def __init__(self, ID, instructions, troops, side, game, x=None, y=None, amplifier=1):
+    def __init__(self, ID, instructions, troops, side, game, x=None, y=None, amplifier=1, AI=False):
+        self.AI=AI
         self.entity_type = "formation"
         self.exists = False
         self.spawning = 0

@@ -190,6 +190,16 @@ class Game:
                 self.select(selects_all[self.UI_bottomBar.page][symbol - 49])
         elif symbol == 65307:
             self.select(selection_none)
+        elif symbol in [key.E, key.R, key.T]:
+            x, y = (self.mousex + self.camx) / SPRITE_SIZE_MULT, (self.mousey + self.camy) / SPRITE_SIZE_MULT
+            for e in self.players[self.side].all_buildings:
+                if e.distance_to_point(x, y) <= 0:
+                    i = [key.E, key.R, key.T].index(symbol)
+                    if len(e.upgrades_into) > i:
+                        self.connection.Send({"action": "buy upgrade", "building ID": e.ID, "upgrade num": i})
+        elif symbol == key.Q:
+            self.send_wave()
+
         self.selected.key_press(symbol, modifiers)
 
     def key_release(self, symbol, modifiers):
