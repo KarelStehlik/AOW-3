@@ -1336,8 +1336,9 @@ class Wall:
 
 class Formation:
     def __init__(self, ID, instructions, troops, tick, side, game, x=None, y=None, AI=False, amplifier=1.0):
+        self.game = game
         if x is None:
-            self.x, self.y = self.game.players[self.side].TownHall.x, self.game.players[self.side].TownHall.y
+            self.x, self.y = game.players[self.side].TownHall.x, game.players[self.side].TownHall.y
         else:
             self.x, self.y = x, y
         if not AI:
@@ -1363,7 +1364,6 @@ class Formation:
         self.ID = ID
         self.instructions = instructions
         self.side = side
-        self.game = game
         self.troops = []
         self.game.players[self.side].formations.append(self)
         i = 0
