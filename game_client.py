@@ -1702,7 +1702,7 @@ class Unit:
         self.lifetime += 1
         if self.current_cooldown > 0:
             self.current_cooldown -= 1 / FPS
-        if not self.reached_goal and self.x == self.last_x and self.y == self.last_y:
+        if (not self.formation.all_targets) and (not self.reached_goal) and self.x == self.last_x and self.y == self.last_y:
             self.reached_goal = True
             print("xdff")
         self.last_x, self.last_y = self.x, self.y
