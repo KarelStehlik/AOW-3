@@ -6,8 +6,9 @@ def generate_units(money):
     original_money = money
     units = [[-1 for _ in range(UNIT_FORMATION_ROWS)] for _ in range(UNIT_FORMATION_COLUMNS)]
 
-    # units[1][1]=len(possible_units)-1
-    # return units, 1
+    # units[1][1] = 0
+    # money-=10
+    # return units, original_money / (original_money - money)
 
     big, medium, small = [], [], []
     for e in possible_units:
@@ -146,7 +147,7 @@ class Game:
                     target.upgrades_into = []
             elif data["action"] == "ping":
                 self.channels[side].Send({"action": "pong", "time": str(time.time())})
-            elif data["action"]=="send_wave":
+            elif data["action"] == "send_wave":
                 self.summon_ai_wave(side)
 
     def summon_ai_wave(self, side):

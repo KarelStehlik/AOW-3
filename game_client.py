@@ -1,3 +1,5 @@
+from typing import List
+
 import pyglet.sprite
 
 from imports import *
@@ -8,6 +10,8 @@ import client_utility
 
 
 class Game:
+    UI_toolbars: List[client_utility.toolbar]
+
     def __init__(self, side, batch, connection, time0):
         self.camx, self.camy = 0, 0
         self.ticks = 0
