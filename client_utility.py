@@ -58,7 +58,7 @@ class button:
         self.ogx, self.ogy = x, y
         self.text = pyglet.text.Label(text, x=self.x + self.width // 2,
                                       y=self.y + self.height * 4 / 7, color=(255, 255, 0, 255),
-                                      batch=batch, group=groups.g[layer+1], font_size=int(SPRITE_SIZE_MULT * self.height / 2),
+                                      batch=batch, group=groups.g[layer+1], font_size=int(self.height / 2),
                                       anchor_x="center", align="center", anchor_y="center")
         self.down = False
         self.big = 0

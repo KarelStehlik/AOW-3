@@ -361,7 +361,7 @@ class UI_formation(client_utility.toolbar):
                  image=images.Sendbutton)
         self.cost_count = pyglet.text.Label(x=self.x + self.width / 2, y=5, text="Cost: 0", color=(255, 240, 0, 255),
                                             group=groups.g[10], batch=self.batch, anchor_x="center", anchor_y="bottom",
-                                            font_size=20 * SPRITE_SIZE_MULT)
+                                            font_size=0.01 * SCREEN_WIDTH)
         self.cost = 0
 
     def sucessful_click(self, x, y):
@@ -452,7 +452,7 @@ class UI_top_bar(client_utility.toolbar):
         self.money = pyglet.text.Label(x=SCREEN_WIDTH * 0.995, y=SCREEN_HEIGHT * 0.995, text="Gold:0",
                                        color=(255, 240, 0, 255),
                                        group=groups.g[9], batch=self.batch, anchor_y="top", anchor_x="right",
-                                       font_size=20 * SPRITE_SIZE_MULT)
+                                       font_size=0.01 * SCREEN_WIDTH)
         timer_x_centre = self.height * 2
         timer_x_range = self.height * 2
         timer_y_centre = self.y + self.height * .85
@@ -474,7 +474,7 @@ class UI_top_bar(client_utility.toolbar):
         self.timer_text = pyglet.text.Label(x=self.height * 2, y=self.y + self.height * .1, text="next wave in: 10",
                                             color=(255, 100, 0, 255),
                                             group=groups.g[9], batch=self.batch, anchor_y="bottom", anchor_x="center",
-                                            font_size=20 * SPRITE_SIZE_MULT)
+                                            font_size=0.01 * SCREEN_WIDTH)
 
     def update(self):
         x = self.timer_width * (self.last_wave_tick + WAVE_INTERVAL - self.game.ticks) / WAVE_INTERVAL
@@ -540,7 +540,7 @@ class selection_building(selection):
         self.sprite = pyglet.sprite.Sprite(self.entity_type.image, x=self.game.mousex,
                                            y=self.game.mousey, batch=game.batch,
                                            group=groups.g[2])
-        self.sprite.scale = self.size / self.sprite.width
+        self.sprite.scale = self.size / self.sprite.width * SPRITE_SIZE_MULT
         self.sprite.opacity = 100
         self.update_cam(self.game.camx, self.game.camy)
 
@@ -806,7 +806,7 @@ class building_upgrade_menu(client_utility.toolbar):
                 y=self.target.y * SPRITE_SIZE_MULT - game.camy - self.height / 2, text=str(int(e.get_cost([]))),
                 color=(255, 240, 0, 255),
                 group=groups.g[9], batch=game.batch, anchor_y="bottom", anchor_x="center",
-                font_size=12 * SPRITE_SIZE_MULT))
+                font_size=0.00625 * SCREEN_WIDTH))
             self.add(self.clicked_button,
                      self.target.x * SPRITE_SIZE_MULT - game.camx - self.width / 2 + buttonsize * i,
                      self.target.y * SPRITE_SIZE_MULT - game.camy - self.height / 2, buttonsize,
@@ -1029,7 +1029,8 @@ class Tower(Building):
         if self.target is not None and self.target.exists and self.target.distance_to_point(self.x,
                                                                                             self.y) < self.reach:
             return True
-        if self.turns_without_target % 30 == 0:
+        if self.turns_without_target == 60:
+            self.turns_without_target = 0
             for c in self.shooting_in_chunks:
                 chonker = self.game.find_chunk(c)
                 if chonker is not None:
@@ -1044,6 +1045,7 @@ class Tower(Building):
                             self.turns_without_target = 0
                             return True
             return False
+        return False
 
     def take_damage(self, amount, source):
         if self.exists:
