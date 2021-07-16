@@ -8,8 +8,8 @@ def generate_units(money):
 
     # units[1][1]=len(possible_units)-1
     # return units, 1
-    units[1][1] = 4
-    money-=possible_units[4].get_cost([])
+    units[1][1] = 1
+    money-=possible_units[1].get_cost([])
     return units, original_money / (original_money - money)
 
     big, medium, small = [], [], []
@@ -137,7 +137,7 @@ class Game:
                     self.object_ID += 1
             elif data["action"] == "buy upgrade":
                 target = self.find_building(data["building ID"], side)
-                if len(target.upgrades_into) <= data["upgrade num"]:
+                if target is None or len(target.upgrades_into) <= data["upgrade num"]:
                     return
                 if target is not None and target.exists and self.players[side].attempt_purchase(
                         target.upgrades_into[data["upgrade num"]].get_cost([])):
@@ -154,13 +154,13 @@ class Game:
 
     def summon_ai_wave(self, side):
         self.players[side].ai_wave += 1
-        power = 1000 * self.players[side].ai_wave ** 2
+        power = 1000 * self.players[side].ai_wave# ** 2
         worth = power
         self.players[side].gain_money(worth)
         self.players[side].time_until_wave = WAVE_INTERVAL
         units = generate_units(power)
         angle = random.random() * 2 * math.pi
-        distance = 1000 * self.players[side].ai_wave ** .5
+        distance = 1000 * self.players[side].ai_wave ** .2
         x = int(self.players[side].TownHall.x + distance * math.cos(angle))
         y = int(self.players[side].TownHall.y + distance * math.sin(angle))
         args = [self.object_ID, side, x, y, units[0], self.ticks, worth, str(units[1])]
