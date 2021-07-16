@@ -25,6 +25,8 @@ Wall = IL("Wall").get_texture()
 WallCrack = IL("wall_crack").get_texture()
 blue_arrow = IL("blue_arrow").get_texture()
 
+Warn = RI("Warn")
+Egg = RI('Egg')
 Button = RI("Button")
 Toolbar = RI("Toolbar", False)
 Intro = RI("Intro", False)
@@ -32,7 +34,7 @@ Cancelbutton = RI("Cancelbutton")
 Sendbutton = RI("Sendbutton")
 Towerbutton = RI("Towerbutton")
 UnitSlot = RI("UnitSlot")
-UnitFormFrame = RI("UnitFormFrame",False)
+UnitFormFrame = RI("UnitFormFrame", False)
 Fire = RI("fire")
 Shockwave = RI("shockwave")
 Boulder = RI("Boulder")
@@ -56,17 +58,17 @@ Arrow = RI("Arrow")
 Arrow.anchor_x = Arrow.width / 2
 Arrow.anchor_y = Arrow.height
 
-Swordsman = RI("Swordsman",False)
+Swordsman = RI("Swordsman", False)
 Swordsman.anchor_x = 64
 Swordsman.anchor_y = 54
-Bowman = RI("Bowman",False)
+Bowman = RI("Bowman", False)
 Bowman.anchor_x = 64
 Bowman.anchor_y = 60
 Trebuchet = RI("Trebuchet")
 Trebuchet.anchor_x = Trebuchet.width / 2
 Trebuchet.anchor_y = Trebuchet.height * .6
 Defender = RI("Defender")
-Bear=RI("Bear")
+Bear = RI("Bear")
 
 # #######################  CLONE  ############################
 gunmanR = pyglet.resource.image("imagefolder/BGunman.png")

@@ -1029,7 +1029,7 @@ class Tower(Building):
         if self.target is not None and self.target.exists and self.target.distance_to_point(self.x,
                                                                                             self.y) < self.reach:
             return True
-        if self.turns_without_target == 60:
+        if self.turns_without_target == 60 or self.turns_without_target == 0:
             self.turns_without_target = 0
             for c in self.shooting_in_chunks:
                 chonker = self.game.find_chunk(c)
@@ -1326,8 +1326,26 @@ class Wall:
 
 class Formation:
     def __init__(self, ID, instructions, troops, tick, side, game, x=None, y=None, AI=False, amplifier=1.0):
+        if x is None:
+            self.x, self.y = self.game.players[self.side].TownHall.x, self.game.players[self.side].TownHall.y
+        else:
+            self.x, self.y = x, y
         if not AI:
             game.players[side].money -= self.get_cost([troops])
+            self.has_warning = False
+            self.warning = None
+        elif side != game.players[1 - game.side]:
+            self.has_warning = True
+            warn_angle = get_rotation(self.x * SPRITE_SIZE_MULT - game.camx - SCREEN_WIDTH / 2,
+                                      self.y * SPRITE_SIZE_MULT - game.camy - SCREEN_HEIGHT / 2)
+            self.warning = pyglet.sprite.Sprite(images.Warn, x=SCREEN_WIDTH / 2 + 500 * math.cos(warn_angle),
+                                                y=SCREEN_HEIGHT / 2 + 500 * math.sin(warn_angle), batch=game.batch,
+                                                group=groups.g[7])
+            self.warning.scale = 0.2 * SPRITE_SIZE_MULT
+        else:
+            self.has_warning = False
+            self.warning = None
+        self.AI = AI
         self.entity_type = "formation"
         self.exists = False
         self.spawning = game.ticks - tick
@@ -1338,10 +1356,6 @@ class Formation:
         self.troops = []
         self.game.players[self.side].formations.append(self)
         i = 0
-        if x is None:
-            self.x, self.y = self.game.players[self.side].TownHall.x, self.game.players[self.side].TownHall.y
-        else:
-            self.x, self.y = x, y
         for column in range(UNIT_FORMATION_COLUMNS):
             for row in range(UNIT_FORMATION_ROWS):
                 if troops[column][row] != -1:
@@ -1397,9 +1411,33 @@ class Formation:
         self.game.players[self.side].formations.remove(self)
         self.instr_object.target = None
         self.instr_object = None
+        if self.has_warning:
+            self.warning.delete()
 
     def update_cam(self, x, y):
         [e.update_cam(x, y) for e in self.troops]
+        if self.has_warning:
+            self.update_warning(x, y)
+
+    def update_warning(self, x, y):
+        warn_distance = 500
+        dist = distance(self.x * SPRITE_SIZE_MULT - x - SCREEN_WIDTH / 2,
+                        self.y * SPRITE_SIZE_MULT - y - SCREEN_HEIGHT / 2, 0, 0)
+        if dist > warn_distance:
+            warn_angle = get_rotation(self.x * SPRITE_SIZE_MULT - x - SCREEN_WIDTH / 2,
+                                      self.y * SPRITE_SIZE_MULT - y - SCREEN_HEIGHT / 2)
+            self.warning.update(x=SCREEN_WIDTH / 2 + warn_distance * math.cos(warn_angle),
+                                y=SCREEN_HEIGHT / 2 + warn_distance * math.sin(warn_angle))
+        else:
+            self.warning.update(x=self.x * SPRITE_SIZE_MULT - x,
+                                y=self.y * SPRITE_SIZE_MULT - y)
+        o = self.warning.opacity
+        o -= 1
+        if o > 0:
+            self.warning.opacity = o
+        else:
+            self.warning.delete()
+            self.has_warning = False
 
     def attack(self, enemy):
         if enemy.entity_type == "formation":
@@ -1945,7 +1983,7 @@ class Meteor(Projectile):
 
 
 class Egg(Meteor):
-    image = images.Meteor
+    image = images.Egg
     scale = .15
     explosion_size = 80
     explosion_speed = 100
@@ -2011,8 +2049,8 @@ def AOE_damage(x, y, size, amount, source, game):
     chunks_affected = get_chunks(x, y, size)
     side = source.side
     affected_things = []
-    for chunk in chunks_affected:
-        c = game.find_chunk(chunk)
+    for coord in chunks_affected:
+        c = game.find_chunk(coord)
         if c is not None:
             for unit in c.units[1 - side]:
                 if unit.distance_to_point(x, y) < size and unit not in affected_things:

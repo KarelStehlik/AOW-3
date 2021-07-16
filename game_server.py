@@ -400,7 +400,7 @@ class Tower(Building):
         if self.target is not None and self.target.exists and self.target.distance_to_point(self.x,
                                                                                             self.y) < self.reach:
             return True
-        if self.turns_without_target == 60:
+        if self.turns_without_target == 60 or self.turns_without_target == 0:
             self.turns_without_target = 0
             for c in self.shooting_in_chunks:
                 chonker = self.game.find_chunk(c)
