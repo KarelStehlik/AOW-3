@@ -8,9 +8,9 @@ def generate_units(money):
 
     # units[1][1]=len(possible_units)-1
     # return units, 1
-    units[1][1] = 1
-    money-=possible_units[1].get_cost([])
-    return units, original_money / (original_money - money)
+    #units[1][1] = 1
+    #money-=possible_units[1].get_cost([])
+    #return units, original_money / (original_money - money)
 
     big, medium, small = [], [], []
     for e in possible_units:
