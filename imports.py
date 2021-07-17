@@ -23,6 +23,8 @@ def load_stats():
             for e in name_stats[1].split(","):
                 k = e.split("=")
                 stats[k[0]] = float(k[1])
+                if k[0] == "speed":
+                    stats[k[0]] /= constants.FPS
             del e
             unit_statst[name_stats[0]] = stats
     return unit_statst
@@ -117,3 +119,14 @@ def distance(x1, y1, x2, y2):
 
 
 distance(1.1, 1.1, 1.1, 1.1)
+
+
+@njit
+def product(a):
+    p = 0
+    for e in a:
+        p *= e
+    return p
+
+
+product([1, 2, 3, 4])

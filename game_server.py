@@ -150,7 +150,7 @@ class Game:
             elif data["action"] == "ping":
                 self.channels[side].Send({"action": "pong", "time": str(time.time())})
             elif data["action"] == "send_wave":
-                for e in self.players[1-side].formations:
+                for e in self.players[1 - side].formations:
                     if e.AI:
                         return
                 self.summon_ai_wave(side)
@@ -288,7 +288,7 @@ class Building:
         self.x, self.y = x, y
         self.side = side
         self.size = unit_stats[self.name]["size"]
-        self.hp = self.maxhp = unit_stats[self.name]["hp"]
+        self.health = self.max_health = unit_stats[self.name]["hp"]
         self.game = game
         self.chunks = get_chunks(x, y, self.size)
         self.exists = False
@@ -300,8 +300,8 @@ class Building:
 
     def take_damage(self, amount, source):
         if self.exists:
-            self.hp -= amount
-            if self.hp <= 0:
+            self.health -= amount
+            if self.health <= 0:
                 self.die()
 
     def die(self):
@@ -539,7 +539,7 @@ class Wall:
         self.entity_type = "wall"
         self.exists = False
         self.spawning = 0
-        self.hp = unit_stats[self.name]["hp"]
+        self.health = unit_stats[self.name]["hp"]
         self.width = unit_stats[self.name]["width"]
         self.ID = ID
         self.x1, self.y1, self.x2, self.y2 = t1.x, t1.y, t2.x, t2.y
@@ -567,8 +567,8 @@ class Wall:
     def take_damage(self, amount, source):
         if not self.exists:
             return
-        self.hp -= amount
-        if self.hp <= 0:
+        self.health -= amount
+        if self.health <= 0:
             self.die()
             return
 
@@ -619,7 +619,7 @@ class Wall:
 
 class Formation:
     def __init__(self, ID, instructions, troops, side, game, x=None, y=None, amplifier=1, AI=False):
-        self.AI=AI
+        self.AI = AI
         self.entity_type = "formation"
         self.exists = False
         self.spawning = 0
@@ -778,7 +778,7 @@ class Unit:
         self.column, self.row = column, row
         self.game.players[self.side].units.append(self)
         self.size = unit_stats[self.name]["size"]
-        self.speed = unit_stats[self.name]["speed"] / FPS
+        self.speed = unit_stats[self.name]["speed"]
         self.health = self.max_health = unit_stats[self.name]["hp"] * amplifier
         self.damage = unit_stats[self.name]["dmg"] * amplifier
         self.attack_cooldown = unit_stats[self.name]["cd"]
@@ -794,6 +794,14 @@ class Unit:
         self.chunks = get_chunks(self.x, self.y, self.size)
         for e in self.chunks:
             self.game.add_unit_to_chunk(self, e)
+        self.effects = []
+        self.base_stats = unit_stats[self.name]
+        self.mods_add = {e: [] for e in unit_stats[self.name].keys}
+        self.mods_multiply = {e: [] for e in unit_stats[self.name].keys}
+        self.mods_multiply["damage"] = [amplifier]
+        self.mods_multiply["health"] = [amplifier]
+        self.stats = {e: (self.base_stats[e] + sum(self.mods_add[e])) * product(self.mods_multiply[e]) for e in
+                      self.base_stats.keys}
 
     def distance_to_point(self, x, y):
         return distance(self.x, self.y, x, y) - self.size / 2
@@ -909,8 +917,9 @@ class Unit:
         self.lifetime += 1
         if self.current_cooldown > 0:
             self.current_cooldown -= 1 / FPS
-        if (not self.formation.all_targets) and (not self.reached_goal) and self.x == self.last_x and self.y == self.last_y:
-            self.x+=10
+        if (not self.formation.all_targets) and (
+                not self.reached_goal) and self.x == self.last_x and self.y == self.last_y:
+            self.x += 10
             print("xdff")
         self.last_x, self.last_y = self.x, self.y
 

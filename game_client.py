@@ -193,7 +193,7 @@ class Game:
         elif symbol in [key.E, key.R, key.T]:
             x, y = (self.mousex + self.camx) / SPRITE_SIZE_MULT, (self.mousey + self.camy) / SPRITE_SIZE_MULT
             for e in self.players[self.side].all_buildings:
-                if e.entity_type!="wall" and e.distance_to_point(x, y) <= 0:
+                if e.entity_type != "wall" and e.distance_to_point(x, y) <= 0:
                     i = [key.E, key.R, key.T].index(symbol)
                     if len(e.upgrades_into) > i:
                         self.connection.Send({"action": "buy upgrade", "building ID": e.ID, "upgrade num": i})
@@ -355,7 +355,6 @@ class UI_formation(client_utility.toolbar):
         self.dot_size = SCREEN_HEIGHT * 0.1788 / self.rows
         self.game = game
         self.dot_scale = self.dot_size / images.UnitSlot.width
-
         super().__init__(SCREEN_WIDTH - self.dot_size * (self.columns + 4), 0, self.dot_size * (self.columns + 4),
                          self.dot_size * (self.rows + 4) + SCREEN_HEIGHT * 0.1, game.batch,
                          image=images.UnitFormFrame, layer=7)
@@ -854,7 +853,7 @@ class Building:
         self.x, self.y = x, y
         self.side = side
         self.size = unit_stats[self.name]["size"]
-        self.hp = self.maxhp = unit_stats[self.name]["hp"]
+        self.health = self.max_health = unit_stats[self.name]["hp"]
         self.sprite = pyglet.sprite.Sprite(self.image, x=x * SPRITE_SIZE_MULT - game.camx,
                                            y=y * SPRITE_SIZE_MULT - game.camy, batch=game.batch,
                                            group=groups.g[2])
@@ -899,7 +898,7 @@ class Building:
         hpbar_y_range = 2 * SPRITE_SIZE_MULT
         hpbar_x_centre = self.sprite.x
         hpbar_x_range = self.size * SPRITE_SIZE_MULT / 2
-        health_size = hpbar_x_range * (2 * self.hp / self.maxhp - 1)
+        health_size = hpbar_x_range * (2 * self.health / self.max_health - 1)
         self.hpbar.vertices = (hpbar_x_centre - hpbar_x_range, hpbar_y_centre - hpbar_y_range,
                                hpbar_x_centre - hpbar_x_range, hpbar_y_centre + hpbar_y_range,
                                hpbar_x_centre + health_size, hpbar_y_centre + hpbar_y_range,
@@ -911,8 +910,8 @@ class Building:
 
     def take_damage(self, amount, source):
         if self.exists:
-            self.hp -= amount
-            if self.hp <= 0:
+            self.health -= amount
+            if self.health <= 0:
                 self.die()
 
     def die(self):
@@ -1059,7 +1058,7 @@ class Tower(Building):
 
     def take_damage(self, amount, source):
         if self.exists:
-            self.sprite2.opacity = 255 * max(0, (self.maxhp - self.hp)) / self.maxhp
+            self.sprite2.opacity = 255 * max(0, (self.max_health - self.health)) / self.max_health
             super().take_damage(amount, source)
 
     def update_cam(self, x, y):
@@ -1237,7 +1236,7 @@ class Wall:
         self.side = side
         self.tower_1, self.tower_2 = t1, t2
         self.width = unit_stats[self.name]["width"]
-        self.hp = self.maxhp = unit_stats[self.name]["hp"]
+        self.health = self.max_health = unit_stats[self.name]["hp"]
         self.game = game
         game.players[side].walls.append(self)
         game.players[side].all_buildings.append(self)
@@ -1299,11 +1298,11 @@ class Wall:
     def take_damage(self, amount, source):
         if not self.exists:
             return
-        self.hp -= amount
-        if self.hp <= 0:
+        self.health -= amount
+        if self.health <= 0:
             self.die()
             return
-        self.crack_sprite.colors[3::4] = [int((255 * (self.maxhp - self.hp)) // self.maxhp)] * 4
+        self.crack_sprite.colors[3::4] = [int((255 * (self.max_health - self.health)) // self.max_health)] * 4
 
     def shove(self):
         for e in self.game.players[1 - self.side].units:
@@ -1564,7 +1563,7 @@ class Unit:
                 163, 73, 163, 163, 73, 163, 163, 73, 163, 163, 73, 163, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50))
         )
 
-        self.speed = unit_stats[self.name]["speed"] / FPS
+        self.speed = unit_stats[self.name]["speed"]
         self.health = self.max_health = unit_stats[self.name]["hp"] * amplifier
         self.damage = unit_stats[self.name]["dmg"] * amplifier
         self.attack_cooldown = unit_stats[self.name]["cd"]
@@ -1581,6 +1580,14 @@ class Unit:
         self.chunks = get_chunks(self.x, self.y, self.size)
         for e in self.chunks:
             self.game.add_unit_to_chunk(self, e)
+        self.effects = []
+        self.base_stats = unit_stats[self.name]
+        self.mods_add = {e: [] for e in unit_stats[self.name].keys}
+        self.mods_multiply = {e: [] for e in unit_stats[self.name].keys}
+        self.mods_multiply["damage"] = [amplifier]
+        self.mods_multiply["health"] = [amplifier]
+        self.stats = {e: (self.base_stats[e] + sum(self.mods_add[e])) * product(self.mods_multiply[e]) for e in
+                      self.base_stats.keys}
 
     def distance_to_point(self, x, y):
         return distance(self.x, self.y, x, y) - self.size / 2
@@ -1702,8 +1709,9 @@ class Unit:
         self.lifetime += 1
         if self.current_cooldown > 0:
             self.current_cooldown -= 1 / FPS
-        if (not self.formation.all_targets) and (not self.reached_goal) and self.x == self.last_x and self.y == self.last_y:
-            self.x+=10
+        if (not self.formation.all_targets) and (
+                not self.reached_goal) and self.x == self.last_x and self.y == self.last_y:
+            self.x += 10
             print("xdff")
         self.last_x, self.last_y = self.x, self.y
 
