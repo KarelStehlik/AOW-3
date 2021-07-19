@@ -853,7 +853,7 @@ class Building:
         self.x, self.y = x, y
         self.side = side
         self.size = unit_stats[self.name]["size"]
-        self.health = self.max_health = unit_stats[self.name]["hp"]
+        self.health = self.max_health = unit_stats[self.name]["health"]
         self.sprite = pyglet.sprite.Sprite(self.image, x=x * SPRITE_SIZE_MULT - game.camx,
                                            y=y * SPRITE_SIZE_MULT - game.camy, batch=game.batch,
                                            group=groups.g[2])
@@ -885,6 +885,12 @@ class Building:
         self.sprite.opacity = 70
         self.upgrades_into = []
         self.comes_from = None
+        self.effects = []
+        self.base_stats = unit_stats[self.name]
+        self.mods_add = {e: [] for e in unit_stats[self.name].keys()}
+        self.mods_multiply = {e: [] for e in unit_stats[self.name].keys()}
+        self.stats = {e: (self.base_stats[e] + sum(self.mods_add[e])) * product(*self.mods_multiply[e]) for e in
+                      self.base_stats.keys()}
 
     def towards(self, x, y):
         dx, dy = self.x - x, self.y - y
@@ -898,7 +904,7 @@ class Building:
         hpbar_y_range = 2 * SPRITE_SIZE_MULT
         hpbar_x_centre = self.sprite.x
         hpbar_x_range = self.size * SPRITE_SIZE_MULT / 2
-        health_size = hpbar_x_range * (2 * self.health / self.max_health - 1)
+        health_size = hpbar_x_range * (2 * self.health / self.stats["health"] - 1)
         self.hpbar.vertices = (hpbar_x_centre - hpbar_x_range, hpbar_y_centre - hpbar_y_range,
                                hpbar_x_centre - hpbar_x_range, hpbar_y_centre + hpbar_y_range,
                                hpbar_x_centre + health_size, hpbar_y_centre + hpbar_y_range,
@@ -1236,7 +1242,7 @@ class Wall:
         self.side = side
         self.tower_1, self.tower_2 = t1, t2
         self.width = unit_stats[self.name]["width"]
-        self.health = self.max_health = unit_stats[self.name]["hp"]
+        self.health = self.max_health = unit_stats[self.name]["health"]
         self.game = game
         game.players[side].walls.append(self)
         game.players[side].all_buildings.append(self)
@@ -1564,7 +1570,7 @@ class Unit:
         )
 
         self.speed = unit_stats[self.name]["speed"]
-        self.health = self.max_health = unit_stats[self.name]["hp"] * amplifier
+        self.health = self.max_health = unit_stats[self.name]["health"] * amplifier
         self.damage = unit_stats[self.name]["dmg"] * amplifier
         self.attack_cooldown = unit_stats[self.name]["cd"]
         self.current_cooldown = 0
@@ -1582,12 +1588,12 @@ class Unit:
             self.game.add_unit_to_chunk(self, e)
         self.effects = []
         self.base_stats = unit_stats[self.name]
-        self.mods_add = {e: [] for e in unit_stats[self.name].keys}
-        self.mods_multiply = {e: [] for e in unit_stats[self.name].keys}
+        self.mods_add = {e: [] for e in unit_stats[self.name].keys()}
+        self.mods_multiply = {e: [] for e in unit_stats[self.name].keys()}
         self.mods_multiply["damage"] = [amplifier]
         self.mods_multiply["health"] = [amplifier]
-        self.stats = {e: (self.base_stats[e] + sum(self.mods_add[e])) * product(self.mods_multiply[e]) for e in
-                      self.base_stats.keys}
+        self.stats = {e: (self.base_stats[e] + sum(self.mods_add[e])) * product(*self.mods_multiply[e]) for e in
+                      self.base_stats.keys()}
 
     def distance_to_point(self, x, y):
         return distance(self.x, self.y, x, y) - self.size / 2
@@ -1615,7 +1621,7 @@ class Unit:
         hpbar_y_range = 2 * SPRITE_SIZE_MULT
         hpbar_x_centre = self.sprite.x
         hpbar_x_range = self.size * SPRITE_SIZE_MULT / 2
-        health_size = hpbar_x_range * (2 * self.health / self.max_health - 1)
+        health_size = hpbar_x_range * (2 * self.health / self.stats["health"] - 1)
         self.hpbar.vertices = (hpbar_x_centre - hpbar_x_range, hpbar_y_centre - hpbar_y_range,
                                hpbar_x_centre - hpbar_x_range, hpbar_y_centre + hpbar_y_range,
                                hpbar_x_centre + health_size, hpbar_y_centre + hpbar_y_range,
@@ -1641,35 +1647,35 @@ class Unit:
             d = other.distance_to_point(self.x, self.y)
             if d > self.reach:
                 direction = other.towards(self.x, self.y)
-                self.vx = self.speed * direction[0]
-                self.vy = self.speed * direction[1]
+                self.vx = self.stats["speed"] * direction[0]
+                self.vy = self.stats["speed"] * direction[1]
                 self.x += self.vx
                 self.y += self.vy
             elif d < self.reach / 2:
                 direction = other.towards(self.x, self.y)
-                self.vx = -self.speed * direction[0] / 2
-                self.vy = -self.speed * direction[1] / 2
+                self.vx = -self.stats["speed"] * direction[0] / 2
+                self.vy = -self.stats["speed"] * direction[1] / 2
                 self.x += self.vx
                 self.y += self.vy
-            return d <= self.reach
+            return d <= self.stats["reach"]
         else:
             dist_sq = (other.x - self.x) ** 2 + (other.y - self.y) ** 2
-            if dist_sq < ((other.size + self.size) * .5 + self.reach * .8) ** 2:
+            if dist_sq < ((other.size + self.size) * .5 + self.stats["reach"] * .8) ** 2:
                 self.rotate(self.x - other.x, self.y - other.y)
                 self.vx *= .7
                 self.vy *= .7
                 self.x += self.vx
                 self.y += self.vy
                 return True
-            elif dist_sq > ((other.size + self.size) * .5 + self.reach) ** 2:
+            elif dist_sq > ((other.size + self.size) * .5 + self.stats["reach"]) ** 2:
                 self.rotate(other.x - self.x, other.y - self.y)
                 self.x += self.vx
                 self.y += self.vy
-            return dist_sq < ((other.size + self.size) * .5 + self.reach) ** 2
+            return dist_sq < ((other.size + self.size) * .5 + self.stats["reach"]) ** 2
 
     def attempt_attack(self, target):
         if self.current_cooldown <= 0:
-            self.current_cooldown += self.attack_cooldown
+            self.current_cooldown += self.stats["cd"]
             self.attack(target)
 
     def attack(self, target):
@@ -1746,7 +1752,7 @@ class Unit:
         inv_hypot = inv_h(x, y)
         r = get_rotation(x, y)
         self.rotation = r
-        self.vx, self.vy = x * inv_hypot * self.speed, y * inv_hypot * self.speed
+        self.vx, self.vy = x * inv_hypot * self.stats["speed"], y * inv_hypot * self.stats["speed"]
 
     def summon_done(self):
         self.exists = True
@@ -1779,8 +1785,8 @@ class Unit:
                 dist_sq = .01
                 self.x += .01
             if dist_sq < ((other.size + self.size) * .5) ** 2:
-                shovage = (other.size + self.size) * .5 * dist_sq ** -.5 - 1  # desired dist / current dist -1
-                mass_ratio = self.mass / (self.mass + other.mass)
+                shovage = (other.size + self.size) * .5 * dist_sq ** -.5 - 1  # desirfv0r54ed dist / current dist -1
+                mass_ratio = self.stats["mass"] / (self.stats["mass"] + other.stats["mass"])
                 ex, sx, ey, sy = other.x, self.x, other.y, self.y
                 other.take_knockback((ex - sx) * shovage * mass_ratio, (ey - sy) * shovage * mass_ratio,
                                      self)

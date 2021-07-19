@@ -1,3 +1,4 @@
+import numba
 import pyglet
 import time
 import random
@@ -5,7 +6,8 @@ from pyglet.window import key
 from pyglet import clock
 import os
 import math
-from numba import njit
+from numba import njit, float64
+from numba.typed import List
 from numba.experimental import jitclass
 import constants
 from functools import cache
@@ -121,12 +123,14 @@ def distance(x1, y1, x2, y2):
 distance(1.1, 1.1, 1.1, 1.1)
 
 
-@njit
-def product(a):
-    p = 0
+@njit  # (List(float64))
+def product(*a):
+    if len(a) == 0:
+        return 1.0
+    p = 1.0
     for e in a:
         p *= e
     return p
 
 
-product([1, 2, 3, 4])
+product(1.2, 1.3, 1.2)

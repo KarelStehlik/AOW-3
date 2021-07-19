@@ -288,7 +288,7 @@ class Building:
         self.x, self.y = x, y
         self.side = side
         self.size = unit_stats[self.name]["size"]
-        self.health = self.max_health = unit_stats[self.name]["hp"]
+        self.health = self.max_health = unit_stats[self.name]["health"]
         self.game = game
         self.chunks = get_chunks(x, y, self.size)
         self.exists = False
@@ -539,7 +539,7 @@ class Wall:
         self.entity_type = "wall"
         self.exists = False
         self.spawning = 0
-        self.health = unit_stats[self.name]["hp"]
+        self.health = unit_stats[self.name]["health"]
         self.width = unit_stats[self.name]["width"]
         self.ID = ID
         self.x1, self.y1, self.x2, self.y2 = t1.x, t1.y, t2.x, t2.y
@@ -779,7 +779,7 @@ class Unit:
         self.game.players[self.side].units.append(self)
         self.size = unit_stats[self.name]["size"]
         self.speed = unit_stats[self.name]["speed"]
-        self.health = self.max_health = unit_stats[self.name]["hp"] * amplifier
+        self.health = self.max_health = unit_stats[self.name]["health"] * amplifier
         self.damage = unit_stats[self.name]["dmg"] * amplifier
         self.attack_cooldown = unit_stats[self.name]["cd"]
         self.current_cooldown = 0
@@ -796,12 +796,12 @@ class Unit:
             self.game.add_unit_to_chunk(self, e)
         self.effects = []
         self.base_stats = unit_stats[self.name]
-        self.mods_add = {e: [] for e in unit_stats[self.name].keys}
-        self.mods_multiply = {e: [] for e in unit_stats[self.name].keys}
+        self.mods_add = {e: [] for e in unit_stats[self.name].keys()}
+        self.mods_multiply = {e: [] for e in unit_stats[self.name].keys()}
         self.mods_multiply["damage"] = [amplifier]
         self.mods_multiply["health"] = [amplifier]
-        self.stats = {e: (self.base_stats[e] + sum(self.mods_add[e])) * product(self.mods_multiply[e]) for e in
-                      self.base_stats.keys}
+        self.stats = {e: (self.base_stats[e] + sum(self.mods_add[e])) * product(*self.mods_multiply[e]) for e in
+                      self.base_stats.keys()}
 
     def distance_to_point(self, x, y):
         return distance(self.x, self.y, x, y) - self.size / 2
@@ -848,25 +848,25 @@ class Unit:
                 self.vy = -self.speed * direction[1] / 2
                 self.x += self.vx
                 self.y += self.vy
-            return d <= self.reach
+            return d <= self.stats["reach"]
         else:
             dist_sq = (other.x - self.x) ** 2 + (other.y - self.y) ** 2
-            if dist_sq < ((other.size + self.size) * .5 + self.reach * .8) ** 2:
+            if dist_sq < ((other.size + self.size) * .5 + self.stats["reach"] * .8) ** 2:
                 self.rotate(self.x - other.x, self.y - other.y)
                 self.vx *= .7
                 self.vy *= .7
                 self.x += self.vx
                 self.y += self.vy
                 return True
-            elif dist_sq > ((other.size + self.size) * .5 + self.reach) ** 2:
+            elif dist_sq > ((other.size + self.size) * .5 + self.stats["reach"]) ** 2:
                 self.rotate(other.x - self.x, other.y - self.y)
                 self.x += self.vx
                 self.y += self.vy
-            return dist_sq < ((other.size + self.size) * .5 + self.reach) ** 2
+            return dist_sq < ((other.size + self.size) * .5 + self.stats["reach"]) ** 2
 
     def attempt_attack(self, target):
         if self.current_cooldown <= 0:
-            self.current_cooldown += self.attack_cooldown
+            self.current_cooldown += self.stats["cd"]
             self.attack(target)
 
     def attack(self, target):
