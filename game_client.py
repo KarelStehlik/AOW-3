@@ -196,6 +196,7 @@ class Game:
                 if e.entity_type != "wall" and e.distance_to_point(x, y) <= 0:
                     i = [key.E, key.R, key.T].index(symbol)
                     if len(e.upgrades_into) > i:
+                        self.connection.Send({"action": "buy upgrade", "building ID": e.ID, "upgrade num": i})
 
         self.selected.key_press(symbol, modifiers)
 
