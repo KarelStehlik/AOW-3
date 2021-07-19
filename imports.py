@@ -10,7 +10,6 @@ from numba import njit, float64
 from numba.typed import List
 from numba.experimental import jitclass
 import constants
-from functools import cache
 
 pyglet.gl.glEnable(pyglet.gl.GL_BLEND)
 
