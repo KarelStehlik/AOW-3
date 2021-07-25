@@ -297,6 +297,12 @@ class Building:
             game.add_building_to_chunk(self, e)
         self.upgrades_into = []
         self.comes_from = None
+        self.effects = []
+        self.base_stats = unit_stats[self.name]
+        self.mods_add = {e: [] for e in unit_stats[self.name].keys()}
+        self.mods_multiply = {e: [] for e in unit_stats[self.name].keys()}
+        self.stats = {e: (self.base_stats[e] + sum(self.mods_add[e])) * product(*self.mods_multiply[e]) for e in
+                      self.base_stats.keys()}
 
     def take_damage(self, amount, source):
         if self.exists:
@@ -370,13 +376,9 @@ class Tower(Building):
 
     def __init__(self, ID, x, y, side, game):
         super().__init__(ID, x, y, side, game)
-        self.damage = unit_stats[self.name]["dmg"]
-        self.attack_cooldown = unit_stats[self.name]["cd"]
         self.current_cooldown = 0
-        self.reach = unit_stats[self.name]["reach"]
-        self.bulletspeed = unit_stats[self.name]["bulletspeed"]
         self.target = None
-        self.shooting_in_chunks = get_chunks(self.x, self.y, 2 * self.reach)
+        self.shooting_in_chunks = get_chunks(self.x, self.y, 2 * self.stats["reach"])
         self.upgrades_into = [Tower1, Tower2]
         self.turns_without_target = 0
 
@@ -390,18 +392,20 @@ class Tower(Building):
             self.current_cooldown -= 1 / FPS
         if self.current_cooldown <= 0:
             if self.acquire_target():
-                self.current_cooldown += self.attack_cooldown
+                self.current_cooldown += self.stats["cd"]
                 self.attack(self.target)
             else:
                 self.turns_without_target += 1
 
     def attack(self, target):
-        Arrow(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.damage, self.bulletspeed,
-              self.reach * 1.5)
+        Arrow(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"],
+              self.stats["bulletspeed"],
+              self.stats["reach"] * 1.5)
 
     def acquire_target(self):
         if self.target is not None and self.target.exists and self.target.distance_to_point(self.x,
-                                                                                            self.y) < self.reach:
+                                                                                            self.y) < self.stats[
+            "reach"]:
             return True
         if self.turns_without_target == 60 or self.turns_without_target == 0:
             self.turns_without_target = 0
@@ -409,12 +413,12 @@ class Tower(Building):
                 chonker = self.game.find_chunk(c)
                 if chonker is not None:
                     for unit in chonker.units[1 - self.side]:
-                        if unit.exists and unit.distance_to_point(self.x, self.y) < self.reach:
+                        if unit.exists and unit.distance_to_point(self.x, self.y) < self.stats["reach"]:
                             self.target = unit
                             self.turns_without_target = 0
                             return True
                     for unit in chonker.buildings[1 - self.side]:
-                        if unit.exists and unit.distance_to_point(self.x, self.y) < self.reach:
+                        if unit.exists and unit.distance_to_point(self.x, self.y) < self.stats["reach"]:
                             self.target = unit
                             self.turns_without_target = 0
                             return True
@@ -446,9 +450,9 @@ class Tower11(Tower):
         rot = get_rotation_norm(*direction)
         for i in range(int(self.shots)):
             Bullet(self.x, self.y, rot + self.spread * math.sin(self.game.ticks + 5 * i), self.game, self.side,
-                   self.damage,
-                   self.bulletspeed,
-                   self.reach * 1.5)
+                   self.stats["dmg"],
+                   self.stats["bulletspeed"],
+                   self.stats["reach"] * 1.5)
 
 
 class Tower2(Tower):
@@ -461,7 +465,8 @@ class Tower2(Tower):
         self.upgrades_into = [Tower21, Tower22]
 
     def attack(self, target):
-        Boulder(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.damage, self.bulletspeed,
+        Boulder(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"],
+                self.stats["bulletspeed"],
                 target.distance_to_point(self.x, self.y), self.explosion_radius)
 
 
@@ -475,7 +480,8 @@ class Tower21(Tower):
         self.upgrades_into = []
 
     def attack(self, target):
-        Meteor(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.damage, self.bulletspeed,
+        Meteor(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"],
+               self.stats["bulletspeed"],
                target.distance_to_point(self.x, self.y), self.explosion_radius)
 
 
@@ -489,7 +495,8 @@ class Tower22(Tower):
         self.upgrades_into = []
 
     def attack(self, target):
-        Egg(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.damage, self.bulletspeed,
+        Egg(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"],
+            self.stats["bulletspeed"],
             target.distance_to_point(self.x, self.y), self.explosion_radius)
 
 
@@ -646,7 +653,9 @@ class Formation:
                             side,
                             column - self.game.unit_formation_columns / 2,
                             row - self.game.unit_formation_rows / 2,
-                            game, self, amplifier=amplifier
+                            game, self,
+                            effects=(effect_stat_mult("health", amplifier),
+                                     effect_stat_mult("health", amplifier))
                         )
                     )
                     i += 1
@@ -766,7 +775,7 @@ class instruction_moving(instruction):
 class Unit:
     name = "None"
 
-    def __init__(self, ID, x, y, side, column, row, game, formation, amplifier):
+    def __init__(self, ID, x, y, side, column, row, game, formation, effects=()):
         self.entity_type = "unit"
         self.ID = ID
         self.lifetime = 0
@@ -778,17 +787,12 @@ class Unit:
         self.column, self.row = column, row
         self.game.players[self.side].units.append(self)
         self.size = unit_stats[self.name]["size"]
-        self.speed = unit_stats[self.name]["speed"]
-        self.health = self.max_health = unit_stats[self.name]["health"] * amplifier
-        self.damage = unit_stats[self.name]["dmg"] * amplifier
-        self.attack_cooldown = unit_stats[self.name]["cd"]
         self.current_cooldown = 0
-        self.reach = unit_stats[self.name]["reach"]
         self.exists = False
         self.target = None
         self.rotation = 0
         self.desired_x, self.desired_y = x, y
-        self.vx, self.vy = self.speed, 0
+        self.vx, self.vy = 1, 0
         self.reached_goal = True
         self.mass = unit_stats[self.name]["mass"]
         self.chunks = get_chunks(self.x, self.y, self.size)
@@ -798,10 +802,17 @@ class Unit:
         self.base_stats = unit_stats[self.name]
         self.mods_add = {e: [] for e in unit_stats[self.name].keys()}
         self.mods_multiply = {e: [] for e in unit_stats[self.name].keys()}
-        self.mods_multiply["damage"] = [amplifier]
-        self.mods_multiply["health"] = [amplifier]
         self.stats = {e: (self.base_stats[e] + sum(self.mods_add[e])) * product(*self.mods_multiply[e]) for e in
                       self.base_stats.keys()}
+        for e in effects:
+            e.apply(self)
+        self.health = self.stats["health"]
+
+    def update_stats(self, stats=None):
+        if stats is None:
+            stats = self.stats.keys()
+        for e in stats:
+            self.stats[e] = (self.base_stats[e] + sum(self.mods_add[e])) * product(*self.mods_multiply[e])
 
     def distance_to_point(self, x, y):
         return distance(self.x, self.y, x, y) - self.size / 2
@@ -836,16 +847,16 @@ class Unit:
     def move_in_range(self, other):
         if other.entity_type == "wall":
             d = other.distance_to_point(self.x, self.y)
-            if d > self.reach:
+            if d > self.stats["reach"]:
                 direction = other.towards(self.x, self.y)
-                self.vx = self.speed * direction[0]
-                self.vy = self.speed * direction[1]
+                self.vx = self.stats["speed"] * direction[0]
+                self.vy = self.stats["speed"] * direction[1]
                 self.x += self.vx
                 self.y += self.vy
-            elif d < self.reach / 2:
+            elif d < self.stats["reach"] / 2:
                 direction = other.towards(self.x, self.y)
-                self.vx = -self.speed * direction[0] / 2
-                self.vy = -self.speed * direction[1] / 2
+                self.vx = -self.stats["speed"] * direction[0] / 2
+                self.vy = -self.stats["speed"] * direction[1] / 2
                 self.x += self.vx
                 self.y += self.vy
             return d <= self.stats["reach"]
@@ -927,7 +938,7 @@ class Unit:
         if x == 0 == y:
             return
         inv_hypot = inv_h(x, y)
-        self.vx, self.vy = x * inv_hypot * self.speed, y * inv_hypot * self.speed
+        self.vx, self.vy = x * inv_hypot * self.stats["speed"], y * inv_hypot * self.stats["speed"]
 
     def summon_done(self):
         self.exists = True
@@ -983,56 +994,56 @@ class Unit:
 class Swordsman(Unit):
     name = "Swordsman"
 
-    def __init__(self, ID, x, y, side, column, row, game, formation, amplifier=1):
-        super().__init__(ID, x, y, side, column, row, game, formation, amplifier=amplifier)
+    def __init__(self, ID, x, y, side, column, row, game, formation, effects=()):
+        super().__init__(ID, x, y, side, column, row, game, formation, effects=effects)
 
     def attack(self, target):
-        target.take_damage(self.damage, self)
+        target.take_damage(self.stats["dmg"], self)
 
 
 class Archer(Unit):
     name = "Archer"
 
-    def __init__(self, ID, x, y, side, column, row, game, formation, amplifier=1):
-        super().__init__(ID, x, y, side, column, row, game, formation, amplifier=amplifier)
-        self.bulletspeed = unit_stats[self.name]["bulletspeed"]
+    def __init__(self, ID, x, y, side, column, row, game, formation, effects=()):
+        super().__init__(ID, x, y, side, column, row, game, formation, effects=effects)
 
     def attack(self, target):
-        Arrow(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.damage, self.bulletspeed,
-              self.reach * 1.5)
+        Arrow(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"],
+              self.stats["bulletspeed"],
+              self.stats["reach"] * 1.5)
 
 
 class Trebuchet(Unit):
     name = "Trebuchet"
 
-    def __init__(self, ID, x, y, side, column, row, game, formation, amplifier=1):
-        super().__init__(ID, x, y, side, column, row, game, formation, amplifier=amplifier)
-        self.bulletspeed = unit_stats[self.name]["bulletspeed"]
+    def __init__(self, ID, x, y, side, column, row, game, formation, effects=()):
+        super().__init__(ID, x, y, side, column, row, game, formation, effects=effects)
         self.explosion_radius = unit_stats[self.name]["explosion_radius"]
 
     def attack(self, target):
-        Boulder(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.damage, self.bulletspeed,
+        Boulder(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"],
+                self.stats["bulletspeed"],
                 target.distance_to_point(self.x, self.y), self.explosion_radius)
 
 
 class Defender(Unit):
     name = "Defender"
 
-    def __init__(self, ID, x, y, side, column, row, game, formation, amplifier=1):
-        super().__init__(ID, x, y, side, column, row, game, formation, amplifier=amplifier)
+    def __init__(self, ID, x, y, side, column, row, game, formation, effects=()):
+        super().__init__(ID, x, y, side, column, row, game, formation, effects=effects)
 
     def attack(self, target):
-        target.take_damage(self.damage, self)
+        target.take_damage(self.stats["dmg"], self)
 
 
 class Bear(Unit):
     name = "Bear"
 
-    def __init__(self, ID, x, y, side, column, row, game, formation, amplifier=1):
-        super().__init__(ID, x, y, side, column, row, game, formation, amplifier=amplifier)
+    def __init__(self, ID, x, y, side, column, row, game, formation, effects=()):
+        super().__init__(ID, x, y, side, column, row, game, formation, effects=effects)
 
     def attack(self, target):
-        target.take_damage(self.damage, self)
+        target.take_damage(self.stats["dmg"], self)
 
 
 possible_units = [Swordsman, Archer, Trebuchet, Defender, Bear]
@@ -1141,5 +1152,31 @@ def AOE_damage(x, y, size, amount, source, game):
             affected_things.append(wall)
     for e in affected_things:
         e.take_damage(amount, source)
+
+
+class effect_stat_mult:
+    def __init__(self, stat, amount, duration=None):
+        self.stat = stat
+        self.mult = amount
+        self.remaining_duration = duration
+        self.target = None
+
+    def apply(self, target):
+        self.target = target
+        self.target.effects.append(self)
+        self.target.mods_multiply[self.stat].append(self.mult)
+        self.target.update_stats([self.stat])
+
+    def remove(self):
+        self.target.effects.remove(self)
+        self.target.mods_multiply[self.stat].remove(self.mult)
+        self.target.update_stats(self.stat)
+
+    def tick(self):
+        if self.remaining_duration is None:
+            return
+        self.remaining_duration -= 1 / FPS
+        if self.remaining_duration <= 0:
+            self.remove()
 
 ##################  ---/units---  #################

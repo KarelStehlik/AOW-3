@@ -36,7 +36,7 @@ class Game:
         self.UI_topBar = UI_top_bar(self)
         self.UI_bottomBar = UI_bottom_bar(self)
         self.UI_categories = UI_categories(self, self.UI_bottomBar)
-        self.unit_formation_rows = UNIT_FORMATION_ROWS
+        self.unit_formation_rows = UNIT_FORMATION_ROWS c
         self.unit_formation_columns = UNIT_FORMATION_COLUMNS
         self.unit_formation = UI_formation(self)
         self.UI_toolbars = [self.UI_bottomBar, self.UI_categories, self.unit_formation, self.UI_topBar]
@@ -364,12 +364,22 @@ class UI_formation(client_utility.toolbar):
                                                           self.y + self.dot_size * (i + 2.5),
                                                           batch=game.batch, group=groups.g[8])
                          for i in range(self.rows)] for j in range(self.columns)]
-        self.add(self.send, self.x, self.height - SCREEN_HEIGHT * 0.1, self.width, SCREEN_HEIGHT * 0.1,
-                 image=images.Sendbutton)
+        self.add(self.send, self.x + SCREEN_HEIGHT * 0.1, self.height - SCREEN_HEIGHT * 0.1,
+                 self.width - SCREEN_HEIGHT * 0.1, SCREEN_HEIGHT * 0.1, image=images.Sendbutton)
+        self.add(self.fill, self.x, self.height - SCREEN_HEIGHT * 0.1, SCREEN_HEIGHT * 0.1, SCREEN_HEIGHT * 0.1)
         self.cost_count = pyglet.text.Label(x=self.x + self.width / 2, y=5, text="Cost: 0", color=(255, 240, 0, 255),
                                             group=groups.g[10], batch=self.batch, anchor_x="center", anchor_y="bottom",
                                             font_size=0.01 * SCREEN_WIDTH)
         self.cost = 0
+
+    def fill(self):
+        for x in range(UNIT_FORMATION_COLUMNS):
+            for y in range(UNIT_FORMATION_ROWS):
+                self.set_unit(x, y, -1, update_cost=False)
+        for x in range(UNIT_FORMATION_COLUMNS):
+            for y in range(UNIT_FORMATION_ROWS):
+                self.set_unit(x, y, self.game.selected.unit_num, update_cost=False)
+        self.update_cost()
 
     def sucessful_click(self, x, y):
         if self.x + self.dot_size * 2 < x < self.x + self.dot_size * (2 + self.columns) and \
@@ -388,7 +398,7 @@ class UI_formation(client_utility.toolbar):
     def send(self):
         self.game.select(selection_unit_formation)
 
-    def set_unit(self, x, y, num: int):
+    def set_unit(self, x, y, num: int, update_cost=True):
         if self.units[x][y] == num:
             return
         if num != -1:
@@ -422,6 +432,10 @@ class UI_formation(client_utility.toolbar):
                                                                       self.x + self.dot_size * (x + 2.5),
                                                                       self.y + self.dot_size * (y + 2.5),
                                                                       batch=self.game.batch, group=groups.g[8])
+        if update_cost:
+            self.update_cost()
+
+    def update_cost(self):
         self.cost = 0
         for x in range(UNIT_FORMATION_COLUMNS):
             for y in range(UNIT_FORMATION_ROWS):
@@ -430,6 +444,8 @@ class UI_formation(client_utility.toolbar):
         self.cost_count.text = "Cost: " + str(int(self.cost))
 
     def detect_obstruction(self, size, x, y):
+        if size <= UNIT_SIZE:
+            return
         for x2 in range(UNIT_FORMATION_COLUMNS):
             for y2 in range(UNIT_FORMATION_ROWS):
                 if self.units[x2][y2] != -1 and not (x2 == x and y2 == y):
@@ -494,6 +510,8 @@ class UI_top_bar(client_utility.toolbar):
 # #################  ---selects---  #################
 
 class selection:
+    unit_num = -1
+
     def __init__(self, game):
         self.cancelbutton = client_utility.button(self.end, SCREEN_WIDTH * 0.01, SCREEN_HEIGHT * 0.85,
                                                   SCREEN_WIDTH * 0.1, SCREEN_HEIGHT * 0.09, game.batch,
@@ -523,7 +541,7 @@ class selection:
         pass
 
     def clicked_unit_slot(self, x, y):
-        self.game.unit_formation.set_unit(x, y, -1)
+        self.game.unit_formation.set_unit(x, y, self.unit_num)
 
 
 class selection_none(selection):
@@ -537,6 +555,7 @@ class selection_none(selection):
 class selection_building(selection):
     img = images.Towerbutton
     num = 0
+    unit_num = -1
 
     def __init__(self, game):
         super().__init__(game)
@@ -777,10 +796,7 @@ class selection_unit_formation(selection):
 
 class selection_unit(selection):
     img = images.gunmanR
-    num = 0
-
-    def clicked_unit_slot(self, x, y):
-        self.game.unit_formation.set_unit(x, y, self.num)
+    unit_num = 0
 
     def mouse_click(self, x, y):
         if not self.cancelbutton.mouse_click(x, y):
@@ -851,7 +867,7 @@ class Building:
         self.x, self.y = x, y
         self.side = side
         self.size = unit_stats[self.name]["size"]
-        self.health = self.max_health = unit_stats[self.name]["health"]
+        self.health = unit_stats[self.name]["health"]
         self.sprite = pyglet.sprite.Sprite(self.image, x=x * SPRITE_SIZE_MULT - game.camx,
                                            y=y * SPRITE_SIZE_MULT - game.camy, batch=game.batch,
                                            group=groups.g[2])
@@ -1001,13 +1017,10 @@ class Tower(Building):
                                             group=groups.g[4])
         self.sprite2.opacity = 0
         self.sprite2.scale = self.size * SPRITE_SIZE_MULT / self.sprite2.width
-        self.damage = unit_stats[self.name]["dmg"]
-        self.attack_cooldown = unit_stats[self.name]["cd"]
         self.current_cooldown = 0
-        self.reach = unit_stats[self.name]["reach"]
-        self.bulletspeed = unit_stats[self.name]["bulletspeed"]
+        self.stats["reach"] = unit_stats[self.name]["reach"]
         self.target = None
-        self.shooting_in_chunks = get_chunks(self.x, self.y, 2 * self.reach)
+        self.shooting_in_chunks = get_chunks(self.x, self.y, 2 * self.stats["reach"])
         self.upgrades_into = [Tower1, Tower2]
         self.turns_without_target = 0
 
@@ -1027,7 +1040,7 @@ class Tower(Building):
             self.current_cooldown -= 1 / FPS
         if self.current_cooldown <= 0:
             if self.acquire_target():
-                self.current_cooldown += self.attack_cooldown
+                self.current_cooldown += self.stats["cd"]
                 self.attack(self.target)
             else:
                 self.turns_without_target += 1
@@ -1035,12 +1048,13 @@ class Tower(Building):
     def attack(self, target):
         direction = target.towards(self.x, self.y)
         self.sprite.rotation = 90 - get_rotation_norm(*direction) * 180 / math.pi
-        Arrow(self.x, self.y, *direction, self.game, self.side, self.damage, self.bulletspeed,
-              self.reach * 1.5, scale=.2)
+        Arrow(self.x, self.y, *direction, self.game, self.side, self.stats["dmg"], self.stats["bulletspeed"],
+              self.stats["reach"] * 1.5, scale=.2)
 
     def acquire_target(self):
         if self.target is not None and self.target.exists and self.target.distance_to_point(self.x,
-                                                                                            self.y) < self.reach:
+                                                                                            self.y) < self.stats[
+            "reach"]:
             return True
         if self.turns_without_target == 60 or self.turns_without_target == 0:
             self.turns_without_target = 0
@@ -1048,12 +1062,12 @@ class Tower(Building):
                 chonker = self.game.find_chunk(c)
                 if chonker is not None:
                     for unit in chonker.units[1 - self.side]:
-                        if unit.exists and unit.distance_to_point(self.x, self.y) < self.reach:
+                        if unit.exists and unit.distance_to_point(self.x, self.y) < self.stats["reach"]:
                             self.target = unit
                             self.turns_without_target = 0
                             return True
                     for unit in chonker.buildings[1 - self.side]:
-                        if unit.exists and unit.distance_to_point(self.x, self.y) < self.reach:
+                        if unit.exists and unit.distance_to_point(self.x, self.y) < self.stats["reach"]:
                             self.target = unit
                             self.turns_without_target = 0
                             return True
@@ -1062,7 +1076,7 @@ class Tower(Building):
 
     def take_damage(self, amount, source):
         if self.exists:
-            self.sprite2.opacity = 255 * max(0, (self.max_health - self.health)) / self.max_health
+            self.sprite2.opacity = 255 * max(0, (self.stats["health"] - self.health)) / self.stats["health"]
             super().take_damage(amount, source)
 
     def update_cam(self, x, y):
@@ -1101,7 +1115,7 @@ class Tower2(Tower):
     def attack(self, target):
         direction = target.towards(self.x, self.y)
         self.sprite.rotation = 90 - get_rotation_norm(*direction) * 180 / math.pi
-        Boulder(self.x, self.y, *direction, self.game, self.side, self.damage, self.bulletspeed,
+        Boulder(self.x, self.y, *direction, self.game, self.side, self.stats["dmg"], self.stats["bulletspeed"],
                 target.distance_to_point(self.x, self.y), self.explosion_radius)
 
 
@@ -1122,7 +1136,7 @@ class Tower21(Tower):
     def attack(self, target):
         direction = target.towards(self.x, self.y)
         self.sprite.rotation = 90 - get_rotation_norm(*direction) * 180 / math.pi
-        Meteor(self.x, self.y, *direction, self.game, self.side, self.damage, self.bulletspeed,
+        Meteor(self.x, self.y, *direction, self.game, self.side, self.stats["dmg"], self.stats["bulletspeed"],
                target.distance_to_point(self.x, self.y), self.explosion_radius)
 
 
@@ -1143,7 +1157,7 @@ class Tower22(Tower):
     def attack(self, target):
         direction = target.towards(self.x, self.y)
         self.sprite.rotation = 90 - get_rotation_norm(*direction) * 180 / math.pi
-        Egg(self.x, self.y, *direction, self.game, self.side, self.damage, self.bulletspeed,
+        Egg(self.x, self.y, *direction, self.game, self.side, self.stats["dmg"], self.stats["bulletspeed"],
             target.distance_to_point(self.x, self.y), self.explosion_radius)
 
 
@@ -1168,8 +1182,8 @@ class Tower11(Tower):
         self.sprite.rotation = 90 - rot * 180 / math.pi
         for i in range(int(self.shots)):
             Bullet(self.x, self.y, rot + self.spread * math.sin(self.game.ticks + 5 * i), self.game, self.side,
-                   self.damage, self.bulletspeed,
-                   self.reach * 1.5)
+                   self.stats["dmg"], self.stats["bulletspeed"],
+                   self.stats["reach"] * 1.5)
 
 
 class Farm(Building):
@@ -1348,7 +1362,7 @@ class Formation:
             game.players[side].money -= self.get_cost([troops])
             self.has_warning = False
             self.warning = None
-        elif side != game.players[1 - game.side]:
+        elif side != game.side:
             self.has_warning = True
             warn_angle = get_rotation(self.x * SPRITE_SIZE_MULT - game.camx - SCREEN_WIDTH / 2,
                                       self.y * SPRITE_SIZE_MULT - game.camy - SCREEN_HEIGHT / 2)
@@ -1381,7 +1395,9 @@ class Formation:
                             side,
                             column - self.game.unit_formation_columns / 2,
                             row - self.game.unit_formation_rows / 2,
-                            game, self, amplifier=amplifier
+                            game, self,
+                            effects=(effect_stat_mult("health", amplifier),
+                                     effect_stat_mult("health", amplifier))
                         )
                     )
                     i += 1
@@ -1531,7 +1547,7 @@ class Unit:
     image = images.Cancelbutton
     name = "None"
 
-    def __init__(self, ID, x, y, side, column, row, game: Game, formation: Formation, amplifier):
+    def __init__(self, ID, x, y, side, column, row, game: Game, formation: Formation, effects=()):
         self.entity_type = "unit"
         self.last_camx, self.last_camy = game.camx, game.camy
         self.ID = ID
@@ -1567,18 +1583,13 @@ class Unit:
                 163, 73, 163, 163, 73, 163, 163, 73, 163, 163, 73, 163, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50))
         )
 
-        self.speed = unit_stats[self.name]["speed"]
-        self.health = self.max_health = unit_stats[self.name]["health"] * amplifier
-        self.damage = unit_stats[self.name]["dmg"] * amplifier
-        self.attack_cooldown = unit_stats[self.name]["cd"]
         self.current_cooldown = 0
-        self.reach = unit_stats[self.name]["reach"]
         self.sprite.opacity = 70
         self.exists = False
         self.target = None
         self.rotation = 0
         self.desired_x, self.desired_y = x, y
-        self.vx, self.vy = self.speed, 0
+        self.vx, self.vy = 1, 0
         self.reached_goal = True
         self.mass = unit_stats[self.name]["mass"]
         self.chunks = get_chunks(self.x, self.y, self.size)
@@ -1588,10 +1599,17 @@ class Unit:
         self.base_stats = unit_stats[self.name]
         self.mods_add = {e: [] for e in unit_stats[self.name].keys()}
         self.mods_multiply = {e: [] for e in unit_stats[self.name].keys()}
-        self.mods_multiply["damage"] = [amplifier]
-        self.mods_multiply["health"] = [amplifier]
         self.stats = {e: (self.base_stats[e] + sum(self.mods_add[e])) * product(*self.mods_multiply[e]) for e in
                       self.base_stats.keys()}
+        for e in effects:
+            e.apply(self)
+        self.health = self.stats["health"]
+
+    def update_stats(self, stats=None):
+        if stats is None:
+            stats = self.stats.keys()
+        for e in stats:
+            self.stats[e] = (self.base_stats[e] + sum(self.mods_add[e])) * product(*self.mods_multiply[e])
 
     def distance_to_point(self, x, y):
         return distance(self.x, self.y, x, y) - self.size / 2
@@ -1643,13 +1661,13 @@ class Unit:
     def move_in_range(self, other):
         if other.entity_type == "wall":
             d = other.distance_to_point(self.x, self.y)
-            if d > self.reach:
+            if d > self.stats["reach"]:
                 direction = other.towards(self.x, self.y)
                 self.vx = self.stats["speed"] * direction[0]
                 self.vy = self.stats["speed"] * direction[1]
                 self.x += self.vx
                 self.y += self.vy
-            elif d < self.reach / 2:
+            elif d < self.stats["reach"] / 2:
                 direction = other.towards(self.x, self.y)
                 self.vx = -self.stats["speed"] * direction[0] / 2
                 self.vy = -self.stats["speed"] * direction[1] / 2
@@ -1808,47 +1826,47 @@ class Swordsman(Unit):
     image = images.Swordsman
     name = "Swordsman"
 
-    def __init__(self, ID, x, y, side, column, row, game, formation, amplifier=1.0):
-        super().__init__(ID, x, y, side, column, row, game, formation, amplifier=amplifier)
+    def __init__(self, ID, x, y, side, column, row, game, formation, effects=()):
+        super().__init__(ID, x, y, side, column, row, game, formation, effects=effects)
 
     def attack(self, target):
-        target.take_damage(self.damage, self)
+        target.take_damage(self.stats["dmg"], self)
 
 
 class selection_swordsman(selection_unit):
     img = images.Swordsman
-    num = 0
+    unit_num = 0
 
 
 class Archer(Unit):
     image = images.Bowman
     name = "Archer"
 
-    def __init__(self, ID, x, y, side, column, row, game, formation, amplifier=1.0):
-        super().__init__(ID, x, y, side, column, row, game, formation, amplifier=amplifier)
-        self.bulletspeed = unit_stats[self.name]["bulletspeed"]
+    def __init__(self, ID, x, y, side, column, row, game, formation, effects=()):
+        super().__init__(ID, x, y, side, column, row, game, formation, effects=effects)
 
     def attack(self, target):
-        Arrow(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.damage, self.bulletspeed,
-              self.reach * 1.5)
+        Arrow(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"],
+              self.stats["bulletspeed"],
+              self.stats["reach"] * 1.5)
 
 
 class selection_archer(selection_unit):
     img = images.Bowman
-    num = 1
+    unit_num = 1
 
 
 class Trebuchet(Unit):
     image = images.Trebuchet
     name = "Trebuchet"
 
-    def __init__(self, ID, x, y, side, column, row, game, formation, amplifier=1.0):
-        super().__init__(ID, x, y, side, column, row, game, formation, amplifier=amplifier)
-        self.bulletspeed = unit_stats[self.name]["bulletspeed"]
+    def __init__(self, ID, x, y, side, column, row, game, formation, effects=()):
+        super().__init__(ID, x, y, side, column, row, game, formation, effects=effects)
         self.explosion_radius = unit_stats[self.name]["explosion_radius"]
 
     def attack(self, target):
-        Boulder(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.damage, self.bulletspeed,
+        Boulder(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"],
+                self.stats["bulletspeed"],
                 target.distance_to_point(self.x, self.y), self.explosion_radius)
 
 
@@ -1856,37 +1874,37 @@ class Defender(Unit):
     image = images.Defender
     name = "Defender"
 
-    def __init__(self, ID, x, y, side, column, row, game, formation, amplifier=1.0):
-        super().__init__(ID, x, y, side, column, row, game, formation, amplifier=amplifier)
+    def __init__(self, ID, x, y, side, column, row, game, formation, effects=()):
+        super().__init__(ID, x, y, side, column, row, game, formation, effects=effects)
 
     def attack(self, target):
-        target.take_damage(self.damage, self)
+        target.take_damage(self.stats["dmg"], self)
 
 
 class Bear(Unit):
     image = images.Bear
     name = "Bear"
 
-    def __init__(self, ID, x, y, side, column, row, game, formation, amplifier=1.0):
-        super().__init__(ID, x, y, side, column, row, game, formation, amplifier=amplifier)
+    def __init__(self, ID, x, y, side, column, row, game, formation, effects=()):
+        super().__init__(ID, x, y, side, column, row, game, formation, effects=effects)
 
     def attack(self, target):
-        target.take_damage(self.damage, self)
+        target.take_damage(self.stats["dmg"], self)
 
 
 class selection_trebuchet(selection_unit):
     img = images.Trebuchet
-    num = 2
+    unit_num = 2
 
 
 class selection_defender(selection_unit):
     img = images.Defender
-    num = 3
+    unit_num = 3
 
 
 class selection_bear(selection_unit):
     img = images.Bear
-    num = 4
+    unit_num = 4
 
 
 possible_units = [Swordsman, Archer, Trebuchet, Defender, Bear]
@@ -2088,4 +2106,32 @@ def AOE_damage(x, y, size, amount, source, game):
             affected_things.append(wall)
     for e in affected_things:
         e.take_damage(amount, source)
+
+
+class effect_stat_mult:
+    def __init__(self, stat, amount, duration=None):
+        self.stat = stat
+        self.mult = amount
+        self.remaining_duration = duration
+        self.target = None
+
+    def apply(self, target):
+        self.target = target
+        self.target.effects.append(self)
+        self.target.mods_multiply[self.stat].append(self.mult)
+        self.target.update_stats([self.stat])
+
+    def remove(self):
+        self.target.effects.remove(self)
+        self.target.mods_multiply[self.stat].remove(self.mult)
+        self.target.update_stats(self.stat)
+
+    def tick(self):
+        if self.remaining_duration is None:
+            return
+        self.remaining_duration -= 1 / FPS
+        if self.remaining_duration <= 0:
+            self.remove()
+
+
 # #################  ---/units---  #################
