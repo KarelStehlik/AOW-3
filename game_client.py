@@ -36,7 +36,7 @@ class Game:
         self.UI_topBar = UI_top_bar(self)
         self.UI_bottomBar = UI_bottom_bar(self)
         self.UI_categories = UI_categories(self, self.UI_bottomBar)
-        self.unit_formation_rows = UNIT_FORMATION_ROWS c
+        self.unit_formation_rows = UNIT_FORMATION_ROWS
         self.unit_formation_columns = UNIT_FORMATION_COLUMNS
         self.unit_formation = UI_formation(self)
         self.UI_toolbars = [self.UI_bottomBar, self.UI_categories, self.unit_formation, self.UI_topBar]
@@ -277,6 +277,12 @@ class player:
         self.all_buildings = []
         self.money = 0.0
         self.TownHall = None
+        self.unit_auras = []
+        self.upgrades=[]
+
+    def on_unit_summon(self, unit):
+        for e in self.unit_auras:
+            e.apply(unit)
 
     def summon_townhall(self):
         self.TownHall = TownHall(TH_DISTANCE * self.side, TH_DISTANCE * self.side, self.side, self.game)
@@ -298,6 +304,10 @@ class player:
         [e.tick() for e in self.all_buildings]
         [e.tick() for e in self.walls]
         [e.tick() for e in self.formations]
+        for e in self.unit_auras:
+            e.tick()
+            if not e.exists:
+                self.unit_auras.remove(e)
 
     def graphics_update(self):
         if self.side == self.game.side:
@@ -1774,6 +1784,7 @@ class Unit:
         self.exists = True
         self.sprite.opacity = 255
         self.tick = self.tick2
+        self.game.players[self.side].on_unit_summon(self)
 
     def update_cam(self, x, y):
         self.sprite.update(x=self.x * SPRITE_SIZE_MULT - x, y=self.y * SPRITE_SIZE_MULT - y)
@@ -2133,5 +2144,22 @@ class effect_stat_mult:
         if self.remaining_duration <= 0:
             self.remove()
 
+
+class aura:
+    def __init__(self, effect, args, duration=None):
+        self.effect = effect
+        self.args = args
+        self.remaining_duration = duration
+        self.exists = True
+
+    def tick(self):
+        if self.remaining_duration is None:
+            return
+        self.remaining_duration -= 1 / FPS
+        if self.remaining_duration <= 0:
+            self.exists = False
+
+    def apply(self, target):
+        self.effect(*self.args).apply(target)
 
 # #################  ---/units---  #################

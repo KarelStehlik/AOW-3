@@ -235,6 +235,12 @@ class player:
         self.TownHall = None
         self.ai_wave = 0
         self.time_until_wave = WAVE_INTERVAL
+        self.unit_auras = []
+        self.upgrades=[]
+
+    def on_unit_summon(self, unit):
+        for e in self.unit_auras:
+            e.apply(unit)
 
     def tick_wave_timer(self):
         self.time_until_wave -= 1
@@ -261,6 +267,10 @@ class player:
         [e.tick() for e in self.all_buildings]
         [e.tick() for e in self.walls]
         [e.tick() for e in self.formations]
+        for e in self.unit_auras:
+            e.tick()
+            if not e.exists:
+                self.unit_auras.remove(e)
 
 
 class chunk:
@@ -943,6 +953,7 @@ class Unit:
     def summon_done(self):
         self.exists = True
         self.tick = self.tick2
+        self.game.players[self.side].on_unit_summon(self)
 
     def take_knockback(self, x, y, source):
         if not self.exists:
@@ -1178,5 +1189,23 @@ class effect_stat_mult:
         self.remaining_duration -= 1 / FPS
         if self.remaining_duration <= 0:
             self.remove()
+
+
+class aura:
+    def __init__(self, effect, args, duration=None):
+        self.effect = effect
+        self.args = args
+        self.remaining_duration = duration
+        self.exists = True
+
+    def tick(self):
+        if self.remaining_duration is None:
+            return
+        self.remaining_duration -= 1 / FPS
+        if self.remaining_duration <= 0:
+            self.exists = False
+
+    def apply(self, target):
+        self.effect(*self.args).apply(target)
 
 ##################  ---/units---  #################
