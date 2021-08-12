@@ -10,10 +10,10 @@ from imports import *
 pyglet.options['debug_gl'] = False
 pyglet.gl.glEnable(pyglet.gl.GL_BLEND)
 
-connection.DoConnect(('192.168.1.237', 5071))
+#connection.DoConnect(('192.168.1.237', 5071))
 
 
-#connection.DoConnect(('127.0.0.1', 5071))
+connection.DoConnect(('127.0.0.1', 5071))
 
 
 class MyNetworkListener(ConnectionListener):

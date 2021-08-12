@@ -1,5 +1,3 @@
-from typing import List
-
 import pyglet.sprite
 
 from imports import *
@@ -7,6 +5,7 @@ import groups
 from constants import *
 import images
 import client_utility
+import upgrades_client
 
 
 class Game:
@@ -278,7 +277,17 @@ class player:
         self.money = 0.0
         self.TownHall = None
         self.unit_auras = []
-        self.upgrades=[]
+        self.owned_upgrades = []
+        self.pending_upgrades = []
+        self.unlocked_units = [Swordsman, Archer, Defender, Tower, Farm]
+
+    def unlock_unit(self, unit):
+        self.unlocked_units.append(unit)
+        if self.side == self.game.side:
+            self.game.UI_bottomBar.load_page(self.game.UI_bottomBar.page)
+
+    def has_unit(self, unit):
+        return unit in self.unlocked_units
 
     def on_unit_summon(self, unit):
         for e in self.unit_auras:
@@ -308,6 +317,7 @@ class player:
             e.tick()
             if not e.exists:
                 self.unit_auras.remove(e)
+        [e.upgrading_tick() for e in self.pending_upgrades]
 
     def graphics_update(self):
         if self.side == self.game.side:
@@ -345,9 +355,10 @@ class UI_bottom_bar(client_utility.toolbar):
         self.unload_page()
         i = 0
         for e in selects_all[n]:
-            self.add(self.game.select, SCREEN_WIDTH * (0.01 + 0.1 * i), SCREEN_WIDTH * 0.01,
-                     SCREEN_WIDTH * 0.09, SCREEN_WIDTH * 0.09, e.img, args=(e,))
-            i += 1
+            if e.is_unlocked():
+                self.add(self.game.select, SCREEN_WIDTH * (0.01 + 0.1 * i), SCREEN_WIDTH * 0.01,
+                         SCREEN_WIDTH * 0.09, SCREEN_WIDTH * 0.09, e.img, args=(e,))
+                i += 1
         self.page = n
 
     def unload_page(self):
@@ -561,6 +572,11 @@ class selection_none(selection):
     def end(self):
         pass
 
+    @classmethod
+    def is_unlocked(cls):
+        print("how did we get here? 568")
+        return True
+
 
 class selection_building(selection):
     img = images.Towerbutton
@@ -615,6 +631,10 @@ class selection_building(selection):
 
     def update_cam(self, x, y):
         self.camx, self.camy = x, y
+
+    @classmethod
+    def is_unlocked(cls, game):
+        return game.players[game.side].has_unit(possible_buildings[cls.num])
 
 
 class selection_tower(selection_building):
@@ -675,6 +695,10 @@ class selection_wall(selection):
     def update_cam(self, x, y):
         [e.update(e.ogx - x, e.ogy - y) for e in self.buttons]
         self.camx, self.camy = x, y
+
+    @classmethod
+    def is_unlocked(cls, game):
+        return game.players[game.side].has_unit(Wall)
 
 
 class selection_unit_formation(selection):
@@ -794,14 +818,16 @@ class selection_unit_formation(selection):
         for e in self.sprites:
             e.update(x=e.x - dx, y=e.y - dy)
 
-    def clicked_unit_slot(self, x, y):
-        self.game.unit_formation.set_unit(x, y, 0)
-
     def key_press(self, button, modifiers):
         if button == key.ENTER:
             self.game.connection.Send(
                 {"action": "summon_formation", "instructions": self.instructions, "troops": self.troops})
             self.end()
+
+    @classmethod
+    def is_unlocked(cls):
+        print("how did we get here? 811")
+        return True
 
 
 class selection_unit(selection):
@@ -814,6 +840,10 @@ class selection_unit(selection):
 
     def mouse_release(self, x, y):
         self.cancelbutton.mouse_release(x, y)
+
+    @classmethod
+    def is_unlocked(cls, game):
+        return game.players[game.side].has_unit(possible_units[cls.unit_num])
 
 
 # ################# ---/selects--- #################
@@ -1204,7 +1234,6 @@ class Farm(Building):
     def __init__(self, ID, x, y, tick, side, game):
         game.players[side].money -= self.get_cost([])
         super().__init__(ID, x, y, tick, side, game)
-        self.production = unit_stats[self.name]["production"]
         self.upgrades_into = [Farm1, Farm2]
 
     @classmethod
@@ -1213,7 +1242,7 @@ class Farm(Building):
 
     def tick2(self):
         super().tick2()
-        self.game.players[self.side].gain_money(self.production)
+        self.game.players[self.side].gain_money(self.stats["production"])
 
 
 class Farm1(Farm):
@@ -1919,6 +1948,9 @@ class selection_bear(selection_unit):
 
 
 possible_units = [Swordsman, Archer, Trebuchet, Defender, Bear]
+possible_unit_selects = [selection_swordsman, selection_archer, selection_trebuchet, selection_defender, selection_bear]
+base_units = [Swordsman, Archer, Defender, Tower, Farm]
+[e.unlock() for e in base_units]
 selects_p1 = [selection_tower, selection_wall, selection_farm]
 selects_p2 = [selection_swordsman, selection_archer, selection_trebuchet, selection_defender, selection_bear]
 selects_all = [selects_p1, selects_p2]

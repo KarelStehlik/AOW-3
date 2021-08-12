@@ -5,9 +5,9 @@ Tower2:size=50,health=20000,cost=1500,dmg=50,cd=1.2,reach=300,bulletspeed=8,expl
 Tower11:size=50,health=15000,cost=3000,dmg=20,cd=0.02,reach=300,bulletspeed=15,spread=0.2,shots=2
 Tower21:size=50,health=30000,cost=5000,dmg=600,cd=2,reach=700,bulletspeed=20,explosion_radius=100
 Tower22:size=50,health=50000,cost=100000,dmg=200,cd=0.03,reach=900,bulletspeed=40,explosion_radius=80
-Farm:size=200,health=2000,cost=1000,production=0.25,proximity=500
-Farm1:size=200,health=5000,cost=4000,production=1.25,proximity=500
-Farm2:size=200,health=25000,cost=1000,production=0.25,proximity=500
+Farm:size=200,health=2000,cost=1000,production=0.2,proximity=500
+Farm1:size=200,health=5000,cost=4000,production=0.9,proximity=500
+Farm2:size=200,health=25000,cost=1000,production=0.2,proximity=500
 Wall:width=30,health=30000,cost=1000
 Swordsman:vwidth=20,vheight=20,speed=320,size=19,health=100,dmg=15,cd=1,reach=10,cost=20,mass=1
 Defender:vwidth=20,vheight=20,speed=150,size=19,health=1000,dmg=10,cd=1,reach=10,cost=125,mass=3

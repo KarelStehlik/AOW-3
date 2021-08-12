@@ -1,5 +1,6 @@
 from imports import *
 from constants import *
+import upgrades_server
 
 
 def generate_units(money):
@@ -88,6 +89,9 @@ class Game:
         if "action" in data:
             if data["action"] == "place_building":
                 entity_type = possible_buildings[data["entity_type"]]
+                if not self.players[side].has_unit(entity_type):
+                    print("cheating detected! (B)")
+                    return
                 close_to_friendly = False
                 proximity = unit_stats[entity_type.name]["proximity"]
                 for e in self.players[side].all_buildings:
@@ -126,6 +130,15 @@ class Game:
                                     "ID": self.object_ID})
                     self.object_ID += 1
             elif data["action"] == "summon_formation":
+                confirmed_units = []
+                for e in data["troops"]:
+                    for troop in e:
+                        if troop not in confirmed_units and troop != -1:
+                            if not self.players[side].has_unit(possible_units[troop]):
+                                print("cheating detected! (F)")
+                                return
+                            else:
+                                confirmed_units.append(troop)
                 if self.players[side].attempt_purchase(Formation.get_cost([data["troops"], ])):
                     if is_empty_2d(data["troops"]):
                         return
@@ -236,7 +249,15 @@ class player:
         self.ai_wave = 0
         self.time_until_wave = WAVE_INTERVAL
         self.unit_auras = []
-        self.upgrades=[]
+        self.owned_upgrades = []
+        self.pending_upgrades = []
+        self.unlocked_units = [Swordsman, Archer, Defender, Tower, Farm]
+
+    def unlock_unit(self, unit):
+        self.unlocked_units.append(unit)
+
+    def has_unit(self, unit):
+        return unit in self.unlocked_units
 
     def on_unit_summon(self, unit):
         for e in self.unit_auras:
@@ -271,6 +292,7 @@ class player:
             e.tick()
             if not e.exists:
                 self.unit_auras.remove(e)
+        [e.upgrading_tick() for e in self.pending_upgrades]
 
 
 class chunk:
@@ -516,7 +538,6 @@ class Farm(Building):
 
     def __init__(self, ID, x, y, side, game):
         super().__init__(ID, x, y, side, game)
-        self.production = unit_stats[self.name]["production"]
         self.upgrades_into = [Farm1, Farm2]
 
     @classmethod
@@ -525,7 +546,7 @@ class Farm(Building):
 
     def tick2(self):
         super().tick2()
-        self.game.players[self.side].gain_money(self.production)
+        self.game.players[self.side].gain_money(self.stats["production"])
 
 
 class Farm1(Farm):
