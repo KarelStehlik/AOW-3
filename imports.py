@@ -34,6 +34,24 @@ def load_stats():
 unit_stats = load_stats()
 
 
+def load_upgrades():
+    unit_statst = {}
+    with open("upgrade_descriptions.txt", "r") as cs:
+        units = cs.read().split("\n")
+        for unit in units:
+            name_stats = unit.split(":")
+            stats = {}
+            for e in name_stats[1].split("|"):
+                k = e.split("=")
+                stats[k[0]] = k[1]
+            del e
+            unit_statst[name_stats[0]] = stats
+    return unit_statst
+
+
+upgrade_stats = load_upgrades()
+
+
 def is_empty_2d(l):
     for e in l:
         if e:

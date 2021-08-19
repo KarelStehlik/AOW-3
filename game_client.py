@@ -5,7 +5,6 @@ import groups
 from constants import *
 import images
 import client_utility
-import upgrades_client
 
 
 class Game:
@@ -49,6 +48,18 @@ class Game:
         self.ping_attempts = 10
         self.ping_time = time.perf_counter()
         connection.Send({"action": "ping"})
+        self.key_press_detectors = []
+        self.mouse_click_detectors = []
+        self.mouse_move_detectors = []
+        self.drawables = []
+        self.upgrade_menu = None
+
+    def open_upgrade_menu(self):
+        if self.upgrade_menu is None:
+            self.upgrade_menu = Upgrade_Menu(self)
+            return
+        if not self.upgrade_menu.opened:
+            self.upgrade_menu.open()
 
     def determine_time(self):
         self.time_difference = 0
@@ -102,15 +113,13 @@ class Game:
             self.ticks += 1
             self.players[0].gain_money(PASSIVE_INCOME)
             self.players[1].gain_money(PASSIVE_INCOME)
-        # if self.ticks % 200 == 0:
-        #    print(self.ticks, len(self.players[0].units), len(self.players[1].units), self.players[0].money,
-        #           self.players[1].money, time.time() - self.start_time)
         self.update_cam(self.last_dt)
         self.players[0].graphics_update()
         self.players[1].graphics_update()
         [e.graphics_update() for e in self.projectiles]
         self.selected.tick()
         [e.tick(self.last_dt) for e in self.animations]
+        [e.graphics_update() for e in self.drawables]
         self.batch.draw()
         self.UI_topBar.update()
         self.last_dt = time.perf_counter() - self.last_tick
@@ -152,6 +161,9 @@ class Game:
                     possible_buildings[bu[0]](x=bu[1], y=bu[2], tick=bu[3], side=bu[4], ID=bu[5], game=self)
             elif data["action"] == "summon_wave":
                 self.summon_ai_wave(*data["args"])
+            elif data["action"] == "th upgrade":
+                possible_upgrades[data["num"]](self.players[data["side"]], data["tick"])
+                self.players[data["side"]].gain_money(-possible_upgrades[data["num"]].get_cost())
 
     def summon_ai_wave(self, ID, side, x, y, units, tick, worth, amplifier):
         wave = Formation(ID, [], units, tick, 1 - side, self, x=x, y=y, AI=True, amplifier=float(amplifier))
@@ -165,6 +177,7 @@ class Game:
 
     def mouse_move(self, x, y, dx, dy):
         [e.mouse_move(x, y) for e in self.UI_toolbars]
+        [e.mouse_move(x, y) for e in self.mouse_move_detectors]
         self.selected.mouse_move(x, y)
         self.mousex, self.mousey = x, y
 
@@ -181,23 +194,27 @@ class Game:
             self.camx_moving = min(self.camx_moving + self.cam_move_speed, self.cam_move_speed)
         elif symbol == key.W:
             self.camy_moving = min(self.camy_moving + self.cam_move_speed, self.cam_move_speed)
-        elif key.NUM_9 >= symbol >= key.NUM_1:
-            if len(selects_all[self.UI_bottomBar.page]) > symbol - key.NUM_1:
-                self.select(selects_all[self.UI_bottomBar.page][symbol - key.NUM_1])
-        elif 57 >= symbol >= 49:
-            if len(selects_all[self.UI_bottomBar.page]) > symbol - 49:
-                self.select(selects_all[self.UI_bottomBar.page][symbol - 49])
-        elif symbol == 65307:
-            self.select(selection_none)
-        elif symbol in [key.E, key.R, key.T]:
-            x, y = (self.mousex + self.camx) / SPRITE_SIZE_MULT, (self.mousey + self.camy) / SPRITE_SIZE_MULT
-            for e in self.players[self.side].all_buildings:
-                if e.entity_type != "wall" and e.distance_to_point(x, y) <= 0:
-                    i = [key.E, key.R, key.T].index(symbol)
-                    if len(e.upgrades_into) > i:
-                        self.connection.Send({"action": "buy upgrade", "building ID": e.ID, "upgrade num": i})
+        elif modifiers == 16:
+            if key.NUM_9 >= symbol >= key.NUM_1:
+                if len(selects_all[self.UI_bottomBar.page]) > symbol - key.NUM_1:
+                    self.select(selects_all[self.UI_bottomBar.page][symbol - key.NUM_1])
+            elif 57 >= symbol >= 49:
+                if len(selects_all[self.UI_bottomBar.page]) > symbol - 49:
+                    self.select(selects_all[self.UI_bottomBar.page][symbol - 49])
+            elif symbol == 65307:
+                self.select(selection_none)
+            elif symbol in [key.E, key.R, key.T]:
+                x, y = (self.mousex + self.camx) / SPRITE_SIZE_MULT, (self.mousey + self.camy) / SPRITE_SIZE_MULT
+                for e in self.players[self.side].all_buildings:
+                    if e.entity_type != "wall" and e.distance_to_point(x, y) <= 0:
+                        i = [key.E, key.R, key.T].index(symbol)
+                        if len(e.upgrades_into) > i:
+                            self.connection.Send({"action": "buy upgrade", "building ID": e.ID, "upgrade num": i})
+            elif symbol == key.U:
+                Upgrade_test_1.attempt_buy(self)
 
         self.selected.key_press(symbol, modifiers)
+        [e.key_press(symbol, modifiers) for e in self.key_press_detectors]
 
     def key_release(self, symbol, modifiers):
         if symbol == key.D:
@@ -208,8 +225,10 @@ class Game:
             self.camx_moving = min(self.camx_moving + self.cam_move_speed, self.cam_move_speed)
         elif symbol == key.S:
             self.camy_moving = min(self.camy_moving + self.cam_move_speed, self.cam_move_speed)
+        [e.key_release(symbol, modifiers) for e in self.key_press_detectors]
 
     def mouse_press(self, x, y, button, modifiers):
+        [e.mouse_click(x, y, button, modifiers) for e in self.mouse_click_detectors]
         if True in [e.mouse_click(x, y) for e in self.UI_toolbars]:
             return
         self.selected.mouse_click(x, y)
@@ -218,8 +237,11 @@ class Game:
                     e.distance_to_point((x + self.camx) / SPRITE_SIZE_MULT,
                                         (y + self.camy) / SPRITE_SIZE_MULT) < 0:
                 building_upgrade_menu(e.ID, self)
+                if e.entity_type == "townhall":
+                    self.open_upgrade_menu()
 
     def mouse_release(self, x, y, button, modifiers):
+        [e.mouse_release(x, y, button, modifiers) for e in self.mouse_click_detectors]
         [e.mouse_release(x, y) for e in self.UI_toolbars]
         self.selected.mouse_release(x, y)
 
@@ -277,11 +299,25 @@ class player:
         self.money = 0.0
         self.TownHall = None
         self.unit_auras = []
-        self.owned_upgrades = []
         self.pending_upgrades = []
+        self.owned_upgrades = [Upgrade_default(self, 0)]
         self.unlocked_units = [Swordsman, Archer, Defender, Tower, Farm]
 
+    def has_upgrade(self, upg):
+        for e in self.owned_upgrades:
+            if e.__class__ == upg:
+                return True
+        return False
+
+    def upgrade_time_remaining(self, upg):
+        for e in self.pending_upgrades:
+            if e.__class__ == upg:
+                return e.time_remaining
+        return None
+
     def unlock_unit(self, unit):
+        if self.has_unit(unit):
+            return
         self.unlocked_units.append(unit)
         if self.side == self.game.side:
             self.game.UI_bottomBar.load_page(self.game.UI_bottomBar.page)
@@ -355,7 +391,7 @@ class UI_bottom_bar(client_utility.toolbar):
         self.unload_page()
         i = 0
         for e in selects_all[n]:
-            if e.is_unlocked():
+            if e.is_unlocked(self.game):
                 self.add(self.game.select, SCREEN_WIDTH * (0.01 + 0.1 * i), SCREEN_WIDTH * 0.01,
                          SCREEN_WIDTH * 0.09, SCREEN_WIDTH * 0.09, e.img, args=(e,))
                 i += 1
@@ -389,7 +425,7 @@ class UI_formation(client_utility.toolbar):
                  self.width - SCREEN_HEIGHT * 0.1, SCREEN_HEIGHT * 0.1, image=images.Sendbutton)
         self.add(self.fill, self.x, self.height - SCREEN_HEIGHT * 0.1, SCREEN_HEIGHT * 0.1, SCREEN_HEIGHT * 0.1)
         self.cost_count = pyglet.text.Label(x=self.x + self.width / 2, y=5, text="Cost: 0", color=(255, 240, 0, 255),
-                                            group=groups.g[10], batch=self.batch, anchor_x="center", anchor_y="bottom",
+                                            group=groups.g[9], batch=self.batch, anchor_x="center", anchor_y="bottom",
                                             font_size=0.01 * SCREEN_WIDTH)
         self.cost = 0
 
@@ -408,11 +444,11 @@ class UI_formation(client_utility.toolbar):
             self.game.selected.clicked_unit_slot(int((x - (self.x + self.dot_size * 2)) // self.dot_size),
                                                  int((y - (self.y + self.dot_size * 2)) // self.dot_size))
 
-    def mouse_click(self, x, y):
+    def mouse_click(self, x, y, button=0, modifiers=0):
         if super().mouse_click(x, y):
             self.sucessful_click(x, y)
 
-    def mouse_drag(self, x, y):
+    def mouse_drag(self, x, y, button=0, modifiers=0):
         if super().mouse_drag:
             self.sucessful_click(x, y)
 
@@ -526,9 +562,6 @@ class UI_top_bar(client_utility.toolbar):
         self.timer_text.text = "next wave in: " + str(
             int((self.last_wave_tick + WAVE_INTERVAL - self.game.ticks) / FPS) + 1)
 
-
-# #################   ---/core---  #################
-# #################  ---selects---  #################
 
 class selection:
     unit_num = -1
@@ -846,8 +879,6 @@ class selection_unit(selection):
         return game.players[game.side].has_unit(possible_units[cls.unit_num])
 
 
-# ################# ---/selects--- #################
-# #################   ---units---  #################
 class building_upgrade_menu(client_utility.toolbar):
     def __init__(self, building_ID, game: Game):
         self.target = game.find_building(building_ID, game.side)
@@ -883,7 +914,7 @@ class building_upgrade_menu(client_utility.toolbar):
         self.game.connection.Send({"action": "buy upgrade", "building ID": self.target.ID, "upgrade num": i})
         self.close()
 
-    def mouse_click(self, x, y):
+    def mouse_click(self, x, y, button=0, modifiers=0):
         if self.x + self.width >= x >= self.x and self.y + self.height >= y >= self.y:
             [e.mouse_click(x, y) for e in self.buttons]
             return True
@@ -1948,9 +1979,6 @@ class selection_bear(selection_unit):
 
 
 possible_units = [Swordsman, Archer, Trebuchet, Defender, Bear]
-possible_unit_selects = [selection_swordsman, selection_archer, selection_trebuchet, selection_defender, selection_bear]
-base_units = [Swordsman, Archer, Defender, Tower, Farm]
-[e.unlock() for e in base_units]
 selects_p1 = [selection_tower, selection_wall, selection_farm]
 selects_p2 = [selection_swordsman, selection_archer, selection_trebuchet, selection_defender, selection_bear]
 selects_all = [selects_p1, selects_p2]
@@ -2194,4 +2222,211 @@ class aura:
     def apply(self, target):
         self.effect(*self.args).apply(target)
 
-# #################  ---/units---  #################
+
+class Upgrade:
+    image = images.Tower
+    previous = []
+    name = "This Is A Bug."
+    x = 0
+    y = 0
+
+    def __init__(self, player, tick):
+        player.pending_upgrades.append(self)
+        self.time_remaining = float(upgrade_stats[self.name]["time"]) * FPS - player.game.ticks + tick
+        self.player = player
+
+    def upgrading_tick(self):
+        self.time_remaining -= 1
+        if self.time_remaining < 0:
+            self.finished()
+            return True
+        return False
+
+    def finished(self):
+        self.player.pending_upgrades.remove(self)
+        self.player.owned_upgrades.append(self)
+        self.on_finish()
+
+    def on_finish(self):
+        pass
+
+    @classmethod
+    def attempt_buy(cls, game):
+        game.connection.Send({"action": "th upgrade", "num": possible_upgrades.index(cls)})
+
+    @classmethod
+    def get_cost(cls):
+        return float(upgrade_stats[cls.name]["cost"])
+
+    @classmethod
+    def get_time(cls):
+        return int(upgrade_stats[cls.name]["time"])
+
+
+class Upgrade_default(Upgrade):
+    x = 500
+    y = 500
+    name = "The Beginning"
+
+
+class Upgrade_test_1(Upgrade):
+    image = images.Bear
+    previous = [Upgrade_default]
+    x = 800
+    y = 500
+    name = "Bigger Stalls"
+
+    def on_finish(self):
+        self.player.unlock_unit(Bear)
+
+
+class Upgrade_Menu(client_utility.toolbar):
+    def __init__(self, game):
+        self.batch = game.batch
+        super().__init__(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, self.batch, image=images.UpgradeScreen, layer=10)
+        self.buttons = []
+        game.key_press_detectors.append(self)
+        game.mouse_click_detectors.append(self)
+        game.mouse_move_detectors.append(self)
+        game.drawables.append(self)
+        self.game = game
+        self.moneylabel = pyglet.text.Label(x=SCREEN_WIDTH * 0.995, y=SCREEN_HEIGHT * 0.995, text="Gold:0",
+                                            color=(255, 240, 0, 255),
+                                            group=groups.g[13], batch=self.batch, anchor_y="top", anchor_x="right",
+                                            font_size=0.01 * SCREEN_WIDTH)
+        self.sprites = [self.moneylabel]
+        self.opened = True
+        self.unfinished_upgrades = []
+        for e in possible_upgrades:
+            self.add(e.attempt_buy, e.x * SPRITE_SIZE_MULT - SCREEN_HEIGHT * .05,
+                     e.y * SPRITE_SIZE_MULT - SCREEN_HEIGHT * .05, SCREEN_HEIGHT * .1,
+                     SCREEN_HEIGHT * .1, e.image, args=(self.game,),
+                     layer=3, mouseover=self.open_desc, mover_args=(e,), mouseoff=self.close_desc)
+            for prev in e.previous:
+                line = pyglet.sprite.Sprite(images.UpgradeLine, x=SPRITE_SIZE_MULT * (e.x + prev.x) / 2,
+                                            y=SPRITE_SIZE_MULT * (e.y + prev.y) / 2,
+                                            batch=self.batch,
+                                            group=groups.g[11])
+                line.rotation = 90 - get_rotation(e.x - prev.x, e.y - prev.y) * 180 / math.pi
+                line.scale_x = SCREEN_WIDTH * .05 / line.width
+                line.scale_y = distance(e.x, e.y, prev.x, prev.y) * SPRITE_SIZE_MULT / line.height
+                self.sprites.append(line)
+            bg = pyglet.sprite.Sprite(images.UpgradeCircle, x=e.x * SPRITE_SIZE_MULT, y=e.y * SPRITE_SIZE_MULT,
+                                      batch=self.batch, group=groups.g[12])
+            bg.scale = SCREEN_HEIGHT * .12 / bg.height
+            bg.opacity = 0
+            self.sprites.append(bg)
+            self.unfinished_upgrades.append([e, bg])
+        self.upgrade_desc = None
+
+    def open_desc(self, upg):
+        if self.upgrade_desc is not None and self.upgrade_desc.open:
+            self.upgrade_desc.close()
+        available = 1
+        for e in upg.previous:
+            if not self.game.players[self.game.side].has_upgrade(e):
+                available = 0
+        if self.game.players[self.game.side].has_upgrade(upg):
+            available = 2
+        self.upgrade_desc = upgrade_description(upg, self.batch, self.layer + 1, available)
+
+    def close_desc(self):
+        if self.upgrade_desc is not None and self.upgrade_desc.open:
+            self.upgrade_desc.close()
+            self.upgrade_desc = None
+
+    def close(self):
+        self.game.key_press_detectors.remove(self)
+        self.game.mouse_click_detectors.remove(self)
+        self.game.mouse_move_detectors.remove(self)
+        self.game.drawables.remove(self)
+        self.opened = False
+        self.hide()
+        for e in self.sprites:
+            e.batch = None
+
+    def open(self):
+        self.game.key_press_detectors.append(self)
+        self.game.mouse_click_detectors.append(self)
+        self.game.mouse_move_detectors.append(self)
+        self.game.drawables.append(self)
+        self.opened = True
+        self.show()
+        for e in self.sprites:
+            e.batch = self.batch
+
+    def key_press(self, symbol, modifiers):
+        if symbol == 65307:
+            self.close()
+
+    def graphics_update(self):
+        self.moneylabel.text = "Gold:" + str(int(self.game.players[self.game.side].money))
+        for e in self.unfinished_upgrades:
+            if self.game.players[self.game.side].has_upgrade(e[0]):
+                e[1].opacity = 255
+                self.unfinished_upgrades.remove(e)
+            else:
+                remaining = self.game.players[self.game.side].upgrade_time_remaining(e[0])
+                if remaining is None:
+                    return
+                progress_percent = (e[0].get_time() - remaining / FPS) / e[0].get_time()
+                e[1].opacity = progress_percent * 150
+
+    def key_release(self, symbol, modifiers):
+        pass
+
+    def mouse_click(self, x, y, button=0, modifiers=0):
+        super().mouse_click(x, y, button, modifiers)
+
+    def mouse_release(self, x, y, button=0, modifiers=0):
+        super().mouse_release(x, y, button, modifiers)
+
+
+class upgrade_description(client_utility.toolbar):
+    def __init__(self, upg, batch, layer, available):
+        super().__init__(SCREEN_WIDTH * .7, 0, SCREEN_WIDTH * .3, SCREEN_HEIGHT, batch, layer=layer)
+        self.upg = upg
+        self.sprites = []
+        if available == 0:
+            self.sprites.append(pyglet.text.Label(x=SCREEN_WIDTH * 0.705, y=SCREEN_HEIGHT * 0.01,
+                                                  text="'Tis Impossible Without Previous Developments",
+                                                  color=(255, 0, 0, 255),
+                                                  group=groups.g[layer + 1], batch=batch, anchor_y="bottom",
+                                                  anchor_x="left",
+                                                  font_size=0.011 * SCREEN_WIDTH))
+        elif available == 1:
+            self.sprites.append(pyglet.text.Label(x=SCREEN_WIDTH * 0.705, y=SCREEN_HEIGHT * 0.01,
+                                                  text=f"Cost: {int(upg.get_cost())}, Time: {upg.get_time()} sec",
+                                                  color=(255, 240, 0, 255),
+                                                  group=groups.g[layer + 1], batch=batch, anchor_y="bottom",
+                                                  anchor_x="left",
+                                                  font_size=0.013 * SCREEN_WIDTH))
+        else:
+            self.sprites.append(pyglet.text.Label(x=SCREEN_WIDTH * 0.705, y=SCREEN_HEIGHT * 0.01,
+                                                  text="Thou Posesseth This Development",
+                                                  color=(0, 255, 0, 255),
+                                                  group=groups.g[layer + 1], batch=batch, anchor_y="bottom",
+                                                  anchor_x="left",
+                                                  font_size=0.013 * SCREEN_WIDTH),
+                                )
+        self.sprites.append(pyglet.text.Label(x=SCREEN_WIDTH * 0.85, y=SCREEN_HEIGHT * 0.92,
+                                              text=upg.name,
+                                              color=(200, 200, 200, 255),
+                                              group=groups.g[layer + 1], batch=batch, anchor_y="bottom",
+                                              anchor_x="center",
+                                              font_size=0.02 * SCREEN_WIDTH))
+        self.sprites.append(pyglet.text.Label(x=SCREEN_WIDTH * 0.85, y=SCREEN_HEIGHT * 0.89,
+                                              text=upgrade_stats[upg.name]["desc"],
+                                              color=(200, 200, 200, 255),
+                                              group=groups.g[layer + 1], batch=batch, anchor_y="top",
+                                              anchor_x="center", multiline=True,width=SCREEN_WIDTH*.28,
+                                              font_size=0.015 * SCREEN_WIDTH))
+        self.open = True
+
+    def close(self):
+        self.open = False
+        [e.delete() for e in self.sprites]
+        super().delete()
+
+
+possible_upgrades = [Upgrade_default, Upgrade_test_1]

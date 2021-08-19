@@ -1,6 +1,5 @@
 from imports import *
 from constants import *
-import upgrades_server
 
 
 def generate_units(money):
@@ -76,14 +75,6 @@ class Game:
             self.players[1].gain_money(PASSIVE_INCOME)
             self.players[odd_tick].tick_wave_timer()
             self.players[odd_tick - 1].tick_wave_timer()
-            # if self.ticks % 200 == 0:
-            #    print(self.ticks, len(self.players[0].units), len(self.players[1].units), self.players[0].money,
-            #          self.players[1].money, time.time() - self.time_start)
-            # self.debug_ticks += 1
-            # if time.time() - self.debug_secs > 1:
-            # self.debug_secs += 1
-            # print(self.debug_ticks)
-            # self.debug_ticks = 0
 
     def network(self, data, side):
         if "action" in data:
@@ -167,6 +158,13 @@ class Game:
                     if e.AI:
                         return
                 self.summon_ai_wave(side)
+            elif data["action"] == "th upgrade":
+                for e in possible_upgrades[data["num"]].previous:
+                    if not self.players[side].has_upgrade(e):
+                        return
+                if self.players[side].attempt_purchase(possible_upgrades[data["num"]].get_cost()):
+                    possible_upgrades[data["num"]](self.players[side])
+                    self.send_both({"action": "th upgrade", "side": side, "tick": self.ticks, "num": data["num"]})
 
     def summon_ai_wave(self, side):
         self.players[side].ai_wave += 1
@@ -213,7 +211,7 @@ class Game:
 
     def find_building(self, ID, side, entity_type=None):
         for e in self.players[side].all_buildings:
-            if e.ID == ID and (entity_type == None or e.entity_type == entity_type):
+            if e.ID == ID and (entity_type is None or e.entity_type == entity_type):
                 return e
         return None
 
@@ -249,11 +247,19 @@ class player:
         self.ai_wave = 0
         self.time_until_wave = WAVE_INTERVAL
         self.unit_auras = []
-        self.owned_upgrades = []
         self.pending_upgrades = []
+        self.owned_upgrades = [Upgrade_default(self)]
         self.unlocked_units = [Swordsman, Archer, Defender, Tower, Farm]
 
+    def has_upgrade(self, upg):
+        for e in self.owned_upgrades:
+            if e.__class__ == upg:
+                return True
+        return False
+
     def unlock_unit(self, unit):
+        if self.has_unit(unit):
+            return
         self.unlocked_units.append(unit)
 
     def has_unit(self, unit):
@@ -1229,4 +1235,52 @@ class aura:
     def apply(self, target):
         self.effect(*self.args).apply(target)
 
+
 ##################  ---/units---  #################
+
+class Upgrade:
+    previous = []
+    name = "This Is A Bug."
+
+    def __init__(self, player):
+        player.pending_upgrades.append(self)
+        self.time_remaining = float(upgrade_stats[self.name]["time"]) * FPS
+        self.player = player
+
+    def upgrading_tick(self):
+        self.time_remaining -= 1
+        if self.time_remaining < 0:
+            self.finished()
+            return True
+        return False
+
+    def finished(self):
+        self.player.pending_upgrades.remove(self)
+        self.player.owned_upgrades.append(self)
+        self.on_finish()
+
+    def on_finish(self):
+        pass
+
+    @classmethod
+    def get_cost(cls):
+        return int(upgrade_stats[cls.name]["cost"])
+
+    @classmethod
+    def get_time(cls):
+        return float(upgrade_stats[cls.name]["time"])
+
+
+class Upgrade_default(Upgrade):
+    name = "The Beginning"
+
+
+class Upgrade_test_1(Upgrade):
+    name = "Bigger Stalls"
+    previous = [Upgrade_default]
+
+    def on_finish(self):
+        self.player.unlock_unit(Bear)
+
+
+possible_upgrades = [Upgrade_default, Upgrade_test_1]

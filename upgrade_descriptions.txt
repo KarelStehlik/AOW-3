@@ -1,0 +1,2 @@
+The Beginning:desc=Upgrading exists now!|cost=0|time=0
+Bigger Stalls:desc=Bears may not be as tall as horses, but they are very fat. You need high quality stables.|cost=100000|time=5

@@ -45,8 +45,13 @@ wall_group = TextureBindGroup(images.Wall, layer=1)
 wall_crack_group = TextureBindGroup(images.WallCrack, layer=2)
 
 
+def do_nothing(*args):
+    pass
+
+
 class button:
-    def __init__(self, func, x, y, width, height, batch, image=images.Button, text="", args=(), layer=5):
+    def __init__(self, func, x, y, width, height, batch, image=images.Button, text="", args=(), layer=5,
+                 mouseover=do_nothing, mouseoff=do_nothing, mover_args=(), moff_args=()):
         self.sprite = pyglet.sprite.Sprite(image, x=x + width / 2, y=y + height / 2, batch=batch, group=groups.g[layer])
         self.layer = layer
         self.sprite.scale_x = width / self.sprite.width
@@ -58,10 +63,22 @@ class button:
         self.ogx, self.ogy = x, y
         self.text = pyglet.text.Label(text, x=self.x + self.width // 2,
                                       y=self.y + self.height * 4 / 7, color=(255, 255, 0, 255),
-                                      batch=batch, group=groups.g[layer+1], font_size=int(self.height / 2),
+                                      batch=batch, group=groups.g[layer + 1], font_size=int(self.height / 2),
                                       anchor_x="center", align="center", anchor_y="center")
         self.down = False
         self.big = 0
+        self.on_mouse_over = mouseover
+        self.on_mouse_off = mouseoff
+        self.mover_args = mover_args
+        self.moff_args = moff_args
+
+    def hide(self):
+        self.text.batch = None
+        self.sprite.batch = None
+
+    def show(self):
+        self.text.batch = self.batch
+        self.sprite.batch = self.batch
 
     def set_image(self, img):
         self.sprite = pyglet.sprite.Sprite(img, x=self.x + self.width / 2, y=self.y + self.height / 2, batch=self.batch,
@@ -82,7 +99,7 @@ class button:
         self.sprite.scale = 0.9
 
     def update(self, x, y):
-        self.sprite.update(x=x+self.width / 2, y=y + self.height / 2)
+        self.sprite.update(x=x + self.width / 2, y=y + self.height / 2)
         self.x, self.y = x, y
         self.text.x = x + self.width // 2
         self.text.y = y + self.height * 4 / 7
@@ -92,9 +109,17 @@ class button:
             if (self.big == 1) == (self.x + self.width >= x >= self.x and self.y + self.height >= y >= self.y):
                 return
             if self.big != 1:
-                self.embiggen()
+                self.mouse_over()
                 return
-            self.unbiggen()
+            self.mouse_off()
+
+    def mouse_over(self):
+        self.embiggen()
+        self.on_mouse_over(*self.mover_args)
+
+    def mouse_off(self):
+        self.unbiggen()
+        self.on_mouse_off(*self.moff_args)
 
     def mouse_click(self, x, y):
         if self.x + self.width >= x >= self.x and self.y + self.height >= y >= self.y:
@@ -117,9 +142,9 @@ class button:
 
 class toolbar:
     def __init__(self, x, y, width, height, batch, image=images.Toolbar, layer=6):
+        self.layer = layer
         if image is not None:
             self.sprite = pyglet.sprite.Sprite(image, x=x, y=y, batch=batch, group=groups.g[layer])
-            self.layer = layer
             self.sprite.scale_x = width / self.sprite.width
             self.sprite.scale_y = height / self.sprite.height
         else:
@@ -128,9 +153,21 @@ class toolbar:
         self.batch = batch
         self.buttons = []
 
-    def add(self, func, x, y, width, height, image=images.Button, text="", args=()) -> button:
+    def hide(self):
+        [e.hide() for e in self.buttons]
+        if self.sprite is not None:
+            self.sprite.batch = None
+
+    def show(self):
+        [e.show() for e in self.buttons]
+        if self.sprite is not None:
+            self.sprite.batch = self.batch
+
+    def add(self, func, x, y, width, height, image=images.Button, text="", args=(),
+            mouseover=do_nothing, mouseoff=do_nothing, layer=1, mover_args=(), moff_args=()) -> button:
         a = button(func, x, y, width, height, self.batch,
-                   image=image, text=text, args=args, layer=self.layer + 1)
+                   image=image, text=text, args=args, layer=self.layer + layer, mouseover=mouseover, mouseoff=mouseoff,
+                   mover_args=mover_args, moff_args=moff_args)
         self.buttons.append(a)
         return a
 
@@ -139,7 +176,7 @@ class toolbar:
         if self.sprite is not None:
             self.sprite.delete()
 
-    def mouse_click(self, x, y):
+    def mouse_click(self, x, y, button=0, modifiers=0):
         if self.x + self.width >= x >= self.x and self.y + self.height >= y >= self.y:
             [e.mouse_click(x, y) for e in self.buttons]
             return True
@@ -150,14 +187,14 @@ class toolbar:
             [e.mouse_move(x, y) for e in self.buttons]
         else:
             for e in self.buttons:
-                if e.big==1 or e.big == -1:
-                    e.unbiggen()
+                if e.big == 1 or e.big == -1:
+                    e.mouse_off()
 
-    def mouse_drag(self, x, y):
+    def mouse_drag(self, x, y, button=0, modifiers=0):
         if self.x + self.width >= x >= self.x and self.y + self.height >= y >= self.y:
-            [e.mouse_move for e in self.buttons]
+            [e.mouse_move(x, y) for e in self.buttons]
             return True
         return False
 
-    def mouse_release(self, x, y):
+    def mouse_release(self, x, y, button=0, modifiers=0):
         [e.mouse_release(x, y) for e in self.buttons]
