@@ -119,7 +119,7 @@ class Game:
         [e.graphics_update() for e in self.projectiles]
         self.selected.tick()
         [e.tick(self.last_dt) for e in self.animations]
-        [e.graphics_update() for e in self.drawables]
+        [e.graphics_update(self.last_dt) for e in self.drawables]
         self.batch.draw()
         self.UI_topBar.update()
         self.last_dt = time.perf_counter() - self.last_tick
@@ -196,11 +196,11 @@ class Game:
             self.camy_moving = min(self.camy_moving + self.cam_move_speed, self.cam_move_speed)
         elif modifiers == 16:
             if key.NUM_9 >= symbol >= key.NUM_1:
-                if len(selects_all[self.UI_bottomBar.page]) > symbol - key.NUM_1:
-                    self.select(selects_all[self.UI_bottomBar.page][symbol - key.NUM_1])
+                if len(self.UI_bottomBar.loaded) > symbol - key.NUM_1:
+                    self.select(self.UI_bottomBar.loaded[symbol - key.NUM_1])
             elif 57 >= symbol >= 49:
-                if len(selects_all[self.UI_bottomBar.page]) > symbol - 49:
-                    self.select(selects_all[self.UI_bottomBar.page][symbol - 49])
+                if len(self.UI_bottomBar.loaded) > symbol - 49:
+                    self.select(self.UI_bottomBar.loaded[symbol - 49])
             elif symbol == 65307:
                 self.select(selection_none)
             elif symbol in [key.E, key.R, key.T]:
@@ -208,7 +208,7 @@ class Game:
                 for e in self.players[self.side].all_buildings:
                     if e.entity_type != "wall" and e.distance_to_point(x, y) <= 0:
                         i = [key.E, key.R, key.T].index(symbol)
-                        if len(e.upgrades_into) > i:
+                        if len(e.upgrades_into) > i and self.players[self.side].has_unit(e.upgrades_into[i]):
                             self.connection.Send({"action": "buy upgrade", "building ID": e.ID, "upgrade num": i})
             elif symbol == key.U:
                 Upgrade_test_1.attempt_buy(self)
@@ -298,13 +298,25 @@ class player:
         self.all_buildings = []
         self.money = 0.0
         self.TownHall = None
-        self.unit_auras = []
+        self.auras = []
         self.pending_upgrades = []
         self.owned_upgrades = [Upgrade_default(self, 0)]
-        self.unlocked_units = [Swordsman, Archer, Defender, Tower, Farm]
+        self.unlocked_units = [Swordsman, Archer, Defender, Tower, Wall, Farm, Tower1, Tower2, Tower11, Tower21,
+                               Farm1, Farm2]
+
+    def add_aura(self, aur):
+        self.auras.append(aur)
+        [aur.apply(e) for e in self.units]
+        [aur.apply(e) for e in self.all_buildings]
 
     def has_upgrade(self, upg):
         for e in self.owned_upgrades:
+            if e.__class__ == upg:
+                return True
+        return False
+
+    def is_upgrade_pending(self, upg):
+        for e in self.pending_upgrades:
             if e.__class__ == upg:
                 return True
         return False
@@ -326,7 +338,11 @@ class player:
         return unit in self.unlocked_units
 
     def on_unit_summon(self, unit):
-        for e in self.unit_auras:
+        for e in self.auras:
+            e.apply(unit)
+
+    def on_building_summon(self, unit):
+        for e in self.auras:
             e.apply(unit)
 
     def summon_townhall(self):
@@ -349,10 +365,10 @@ class player:
         [e.tick() for e in self.all_buildings]
         [e.tick() for e in self.walls]
         [e.tick() for e in self.formations]
-        for e in self.unit_auras:
+        for e in self.auras:
             e.tick()
             if not e.exists:
-                self.unit_auras.remove(e)
+                self.auras.remove(e)
         [e.upgrading_tick() for e in self.pending_upgrades]
 
     def graphics_update(self):
@@ -385,6 +401,7 @@ class UI_bottom_bar(client_utility.toolbar):
         super().__init__(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT / 5, game.batch)
         self.game = game
         self.page = 0
+        self.loaded = []
         self.load_page(0)
 
     def load_page(self, n):
@@ -394,12 +411,14 @@ class UI_bottom_bar(client_utility.toolbar):
             if e.is_unlocked(self.game):
                 self.add(self.game.select, SCREEN_WIDTH * (0.01 + 0.1 * i), SCREEN_WIDTH * 0.01,
                          SCREEN_WIDTH * 0.09, SCREEN_WIDTH * 0.09, e.img, args=(e,))
+                self.loaded.append(e)
                 i += 1
         self.page = n
 
     def unload_page(self):
         [e.delete() for e in self.buttons]
         self.buttons = []
+        self.loaded = []
 
 
 class UI_formation(client_utility.toolbar):
@@ -885,7 +904,13 @@ class building_upgrade_menu(client_utility.toolbar):
         if not self.target.upgrades_into:
             return
         buttonsize = SCREEN_WIDTH * .1
-        self.width = buttonsize * len(self.target.upgrades_into)
+        amount = 0
+        for e in self.target.upgrades_into:
+            if game.players[game.side].has_unit(e):
+                amount += 1
+        if amount == 0:
+            return
+        self.width = buttonsize * amount
         self.height = buttonsize
         super().__init__(self.target.x * SPRITE_SIZE_MULT - game.camx - self.width / 2,
                          self.target.y * SPRITE_SIZE_MULT - game.camy - self.height / 2, self.width, self.height,
@@ -895,17 +920,18 @@ class building_upgrade_menu(client_utility.toolbar):
         i = 0
         self.texts = []
         for e in self.target.upgrades_into:
-            self.texts.append(pyglet.text.Label(
-                x=self.target.x * SPRITE_SIZE_MULT - game.camx - self.width / 2 + buttonsize * (i + .5),
-                y=self.target.y * SPRITE_SIZE_MULT - game.camy - self.height / 2, text=str(int(e.get_cost([]))),
-                color=(255, 240, 0, 255),
-                group=groups.g[9], batch=game.batch, anchor_y="bottom", anchor_x="center",
-                font_size=0.00625 * SCREEN_WIDTH))
-            self.add(self.clicked_button,
-                     self.target.x * SPRITE_SIZE_MULT - game.camx - self.width / 2 + buttonsize * i,
-                     self.target.y * SPRITE_SIZE_MULT - game.camy - self.height / 2, buttonsize,
-                     buttonsize, e.image, args=(i,))
-            i += 1
+            if game.players[game.side].has_unit(e):
+                self.texts.append(pyglet.text.Label(
+                    x=self.target.x * SPRITE_SIZE_MULT - game.camx - self.width / 2 + buttonsize * (i + .5),
+                    y=self.target.y * SPRITE_SIZE_MULT - game.camy - self.height / 2, text=str(int(e.get_cost([]))),
+                    color=(255, 240, 0, 255),
+                    group=groups.g[9], batch=game.batch, anchor_y="bottom", anchor_x="center",
+                    font_size=0.00625 * SCREEN_WIDTH))
+                self.add(self.clicked_button,
+                         self.target.x * SPRITE_SIZE_MULT - game.camx - self.width / 2 + buttonsize * i,
+                         self.target.y * SPRITE_SIZE_MULT - game.camy - self.height / 2, buttonsize,
+                         buttonsize, e.image, args=(i,))
+                i += 1
 
     def clicked_button(self, i):
         if not self.target.exists:
@@ -976,6 +1002,13 @@ class Building:
         self.mods_multiply = {e: [] for e in unit_stats[self.name].keys()}
         self.stats = {e: (self.base_stats[e] + sum(self.mods_add[e])) * product(*self.mods_multiply[e]) for e in
                       self.base_stats.keys()}
+        self.game.players[side].on_building_summon(self)
+
+    def update_stats(self, stats=None):
+        if stats is None:
+            stats = self.stats.keys()
+        for e in stats:
+            self.stats[e] = (self.base_stats[e] + sum(self.mods_add[e])) * product(*self.mods_multiply[e])
 
     def towards(self, x, y):
         dx, dy = self.x - x, self.y - y
@@ -1120,12 +1153,11 @@ class Tower(Building):
         direction = target.towards(self.x, self.y)
         self.sprite.rotation = 90 - get_rotation_norm(*direction) * 180 / math.pi
         Arrow(self.x, self.y, *direction, self.game, self.side, self.stats["dmg"], self.stats["bulletspeed"],
-              self.stats["reach"] * 1.5, scale=.2)
+              self.stats["reach"] * 1.5, scale=self.stats["bullet_scale"])
 
     def acquire_target(self):
-        if self.target is not None and self.target.exists and self.target.distance_to_point(self.x,
-                                                                                            self.y) < self.stats[
-            "reach"]:
+        if self.target is not None and \
+                self.target.exists and self.target.distance_to_point(self.x, self.y) < self.stats["reach"]:
             return True
         if self.turns_without_target == 60 or self.turns_without_target == 0:
             self.turns_without_target = 0
@@ -1180,14 +1212,14 @@ class Tower2(Tower):
         else:
             super().__init__(ID, x, y, tick, side, game)
             self.comes_from = None
-        self.explosion_radius = unit_stats[self.name]["explosion_radius"]
         self.upgrades_into = [Tower21, Tower22]
 
     def attack(self, target):
         direction = target.towards(self.x, self.y)
         self.sprite.rotation = 90 - get_rotation_norm(*direction) * 180 / math.pi
         Boulder(self.x, self.y, *direction, self.game, self.side, self.stats["dmg"], self.stats["bulletspeed"],
-                target.distance_to_point(self.x, self.y), self.explosion_radius)
+                target.distance_to_point(self.x, self.y), self.stats["explosion_radius"],
+                scale=self.stats["bullet_scale"])
 
 
 class Tower21(Tower):
@@ -1201,14 +1233,14 @@ class Tower21(Tower):
         else:
             super().__init__(ID, x, y, tick, side, game)
             self.comes_from = None
-        self.explosion_radius = unit_stats[self.name]["explosion_radius"]
         self.upgrades_into = []
 
     def attack(self, target):
         direction = target.towards(self.x, self.y)
         self.sprite.rotation = 90 - get_rotation_norm(*direction) * 180 / math.pi
         Meteor(self.x, self.y, *direction, self.game, self.side, self.stats["dmg"], self.stats["bulletspeed"],
-               target.distance_to_point(self.x, self.y), self.explosion_radius)
+               target.distance_to_point(self.x, self.y), self.stats["explosion_radius"],
+               scale=self.stats["bullet_scale"])
 
 
 class Tower22(Tower):
@@ -1222,14 +1254,13 @@ class Tower22(Tower):
         else:
             super().__init__(ID, x, y, tick, side, game)
             self.comes_from = None
-        self.explosion_radius = unit_stats[self.name]["explosion_radius"]
         self.upgrades_into = []
 
     def attack(self, target):
         direction = target.towards(self.x, self.y)
         self.sprite.rotation = 90 - get_rotation_norm(*direction) * 180 / math.pi
         Egg(self.x, self.y, *direction, self.game, self.side, self.stats["dmg"], self.stats["bulletspeed"],
-            target.distance_to_point(self.x, self.y), self.explosion_radius)
+            target.distance_to_point(self.x, self.y), self.stats["explosion_radius"], scale=self.stats["bullet_scale"])
 
 
 class Tower11(Tower):
@@ -1254,7 +1285,7 @@ class Tower11(Tower):
         for i in range(int(self.shots)):
             Bullet(self.x, self.y, rot + self.spread * math.sin(self.game.ticks + 5 * i), self.game, self.side,
                    self.stats["dmg"], self.stats["bulletspeed"],
-                   self.stats["reach"] * 1.5)
+                   self.stats["reach"] * 1.5, scale=self.stats["bullet_scale"])
 
 
 class Farm(Building):
@@ -1919,7 +1950,8 @@ class Archer(Unit):
     def attack(self, target):
         Arrow(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"],
               self.stats["bulletspeed"],
-              self.stats["reach"] * 1.5)
+              self.stats["reach"] * 1.5,
+              scale=self.stats["bullet_scale"])
 
 
 class selection_archer(selection_unit):
@@ -1933,12 +1965,12 @@ class Trebuchet(Unit):
 
     def __init__(self, ID, x, y, side, column, row, game, formation, effects=()):
         super().__init__(ID, x, y, side, column, row, game, formation, effects=effects)
-        self.explosion_radius = unit_stats[self.name]["explosion_radius"]
 
     def attack(self, target):
         Boulder(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"],
                 self.stats["bulletspeed"],
-                target.distance_to_point(self.x, self.y), self.explosion_radius)
+                target.distance_to_point(self.x, self.y), self.stats["explosion_radius"],
+                scale=self.stats["bullet_scale"])
 
 
 class Defender(Unit):
@@ -1988,7 +2020,7 @@ class Projectile:
     image = images.BazookaBullet
     scale = 1
 
-    def __init__(self, x, y, dx, dy, game, side, damage, speed, reach, scale=None):
+    def __init__(self, x, y, dx, dy, game, side, damage, speed, reach, scale=None, pierce=1, cluster=0):
         # (dx,dy) must be normalized
         self.x, self.y = x, y
         self.sprite = pyglet.sprite.Sprite(self.image, self.x, self.y, batch=game.batch, group=groups.g[5])
@@ -2005,6 +2037,9 @@ class Projectile:
         self.damage = damage
         game.projectiles.append(self)
         self.reach = reach
+        self.pierce = pierce
+        self.cluster = cluster
+        self.already_hit = []
 
     def tick(self):
         self.x += self.vx
@@ -2012,15 +2047,17 @@ class Projectile:
         c = self.game.find_chunk(get_chunk(self.x, self.y))
         if c is not None:
             for unit in c.units[1 - self.side]:
-                if unit.exists and (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= (unit.size ** 2) / 4:
+                if unit.exists and unit not in self.already_hit and \
+                        (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= (unit.size ** 2) / 4:
                     self.collide(unit)
                     return
             for unit in c.buildings[1 - self.side]:
-                if unit.exists and (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= (unit.size ** 2) / 4:
+                if unit.exists and unit not in self.already_hit and \
+                        (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= (unit.size ** 2) / 4:
                     self.collide(unit)
                     return
         for wall in self.game.players[1 - self.side].walls:
-            if wall.exists and wall.distance_to_point(self.x, self.y) <= 0:
+            if wall.exists and wall not in self.already_hit and wall.distance_to_point(self.x, self.y) <= 0:
                 self.collide(wall)
                 return
         self.reach -= self.speed
@@ -2029,11 +2066,15 @@ class Projectile:
 
     def collide(self, unit):
         unit.take_damage(self.damage, self)
-        self.delete()
+        self.already_hit.append(unit)
+        self.pierce -= 1
+        if self.pierce < 1:
+            self.delete()
 
     def delete(self):
         self.game.projectiles.remove(self)
         self.sprite.delete()
+        self.already_hit = []
 
     def graphics_update(self):
         self.sprite.update(x=self.x * SPRITE_SIZE_MULT - self.game.camx, y=self.y * SPRITE_SIZE_MULT - self.game.camy)
@@ -2048,8 +2089,8 @@ class Boulder(Projectile):
     image = images.Boulder
     scale = .15
 
-    def __init__(self, x, y, dx, dy, game, side, damage, speed, reach, radius):
-        super().__init__(x, y, dx, dy, game, side, damage, speed, reach)
+    def __init__(self, x, y, dx, dy, game, side, damage, speed, reach, radius, scale=None):
+        super().__init__(x, y, dx, dy, game, side, damage, speed, reach, scale=scale)
         self.radius = radius
         self.rotation = (random.random() - .5) * 10
 
@@ -2062,7 +2103,7 @@ class Boulder(Projectile):
 
     def explode(self):
         AOE_damage(self.x, self.y, self.radius, self.damage, self, self.game)
-        animation_explosion(self.x, self.y, 200, 100, self.game)
+        animation_explosion(self.x, self.y, self.radius, 100, self.game)
         self.delete()
 
     def graphics_update(self):
@@ -2073,11 +2114,9 @@ class Boulder(Projectile):
 class Meteor(Projectile):
     image = images.Meteor
     scale = .15
-    explosion_size = 200
-    explosion_speed = 100
 
-    def __init__(self, x, y, dx, dy, game, side, damage, speed, reach, radius):
-        super().__init__(x, y, dx, dy, game, side, damage, speed, reach)
+    def __init__(self, x, y, dx, dy, game, side, damage, speed, reach, radius, scale=None):
+        super().__init__(x, y, dx, dy, game, side, damage, speed, reach, scale=scale)
         self.radius = radius
 
     def tick(self):
@@ -2089,7 +2128,7 @@ class Meteor(Projectile):
 
     def explode(self):
         AOE_damage(self.x, self.y, self.radius, self.damage, self, self.game)
-        animation_explosion(self.x, self.y, self.explosion_size, self.explosion_speed, self.game)
+        animation_explosion(self.x, self.y, self.radius, 100, self.game)
         self.delete()
 
     def graphics_update(self):
@@ -2206,11 +2245,12 @@ class effect_stat_mult:
 
 
 class aura:
-    def __init__(self, effect, args, duration=None):
+    def __init__(self, effect, args, duration=None, targets=None):
         self.effect = effect
         self.args = args
         self.remaining_duration = duration
         self.exists = True
+        self.targets = targets
 
     def tick(self):
         if self.remaining_duration is None:
@@ -2220,7 +2260,8 @@ class aura:
             self.exists = False
 
     def apply(self, target):
-        self.effect(*self.args).apply(target)
+        if self.targets is None or target.name in self.targets:
+            self.effect(*self.args).apply(target)
 
 
 class Upgrade:
@@ -2280,6 +2321,45 @@ class Upgrade_test_1(Upgrade):
         self.player.unlock_unit(Bear)
 
 
+class Upgrade_catapult(Upgrade):
+    name = "Catapults"
+    previous = [Upgrade_default]
+    image = images.Trebuchet
+    x = 300
+    y = 500
+
+    def on_finish(self):
+        self.player.unlock_unit(Trebuchet)
+
+
+class Upgrade_bigger_arrows(Upgrade):
+    name = "Bigger Arrows"
+    image = images.Arrow
+    x = 500
+    y = 800
+    previous = [Upgrade_default]
+
+    def on_finish(self):
+        self.player.add_aura(aura(effect_stat_mult, ("dmg", float(upgrade_stats[self.name]["mod"])),
+                                  targets=["Archer", "Tower", "Tower1"]))
+        self.player.add_aura(aura(effect_stat_mult, ("bullet_scale", 2), targets=["Archer", "Tower", "Tower1"]))
+
+
+class Upgrade_bigger_rocks(Upgrade):
+    name = "Bigger Rocks"
+    image = images.Boulder
+    x = 650
+    y = 900
+    previous = [Upgrade_bigger_arrows]
+
+    def on_finish(self):
+        self.player.add_aura(aura(effect_stat_mult, ("dmg", float(upgrade_stats[self.name]["mod_dmg"])),
+                                  targets=["Trebuchet", "Tower2", "Tower21"]))
+        self.player.add_aura(aura(effect_stat_mult, ("explosion_radius", float(upgrade_stats[self.name]["mod_rad"])),
+                                  targets=["Trebuchet", "Tower2", "Tower21"]))
+        self.player.add_aura(aura(effect_stat_mult, ("bullet_scale", 2), targets=["Trebuchet", "Tower2", "Tower21"]))
+
+
 class Upgrade_Menu(client_utility.toolbar):
     def __init__(self, game):
         self.batch = game.batch
@@ -2295,13 +2375,14 @@ class Upgrade_Menu(client_utility.toolbar):
                                             group=groups.g[13], batch=self.batch, anchor_y="top", anchor_x="right",
                                             font_size=0.01 * SCREEN_WIDTH)
         self.sprites = [self.moneylabel]
+        self.movables = []
         self.opened = True
         self.unfinished_upgrades = []
         for e in possible_upgrades:
-            self.add(e.attempt_buy, e.x * SPRITE_SIZE_MULT - SCREEN_HEIGHT * .05,
-                     e.y * SPRITE_SIZE_MULT - SCREEN_HEIGHT * .05, SCREEN_HEIGHT * .1,
-                     SCREEN_HEIGHT * .1, e.image, args=(self.game,),
-                     layer=3, mouseover=self.open_desc, mover_args=(e,), mouseoff=self.close_desc)
+            self.movables.append(self.add(e.attempt_buy, e.x * SPRITE_SIZE_MULT - SCREEN_HEIGHT * .05,
+                                          e.y * SPRITE_SIZE_MULT - SCREEN_HEIGHT * .05, SCREEN_HEIGHT * .1,
+                                          SCREEN_HEIGHT * .1, e.image, args=(self.game,),
+                                          layer=3, mouseover=self.open_desc, mover_args=(e,), mouseoff=self.close_desc))
             for prev in e.previous:
                 line = pyglet.sprite.Sprite(images.UpgradeLine, x=SPRITE_SIZE_MULT * (e.x + prev.x) / 2,
                                             y=SPRITE_SIZE_MULT * (e.y + prev.y) / 2,
@@ -2311,13 +2392,17 @@ class Upgrade_Menu(client_utility.toolbar):
                 line.scale_x = SCREEN_WIDTH * .05 / line.width
                 line.scale_y = distance(e.x, e.y, prev.x, prev.y) * SPRITE_SIZE_MULT / line.height
                 self.sprites.append(line)
+                self.movables.append(line)
             bg = pyglet.sprite.Sprite(images.UpgradeCircle, x=e.x * SPRITE_SIZE_MULT, y=e.y * SPRITE_SIZE_MULT,
                                       batch=self.batch, group=groups.g[12])
             bg.scale = SCREEN_HEIGHT * .12 / bg.height
             bg.opacity = 0
             self.sprites.append(bg)
+            self.movables.append(bg)
             self.unfinished_upgrades.append([e, bg])
         self.upgrade_desc = None
+        self.x_moving = self.y_moving = 0
+        self.keys_pressed = []
 
     def open_desc(self, upg):
         if self.upgrade_desc is not None and self.upgrade_desc.open:
@@ -2326,8 +2411,10 @@ class Upgrade_Menu(client_utility.toolbar):
         for e in upg.previous:
             if not self.game.players[self.game.side].has_upgrade(e):
                 available = 0
-        if self.game.players[self.game.side].has_upgrade(upg):
+        if self.game.players[self.game.side].is_upgrade_pending(upg):
             available = 2
+        elif self.game.players[self.game.side].has_upgrade(upg):
+            available = 3
         self.upgrade_desc = upgrade_description(upg, self.batch, self.layer + 1, available)
 
     def close_desc(self):
@@ -2342,6 +2429,7 @@ class Upgrade_Menu(client_utility.toolbar):
         self.game.drawables.remove(self)
         self.opened = False
         self.hide()
+        self.close_desc()
         for e in self.sprites:
             e.batch = None
 
@@ -2356,10 +2444,18 @@ class Upgrade_Menu(client_utility.toolbar):
             e.batch = self.batch
 
     def key_press(self, symbol, modifiers):
+        if symbol not in self.keys_pressed:
+            self.keys_pressed.append(symbol)
         if symbol == 65307:
             self.close()
+        if symbol in [key.A, key.S, key.D, key.W]:
+            self.recalc_camera_movement()
 
-    def graphics_update(self):
+    def recalc_camera_movement(self):
+        self.x_moving = (key.D in self.keys_pressed) - (key.A in self.keys_pressed)
+        self.y_moving = (key.W in self.keys_pressed) - (key.S in self.keys_pressed)
+
+    def graphics_update(self, dt):
         self.moneylabel.text = "Gold:" + str(int(self.game.players[self.game.side].money))
         for e in self.unfinished_upgrades:
             if self.game.players[self.game.side].has_upgrade(e[0]):
@@ -2368,12 +2464,16 @@ class Upgrade_Menu(client_utility.toolbar):
             else:
                 remaining = self.game.players[self.game.side].upgrade_time_remaining(e[0])
                 if remaining is None:
-                    return
+                    continue
                 progress_percent = (e[0].get_time() - remaining / FPS) / e[0].get_time()
                 e[1].opacity = progress_percent * 150
+        [e.update(e.x - self.x_moving * dt * 500, e.y - self.y_moving * dt * 500) for e in self.movables]
 
     def key_release(self, symbol, modifiers):
-        pass
+        if symbol in self.keys_pressed:
+            self.keys_pressed.remove(symbol)
+        if symbol in [key.A, key.S, key.D, key.W]:
+            self.recalc_camera_movement()
 
     def mouse_click(self, x, y, button=0, modifiers=0):
         super().mouse_click(x, y, button, modifiers)
@@ -2389,7 +2489,7 @@ class upgrade_description(client_utility.toolbar):
         self.sprites = []
         if available == 0:
             self.sprites.append(pyglet.text.Label(x=SCREEN_WIDTH * 0.705, y=SCREEN_HEIGHT * 0.01,
-                                                  text="'Tis Impossible Without Previous Developments",
+                                                  text="Research previous upgrades first",
                                                   color=(255, 0, 0, 255),
                                                   group=groups.g[layer + 1], batch=batch, anchor_y="bottom",
                                                   anchor_x="left",
@@ -2401,6 +2501,14 @@ class upgrade_description(client_utility.toolbar):
                                                   group=groups.g[layer + 1], batch=batch, anchor_y="bottom",
                                                   anchor_x="left",
                                                   font_size=0.013 * SCREEN_WIDTH))
+        elif available == 2:
+            self.sprites.append(pyglet.text.Label(x=SCREEN_WIDTH * 0.705, y=SCREEN_HEIGHT * 0.01,
+                                                  text="Upgrade in progress",
+                                                  color=(0, 255, 0, 255),
+                                                  group=groups.g[layer + 1], batch=batch, anchor_y="bottom",
+                                                  anchor_x="left",
+                                                  font_size=0.013 * SCREEN_WIDTH),
+                                )
         else:
             self.sprites.append(pyglet.text.Label(x=SCREEN_WIDTH * 0.705, y=SCREEN_HEIGHT * 0.01,
                                                   text="Thou Posesseth This Development",
@@ -2409,18 +2517,24 @@ class upgrade_description(client_utility.toolbar):
                                                   anchor_x="left",
                                                   font_size=0.013 * SCREEN_WIDTH),
                                 )
-        self.sprites.append(pyglet.text.Label(x=SCREEN_WIDTH * 0.85, y=SCREEN_HEIGHT * 0.92,
+        self.sprites.append(pyglet.text.Label(x=SCREEN_WIDTH * 0.85, y=SCREEN_HEIGHT * 0.91,
                                               text=upg.name,
-                                              color=(200, 200, 200, 255),
+                                              color=(250, 90, 30, 255),
                                               group=groups.g[layer + 1], batch=batch, anchor_y="bottom",
                                               anchor_x="center",
-                                              font_size=0.02 * SCREEN_WIDTH))
+                                              font_size=0.025 * SCREEN_WIDTH))
         self.sprites.append(pyglet.text.Label(x=SCREEN_WIDTH * 0.85, y=SCREEN_HEIGHT * 0.89,
                                               text=upgrade_stats[upg.name]["desc"],
                                               color=(200, 200, 200, 255),
                                               group=groups.g[layer + 1], batch=batch, anchor_y="top",
-                                              anchor_x="center", multiline=True,width=SCREEN_WIDTH*.28,
-                                              font_size=0.015 * SCREEN_WIDTH))
+                                              anchor_x="center",
+                                              font_size=0.019 * SCREEN_WIDTH))
+        self.sprites.append(pyglet.text.Label(x=SCREEN_WIDTH * 0.85, y=SCREEN_HEIGHT * 0.8,
+                                              text=upgrade_stats[upg.name]["flavor"],
+                                              color=(200, 200, 200, 255),
+                                              group=groups.g[layer + 1], batch=batch, anchor_y="top",
+                                              anchor_x="center", multiline=True, width=SCREEN_WIDTH * .28,
+                                              font_size=0.013 * SCREEN_WIDTH))
         self.open = True
 
     def close(self):
@@ -2429,4 +2543,16 @@ class upgrade_description(client_utility.toolbar):
         super().delete()
 
 
-possible_upgrades = [Upgrade_default, Upgrade_test_1]
+class Upgrade_egg(Upgrade):
+    name = "Egg Cannon"
+    previous = [Upgrade_bigger_rocks]
+    image = images.Egg
+    x = 650
+    y = 1150
+
+    def on_finish(self):
+        self.player.unlock_unit(Tower22)
+
+
+possible_upgrades = [Upgrade_default, Upgrade_test_1, Upgrade_bigger_arrows, Upgrade_catapult, Upgrade_bigger_rocks,
+                     Upgrade_egg]

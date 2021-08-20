@@ -143,6 +143,8 @@ class Game:
                 target = self.find_building(data["building ID"], side)
                 if target is None or len(target.upgrades_into) <= data["upgrade num"]:
                     return
+                if not self.players[side].has_unit(target.upgrades_into[data["upgrade num"]]):
+                    return
                 if target is not None and target.exists and self.players[side].attempt_purchase(
                         target.upgrades_into[data["upgrade num"]].get_cost([])):
                     target.upgrades_into[data["upgrade num"]](target)
@@ -159,9 +161,12 @@ class Game:
                         return
                 self.summon_ai_wave(side)
             elif data["action"] == "th upgrade":
-                for e in possible_upgrades[data["num"]].previous:
+                upg = possible_upgrades[data["num"]]
+                for e in upg.previous:
                     if not self.players[side].has_upgrade(e):
                         return
+                if self.players[side].has_upgrade(upg) or self.players[side].is_upgrade_pending(upg):
+                    return
                 if self.players[side].attempt_purchase(possible_upgrades[data["num"]].get_cost()):
                     possible_upgrades[data["num"]](self.players[side])
                     self.send_both({"action": "th upgrade", "side": side, "tick": self.ticks, "num": data["num"]})
@@ -246,13 +251,25 @@ class player:
         self.TownHall = None
         self.ai_wave = 0
         self.time_until_wave = WAVE_INTERVAL
-        self.unit_auras = []
+        self.auras = []
         self.pending_upgrades = []
         self.owned_upgrades = [Upgrade_default(self)]
-        self.unlocked_units = [Swordsman, Archer, Defender, Tower, Farm]
+        self.unlocked_units = [Swordsman, Archer, Defender, Tower, Wall, Farm, Tower1, Tower2, Tower11, Tower21,
+                               Farm1, Farm2]
+
+    def add_aura(self, aur):
+        self.auras.append(aur)
+        [aur.apply(e) for e in self.units]
+        [aur.apply(e) for e in self.all_buildings]
 
     def has_upgrade(self, upg):
         for e in self.owned_upgrades:
+            if e.__class__ == upg:
+                return True
+        return False
+
+    def is_upgrade_pending(self, upg):
+        for e in self.pending_upgrades:
             if e.__class__ == upg:
                 return True
         return False
@@ -266,7 +283,11 @@ class player:
         return unit in self.unlocked_units
 
     def on_unit_summon(self, unit):
-        for e in self.unit_auras:
+        for e in self.auras:
+            e.apply(unit)
+
+    def on_building_summon(self, unit):
+        for e in self.auras:
             e.apply(unit)
 
     def tick_wave_timer(self):
@@ -294,10 +315,10 @@ class player:
         [e.tick() for e in self.all_buildings]
         [e.tick() for e in self.walls]
         [e.tick() for e in self.formations]
-        for e in self.unit_auras:
+        for e in self.auras:
             e.tick()
             if not e.exists:
-                self.unit_auras.remove(e)
+                self.auras.remove(e)
         [e.upgrading_tick() for e in self.pending_upgrades]
 
 
@@ -341,6 +362,13 @@ class Building:
         self.mods_multiply = {e: [] for e in unit_stats[self.name].keys()}
         self.stats = {e: (self.base_stats[e] + sum(self.mods_add[e])) * product(*self.mods_multiply[e]) for e in
                       self.base_stats.keys()}
+        self.game.players[side].on_building_summon(self)
+
+    def update_stats(self, stats=None):
+        if stats is None:
+            stats = self.stats.keys()
+        for e in stats:
+            self.stats[e] = (self.base_stats[e] + sum(self.mods_add[e])) * product(*self.mods_multiply[e])
 
     def take_damage(self, amount, source):
         if self.exists:
@@ -499,13 +527,12 @@ class Tower2(Tower):
     def __init__(self, target):
         super().__init__(target.ID, target.x, target.y, target.side, target.game)
         self.comes_from = target
-        self.explosion_radius = unit_stats[self.name]["explosion_radius"]
         self.upgrades_into = [Tower21, Tower22]
 
     def attack(self, target):
         Boulder(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"],
                 self.stats["bulletspeed"],
-                target.distance_to_point(self.x, self.y), self.explosion_radius)
+                target.distance_to_point(self.x, self.y), self.stats["explosion_radius"])
 
 
 class Tower21(Tower):
@@ -514,13 +541,12 @@ class Tower21(Tower):
     def __init__(self, target):
         super().__init__(target.ID, target.x, target.y, target.side, target.game)
         self.comes_from = target
-        self.explosion_radius = unit_stats[self.name]["explosion_radius"]
         self.upgrades_into = []
 
     def attack(self, target):
         Meteor(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"],
                self.stats["bulletspeed"],
-               target.distance_to_point(self.x, self.y), self.explosion_radius)
+               target.distance_to_point(self.x, self.y), self.stats["explosion_radius"])
 
 
 class Tower22(Tower):
@@ -529,13 +555,12 @@ class Tower22(Tower):
     def __init__(self, target):
         super().__init__(target.ID, target.x, target.y, target.side, target.game)
         self.comes_from = target
-        self.explosion_radius = unit_stats[self.name]["explosion_radius"]
         self.upgrades_into = []
 
     def attack(self, target):
         Egg(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"],
             self.stats["bulletspeed"],
-            target.distance_to_point(self.x, self.y), self.explosion_radius)
+            target.distance_to_point(self.x, self.y), self.stats["explosion_radius"])
 
 
 class Farm(Building):
@@ -1056,12 +1081,11 @@ class Trebuchet(Unit):
 
     def __init__(self, ID, x, y, side, column, row, game, formation, effects=()):
         super().__init__(ID, x, y, side, column, row, game, formation, effects=effects)
-        self.explosion_radius = unit_stats[self.name]["explosion_radius"]
 
     def attack(self, target):
         Boulder(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"],
                 self.stats["bulletspeed"],
-                target.distance_to_point(self.x, self.y), self.explosion_radius)
+                target.distance_to_point(self.x, self.y), self.stats["explosion_radius"])
 
 
 class Defender(Unit):
@@ -1089,7 +1113,7 @@ possible_units = [Swordsman, Archer, Trebuchet, Defender, Bear]
 
 class Projectile:
 
-    def __init__(self, x, y, dx, dy, game, side, damage, speed, reach):
+    def __init__(self, x, y, dx, dy, game, side, damage, speed, reach, pierce=1, cluster=0):
         self.x, self.y = x, y
         rotation = get_rotation_norm(dx, dy)
         self.vx, self.vy = speed * math.cos(rotation), speed * math.sin(rotation)
@@ -1099,6 +1123,9 @@ class Projectile:
         self.damage = damage
         game.projectiles.append(self)
         self.reach = reach
+        self.pierce = pierce
+        self.cluster = cluster
+        self.already_hit = []
 
     def tick(self):
         self.x += self.vx
@@ -1106,15 +1133,17 @@ class Projectile:
         c = self.game.find_chunk(get_chunk(self.x, self.y))
         if c is not None:
             for unit in c.units[1 - self.side]:
-                if unit.exists and (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= (unit.size ** 2) / 4:
+                if unit.exists and unit not in self.already_hit and\
+                        (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= (unit.size ** 2) / 4:
                     self.collide(unit)
                     return
             for unit in c.buildings[1 - self.side]:
-                if unit.exists and (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= (unit.size ** 2) / 4:
+                if unit.exists and unit not in self.already_hit and\
+                        (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= (unit.size ** 2) / 4:
                     self.collide(unit)
                     return
         for wall in self.game.players[1 - self.side].walls:
-            if wall.exists and wall.distance_to_point(self.x, self.y) <= 0:
+            if wall.exists and wall not in self.already_hit and wall.distance_to_point(self.x, self.y) <= 0:
                 self.collide(wall)
                 return
         self.reach -= self.speed
@@ -1123,7 +1152,10 @@ class Projectile:
 
     def collide(self, unit):
         unit.take_damage(self.damage, self)
-        self.delete()
+        self.already_hit.append(unit)
+        self.pierce -= 1
+        if self.pierce < 1:
+            self.delete()
 
     def delete(self):
         self.game.projectiles.remove(self)
@@ -1219,11 +1251,12 @@ class effect_stat_mult:
 
 
 class aura:
-    def __init__(self, effect, args, duration=None):
+    def __init__(self, effect, args, duration=None, targets=None):
         self.effect = effect
         self.args = args
         self.remaining_duration = duration
         self.exists = True
+        self.targets = targets
 
     def tick(self):
         if self.remaining_duration is None:
@@ -1233,7 +1266,8 @@ class aura:
             self.exists = False
 
     def apply(self, target):
-        self.effect(*self.args).apply(target)
+        if self.targets is None or target.name in self.targets:
+            self.effect(*self.args).apply(target)
 
 
 ##################  ---/units---  #################
@@ -1283,4 +1317,39 @@ class Upgrade_test_1(Upgrade):
         self.player.unlock_unit(Bear)
 
 
-possible_upgrades = [Upgrade_default, Upgrade_test_1]
+class Upgrade_catapult(Upgrade):
+    name = "Catapults"
+    previous = [Upgrade_default]
+
+    def on_finish(self):
+        self.player.unlock_unit(Trebuchet)
+
+
+class Upgrade_bigger_arrows(Upgrade):
+    name = "Bigger Arrows"
+    previous = [Upgrade_default]
+
+    def on_finish(self):
+        self.player.add_aura(aura(effect_stat_mult, ("dmg", float(upgrade_stats[self.name]["mod"])),
+                                  targets=["Archer", "Tower", "Tower1"]))
+
+class Upgrade_bigger_rocks(Upgrade):
+    name = "Bigger Rocks"
+    previous = [Upgrade_bigger_arrows]
+
+    def on_finish(self):
+        self.player.add_aura(aura(effect_stat_mult, ("dmg", float(upgrade_stats[self.name]["mod_dmg"])),
+                                  targets=["Trebuchet", "Tower2", "Tower21"]))
+        self.player.add_aura(aura(effect_stat_mult, ("explosion_radius", float(upgrade_stats[self.name]["mod_rad"])),
+                                  targets=["Trebuchet", "Tower2", "Tower21"]))
+
+class Upgrade_egg(Upgrade):
+    name = "Egg Cannon"
+    previous = [Upgrade_bigger_rocks]
+
+    def on_finish(self):
+        self.player.unlock_unit(Tower22)
+
+
+possible_upgrades = [Upgrade_default, Upgrade_test_1, Upgrade_bigger_arrows,Upgrade_catapult, Upgrade_bigger_rocks,
+                     Upgrade_egg]
