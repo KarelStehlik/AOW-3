@@ -4,3 +4,5 @@ Bigger Arrows:desc=Increases arrow damage|flavor=There is no "correct size" for 
 Catapults:desc=Unlocks catapults|flavor=If you can't throw the rock yourself, have a machine do it. We assure you it's not a work of the devil.|cost=20000|time=10
 Bigger Rocks:desc=Bigger explosions|flavor=Just in case you don't get crushed enough by the regular rocks|cost=50000|mod_dmg=1.5|mod_rad=2|time=60
 Egg Cannon:desc=Unlocks the egg tower|flavor=To unleash the might of the chicken god requires immense investment. Pray that it destroys your enemies, not you|cost=500000|time=300
+Faster Archery:desc=stuff shoots more arrows|flavor=The best muscles money can buy for your archers|cost=100000|time=60|mod=.5
+Vigorous Farming:desc=Improves all farms|flavor=Research shows that yelling at plants makes them grow faster|cost=15000|time=5|mod=1.5

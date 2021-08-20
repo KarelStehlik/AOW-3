@@ -113,6 +113,8 @@ class Game:
             self.ticks += 1
             self.players[0].gain_money(PASSIVE_INCOME)
             self.players[1].gain_money(PASSIVE_INCOME)
+            if self.ticks%500==0:
+                print(self.ticks,self.players[0].money)
         self.update_cam(self.last_dt)
         self.players[0].graphics_update()
         self.players[1].graphics_update()
@@ -2304,62 +2306,6 @@ class Upgrade:
         return int(upgrade_stats[cls.name]["time"])
 
 
-class Upgrade_default(Upgrade):
-    x = 500
-    y = 500
-    name = "The Beginning"
-
-
-class Upgrade_test_1(Upgrade):
-    image = images.Bear
-    previous = [Upgrade_default]
-    x = 800
-    y = 500
-    name = "Bigger Stalls"
-
-    def on_finish(self):
-        self.player.unlock_unit(Bear)
-
-
-class Upgrade_catapult(Upgrade):
-    name = "Catapults"
-    previous = [Upgrade_default]
-    image = images.Trebuchet
-    x = 300
-    y = 500
-
-    def on_finish(self):
-        self.player.unlock_unit(Trebuchet)
-
-
-class Upgrade_bigger_arrows(Upgrade):
-    name = "Bigger Arrows"
-    image = images.Arrow
-    x = 500
-    y = 800
-    previous = [Upgrade_default]
-
-    def on_finish(self):
-        self.player.add_aura(aura(effect_stat_mult, ("dmg", float(upgrade_stats[self.name]["mod"])),
-                                  targets=["Archer", "Tower", "Tower1"]))
-        self.player.add_aura(aura(effect_stat_mult, ("bullet_scale", 2), targets=["Archer", "Tower", "Tower1"]))
-
-
-class Upgrade_bigger_rocks(Upgrade):
-    name = "Bigger Rocks"
-    image = images.Boulder
-    x = 650
-    y = 900
-    previous = [Upgrade_bigger_arrows]
-
-    def on_finish(self):
-        self.player.add_aura(aura(effect_stat_mult, ("dmg", float(upgrade_stats[self.name]["mod_dmg"])),
-                                  targets=["Trebuchet", "Tower2", "Tower21"]))
-        self.player.add_aura(aura(effect_stat_mult, ("explosion_radius", float(upgrade_stats[self.name]["mod_rad"])),
-                                  targets=["Trebuchet", "Tower2", "Tower21"]))
-        self.player.add_aura(aura(effect_stat_mult, ("bullet_scale", 2), targets=["Trebuchet", "Tower2", "Tower21"]))
-
-
 class Upgrade_Menu(client_utility.toolbar):
     def __init__(self, game):
         self.batch = game.batch
@@ -2372,7 +2318,7 @@ class Upgrade_Menu(client_utility.toolbar):
         self.game = game
         self.moneylabel = pyglet.text.Label(x=SCREEN_WIDTH * 0.995, y=SCREEN_HEIGHT * 0.995, text="Gold:0",
                                             color=(255, 240, 0, 255),
-                                            group=groups.g[13], batch=self.batch, anchor_y="top", anchor_x="right",
+                                            group=groups.g[15], batch=self.batch, anchor_y="top", anchor_x="right",
                                             font_size=0.01 * SCREEN_WIDTH)
         self.sprites = [self.moneylabel]
         self.movables = []
@@ -2408,14 +2354,16 @@ class Upgrade_Menu(client_utility.toolbar):
         if self.upgrade_desc is not None and self.upgrade_desc.open:
             self.upgrade_desc.close()
         available = 1
+        rem_time = 0
         for e in upg.previous:
             if not self.game.players[self.game.side].has_upgrade(e):
                 available = 0
         if self.game.players[self.game.side].is_upgrade_pending(upg):
             available = 2
+            rem_time = self.game.players[self.game.side].upgrade_time_remaining(upg)
         elif self.game.players[self.game.side].has_upgrade(upg):
             available = 3
-        self.upgrade_desc = upgrade_description(upg, self.batch, self.layer + 1, available)
+        self.upgrade_desc = upgrade_description(upg, self.batch, self.layer + 4, available, remaining_time=rem_time)
 
     def close_desc(self):
         if self.upgrade_desc is not None and self.upgrade_desc.open:
@@ -2468,6 +2416,8 @@ class Upgrade_Menu(client_utility.toolbar):
                 progress_percent = (e[0].get_time() - remaining / FPS) / e[0].get_time()
                 e[1].opacity = progress_percent * 150
         [e.update(e.x - self.x_moving * dt * 500, e.y - self.y_moving * dt * 500) for e in self.movables]
+        if self.upgrade_desc is not None and self.upgrade_desc.open:
+            self.upgrade_desc.update(dt)
 
     def key_release(self, symbol, modifiers):
         if symbol in self.keys_pressed:
@@ -2483,17 +2433,18 @@ class Upgrade_Menu(client_utility.toolbar):
 
 
 class upgrade_description(client_utility.toolbar):
-    def __init__(self, upg, batch, layer, available):
+    def __init__(self, upg, batch, layer, available, remaining_time=0):
         super().__init__(SCREEN_WIDTH * .7, 0, SCREEN_WIDTH * .3, SCREEN_HEIGHT, batch, layer=layer)
         self.upg = upg
+        self.remaining_time = remaining_time
         self.sprites = []
         if available == 0:
             self.sprites.append(pyglet.text.Label(x=SCREEN_WIDTH * 0.705, y=SCREEN_HEIGHT * 0.01,
                                                   text="Research previous upgrades first",
-                                                  color=(255, 0, 0, 255),
+                                                  color=(255, 100, 100, 255),
                                                   group=groups.g[layer + 1], batch=batch, anchor_y="bottom",
                                                   anchor_x="left",
-                                                  font_size=0.011 * SCREEN_WIDTH))
+                                                  font_size=0.013 * SCREEN_WIDTH))
         elif available == 1:
             self.sprites.append(pyglet.text.Label(x=SCREEN_WIDTH * 0.705, y=SCREEN_HEIGHT * 0.01,
                                                   text=f"Cost: {int(upg.get_cost())}, Time: {upg.get_time()} sec",
@@ -2503,7 +2454,7 @@ class upgrade_description(client_utility.toolbar):
                                                   font_size=0.013 * SCREEN_WIDTH))
         elif available == 2:
             self.sprites.append(pyglet.text.Label(x=SCREEN_WIDTH * 0.705, y=SCREEN_HEIGHT * 0.01,
-                                                  text="Upgrade in progress",
+                                                  text=f"Upgrade in progress: {int(remaining_time / FPS)}",
                                                   color=(0, 255, 0, 255),
                                                   group=groups.g[layer + 1], batch=batch, anchor_y="bottom",
                                                   anchor_x="left",
@@ -2542,17 +2493,105 @@ class upgrade_description(client_utility.toolbar):
         [e.delete() for e in self.sprites]
         super().delete()
 
+    def update(self, dt):
+        if self.remaining_time > 0:
+            self.remaining_time -= dt * FPS
+            if self.remaining_time > 0:
+                self.sprites[0].text = f"Upgrade in progress: {int(self.remaining_time / FPS)}"
+            else:
+                self.sprites[0].text = "Thou Posesseth This Development"
+
+
+class Upgrade_default(Upgrade):
+    x = 960
+    y = 540
+    name = "The Beginning"
+
+
+class Upgrade_test_1(Upgrade):
+    image = images.Bear
+    previous = [Upgrade_default]
+    x = 1160
+    y = 540
+    name = "Bigger Stalls"
+
+    def on_finish(self):
+        self.player.unlock_unit(Bear)
+
+
+class Upgrade_catapult(Upgrade):
+    name = "Catapults"
+    previous = [Upgrade_default]
+    image = images.Trebuchet
+    x = 760
+    y = 540
+
+    def on_finish(self):
+        self.player.unlock_unit(Trebuchet)
+
+
+class Upgrade_bigger_arrows(Upgrade):
+    name = "Bigger Arrows"
+    image = images.Arrow_upg
+    x = 960
+    y = 740
+    previous = [Upgrade_default]
+
+    def on_finish(self):
+        self.player.add_aura(aura(effect_stat_mult, ("dmg", float(upgrade_stats[self.name]["mod"])),
+                                  targets=["Archer", "Tower", "Tower1"]))
+        self.player.add_aura(aura(effect_stat_mult, ("bullet_scale", 2), targets=["Archer", "Tower", "Tower1"]))
+
+
+class Upgrade_bigger_rocks(Upgrade):
+    name = "Bigger Rocks"
+    image = images.Boulder
+    x = 1110
+    y = 890
+    previous = [Upgrade_bigger_arrows]
+
+    def on_finish(self):
+        self.player.add_aura(aura(effect_stat_mult, ("dmg", float(upgrade_stats[self.name]["mod_dmg"])),
+                                  targets=["Trebuchet", "Tower2", "Tower21"]))
+        self.player.add_aura(aura(effect_stat_mult, ("explosion_radius", float(upgrade_stats[self.name]["mod_rad"])),
+                                  targets=["Trebuchet", "Tower2", "Tower21"]))
+        self.player.add_aura(aura(effect_stat_mult, ("bullet_scale", 2), targets=["Trebuchet", "Tower2", "Tower21"]))
+
 
 class Upgrade_egg(Upgrade):
     name = "Egg Cannon"
     previous = [Upgrade_bigger_rocks]
     image = images.Egg
-    x = 650
-    y = 1150
+    x = 1110
+    y = 1090
 
     def on_finish(self):
         self.player.unlock_unit(Tower22)
 
 
+class Upgrade_faster_archery(Upgrade):
+    name = "Faster Archery"
+    x = 810
+    y = 890
+    image = images.Arrow_upg_2
+    previous = [Upgrade_bigger_arrows]
+
+    def on_finish(self):
+        self.player.add_aura(aura(effect_stat_mult, ("cd", float(upgrade_stats[self.name]["mod"])),
+                                  targets=["Archer", "Tower", "Tower1"]))
+
+
+class Upgrade_vigorous_farming(Upgrade):
+    name = "Vigorous Farming"
+    x = 960
+    y = 340
+    image = images.Farm1
+    previous = [Upgrade_default]
+
+    def on_finish(self):
+        self.player.add_aura(aura(effect_stat_mult, ("production", float(upgrade_stats[self.name]["mod"])),
+                                  targets=["Farm", "Farm1", "Farm2"]))
+
+
 possible_upgrades = [Upgrade_default, Upgrade_test_1, Upgrade_bigger_arrows, Upgrade_catapult, Upgrade_bigger_rocks,
-                     Upgrade_egg]
+                     Upgrade_egg, Upgrade_faster_archery, Upgrade_vigorous_farming]

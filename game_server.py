@@ -75,6 +75,8 @@ class Game:
             self.players[1].gain_money(PASSIVE_INCOME)
             self.players[odd_tick].tick_wave_timer()
             self.players[odd_tick - 1].tick_wave_timer()
+            if self.ticks%500==0:
+                print(self.ticks,self.players[0].money)
 
     def network(self, data, side):
         if "action" in data:
@@ -1133,12 +1135,12 @@ class Projectile:
         c = self.game.find_chunk(get_chunk(self.x, self.y))
         if c is not None:
             for unit in c.units[1 - self.side]:
-                if unit.exists and unit not in self.already_hit and\
+                if unit.exists and unit not in self.already_hit and \
                         (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= (unit.size ** 2) / 4:
                     self.collide(unit)
                     return
             for unit in c.buildings[1 - self.side]:
-                if unit.exists and unit not in self.already_hit and\
+                if unit.exists and unit not in self.already_hit and \
                         (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= (unit.size ** 2) / 4:
                     self.collide(unit)
                     return
@@ -1333,6 +1335,7 @@ class Upgrade_bigger_arrows(Upgrade):
         self.player.add_aura(aura(effect_stat_mult, ("dmg", float(upgrade_stats[self.name]["mod"])),
                                   targets=["Archer", "Tower", "Tower1"]))
 
+
 class Upgrade_bigger_rocks(Upgrade):
     name = "Bigger Rocks"
     previous = [Upgrade_bigger_arrows]
@@ -1343,6 +1346,7 @@ class Upgrade_bigger_rocks(Upgrade):
         self.player.add_aura(aura(effect_stat_mult, ("explosion_radius", float(upgrade_stats[self.name]["mod_rad"])),
                                   targets=["Trebuchet", "Tower2", "Tower21"]))
 
+
 class Upgrade_egg(Upgrade):
     name = "Egg Cannon"
     previous = [Upgrade_bigger_rocks]
@@ -1351,5 +1355,23 @@ class Upgrade_egg(Upgrade):
         self.player.unlock_unit(Tower22)
 
 
-possible_upgrades = [Upgrade_default, Upgrade_test_1, Upgrade_bigger_arrows,Upgrade_catapult, Upgrade_bigger_rocks,
-                     Upgrade_egg]
+class Upgrade_faster_archery(Upgrade):
+    name = "Faster Archery"
+    previous = [Upgrade_bigger_arrows]
+
+    def on_finish(self):
+        self.player.add_aura(aura(effect_stat_mult, ("cd", float(upgrade_stats[self.name]["mod"])),
+                                  targets=["Archer", "Tower", "Tower1"]))
+
+
+class Upgrade_vigorous_farming(Upgrade):
+    name = "Vigorous Farming"
+    previous = [Upgrade_default]
+
+    def on_finish(self):
+        self.player.add_aura(aura(effect_stat_mult, ("production", float(upgrade_stats[self.name]["mod"])),
+                                  targets=["Farm", "Farm1", "Farm2"]))
+
+
+possible_upgrades = [Upgrade_default, Upgrade_test_1, Upgrade_bigger_arrows, Upgrade_catapult, Upgrade_bigger_rocks,
+                     Upgrade_egg, Upgrade_faster_archery, Upgrade_vigorous_farming]
