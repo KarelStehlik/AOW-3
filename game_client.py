@@ -51,8 +51,10 @@ class Game:
         self.key_press_detectors = []
         self.mouse_click_detectors = []
         self.mouse_move_detectors = []
+        self.cam_update_detectors = []
         self.drawables = []
         self.upgrade_menu = None
+        self.minimap = minimap(self)
 
     def open_upgrade_menu(self):
         if self.upgrade_menu is None:
@@ -113,8 +115,6 @@ class Game:
             self.ticks += 1
             self.players[0].gain_money(PASSIVE_INCOME)
             self.players[1].gain_money(PASSIVE_INCOME)
-            if self.ticks%500==0:
-                print(self.ticks,self.players[0].money)
         self.update_cam(self.last_dt)
         self.players[0].graphics_update()
         self.players[1].graphics_update()
@@ -258,6 +258,7 @@ class Game:
         self.background.tex_coords = (x, y, x + SCREEN_WIDTH / 512, y, x + SCREEN_WIDTH / 512,
                                       y + SCREEN_HEIGHT / 512, x, y + SCREEN_HEIGHT / 512)
         [e.update_cam(self.camx, self.camy) for e in self.players]
+        [e.update_cam(self.camx, self.camy) for e in self.cam_update_detectors]
         self.selected.update_cam(self.camx, self.camy)
 
     def centre_cam(self):
@@ -582,6 +583,86 @@ class UI_top_bar(client_utility.toolbar):
         self.timer.vertices[4:11:2] = [x] * 4
         self.timer_text.text = "next wave in: " + str(
             int((self.last_wave_tick + WAVE_INTERVAL - self.game.ticks) / FPS) + 1)
+
+
+class minimap(client_utility.toolbar):
+    def __init__(self, game: Game):
+        super().__init__(0, int(SCREEN_HEIGHT * .25), int(SCREEN_HEIGHT * .25), int(SCREEN_HEIGHT * .25), game.batch,
+                         image=images.UpgradeScreen)
+        self.game = game
+        self.batch = game.batch
+        self.view_range = 4000
+        self.scale = self.width / self.view_range
+        self.dot_scale = .025
+        self.game.UI_toolbars.append(self)
+        self.game.drawables.append(self)
+        self.max_entities = 1000
+        self.current_entity = 0
+        self.already_checked = []
+        self.sprite2 = game.batch.add(
+            self.max_entities * 4, pyglet.gl.GL_QUADS, groups.g[7],
+            ("v2i", (0,) * self.max_entities * 8),
+            ("c4B", (255, 255, 255, 0) * self.max_entities * 4)
+        )
+        self.last_mouse_pos = (0, 0)
+        self.cam_move_speed = 50
+        self.lastupdate = 0
+
+    def graphics_update(self, dt):
+        self.lastupdate += 1
+        if self.lastupdate != 5:
+            return
+        self.lastupdate = 0
+        self.sprite2.vertices = [-1, 0] * self.max_entities * 4
+        self.current_entity = 0
+        self.already_checked = []
+        chunks = get_chunks((self.game.camx + SCREEN_WIDTH / 2) / SPRITE_SIZE_MULT,
+                            (self.game.camy + SCREEN_HEIGHT / 2) / SPRITE_SIZE_MULT,
+                            self.view_range)
+        for chonk in chunks:
+            c = self.game.find_chunk(chonk)
+            if c is not None:
+                for e in c.units[self.game.side]:
+                    self.mark(e, (0, 255, 0, 255))
+                for e in c.units[1 - self.game.side]:
+                    self.mark(e, (255, 0, 0, 255))
+                for e in c.buildings[self.game.side]:
+                    self.mark(e, (0, 255, 0, 255))
+                for e in c.buildings[1 - self.game.side]:
+                    self.mark(e, (255, 0, 0, 255))
+
+    def mark(self, e, color):
+        if self.current_entity >= self.max_entities:
+            return
+        location = (int((e.x - (
+                self.game.camx + SCREEN_WIDTH / 2) / SPRITE_SIZE_MULT + self.view_range / 2) * self.scale),
+                    int((e.y - (
+                            self.game.camy + SCREEN_HEIGHT / 2) / SPRITE_SIZE_MULT + self.view_range / 2) * self.scale))
+        dsize = max(int(e.size * self.dot_scale), 1)
+        if -dsize < location[0] < self.width + dsize and -dsize < location[1] < self.width + dsize and \
+                e not in self.already_checked:
+            self.sprite2.colors[self.current_entity * 16: self.current_entity * 16 + 16] = color * 4
+            self.sprite2.vertices[self.current_entity * 8:self.current_entity * 8 + 8] = (
+                self.x + max(0, location[0] - dsize), self.y + max(0, location[1] - dsize),
+                self.x + min(self.width, location[0] + dsize), self.y + max(0, location[1] - dsize),
+                self.x + min(self.width, location[0] + dsize), self.y + min(self.width, location[1] + dsize),
+                self.x + max(0, location[0] - dsize), self.y + min(self.width, location[1] + dsize))
+            self.already_checked.append(e)
+            self.current_entity += 1
+
+    def mouse_click(self, x, y, button=0, modifiers=0):
+        if super().mouse_click(x, y, button, modifiers):
+            self.game.camx += (x - self.x - self.width / 2) / self.scale
+            self.game.camy += (y - self.y - self.width / 2) / self.scale
+            self.last_mouse_pos = (x, y)
+
+    def mouse_drag(self, x, y, button=0, modifiers=0):
+        if super().mouse_drag(x, y, button, modifiers):
+            dx = x - self.last_mouse_pos[0]
+            dy = y - self.last_mouse_pos[1]
+            self.last_mouse_pos = (x, y)
+            self.game.camx += dx * self.cam_move_speed
+            self.game.camy += dy * self.cam_move_speed
 
 
 class selection:
@@ -1905,7 +1986,7 @@ class Unit:
                 dist_sq = .01
                 self.x += .01
             if dist_sq < ((other.size + self.size) * .5) ** 2:
-                shovage = (other.size + self.size) * .5 * dist_sq ** -.5 - 1  # desirfv0r54ed dist / current dist -1
+                shovage = (other.size + self.size) * .5 * dist_sq ** -.5 - 1  # desired dist / current dist -1
                 mass_ratio = self.stats["mass"] / (self.stats["mass"] + other.stats["mass"])
                 ex, sx, ey, sy = other.x, self.x, other.y, self.y
                 other.take_knockback((ex - sx) * shovage * mass_ratio, (ey - sy) * shovage * mass_ratio,
@@ -1930,9 +2011,6 @@ class Swordsman(Unit):
     image = images.Swordsman
     name = "Swordsman"
 
-    def __init__(self, ID, x, y, side, column, row, game, formation, effects=()):
-        super().__init__(ID, x, y, side, column, row, game, formation, effects=effects)
-
     def attack(self, target):
         target.take_damage(self.stats["dmg"], self)
 
@@ -1945,9 +2023,6 @@ class selection_swordsman(selection_unit):
 class Archer(Unit):
     image = images.Bowman
     name = "Archer"
-
-    def __init__(self, ID, x, y, side, column, row, game, formation, effects=()):
-        super().__init__(ID, x, y, side, column, row, game, formation, effects=effects)
 
     def attack(self, target):
         Arrow(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"],
@@ -1965,9 +2040,6 @@ class Trebuchet(Unit):
     image = images.Trebuchet
     name = "Trebuchet"
 
-    def __init__(self, ID, x, y, side, column, row, game, formation, effects=()):
-        super().__init__(ID, x, y, side, column, row, game, formation, effects=effects)
-
     def attack(self, target):
         Boulder(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"],
                 self.stats["bulletspeed"],
@@ -1979,9 +2051,6 @@ class Defender(Unit):
     image = images.Defender
     name = "Defender"
 
-    def __init__(self, ID, x, y, side, column, row, game, formation, effects=()):
-        super().__init__(ID, x, y, side, column, row, game, formation, effects=effects)
-
     def attack(self, target):
         target.take_damage(self.stats["dmg"], self)
 
@@ -1989,9 +2058,6 @@ class Defender(Unit):
 class Bear(Unit):
     image = images.Bear
     name = "Bear"
-
-    def __init__(self, ID, x, y, side, column, row, game, formation, effects=()):
-        super().__init__(ID, x, y, side, column, row, game, formation, effects=effects)
 
     def attack(self, target):
         target.take_damage(self.stats["dmg"], self)

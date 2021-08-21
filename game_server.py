@@ -75,8 +75,6 @@ class Game:
             self.players[1].gain_money(PASSIVE_INCOME)
             self.players[odd_tick].tick_wave_timer()
             self.players[odd_tick - 1].tick_wave_timer()
-            if self.ticks%500==0:
-                print(self.ticks,self.players[0].money)
 
     def network(self, data, side):
         if "action" in data:
@@ -1059,18 +1057,12 @@ class Unit:
 class Swordsman(Unit):
     name = "Swordsman"
 
-    def __init__(self, ID, x, y, side, column, row, game, formation, effects=()):
-        super().__init__(ID, x, y, side, column, row, game, formation, effects=effects)
-
     def attack(self, target):
         target.take_damage(self.stats["dmg"], self)
 
 
 class Archer(Unit):
     name = "Archer"
-
-    def __init__(self, ID, x, y, side, column, row, game, formation, effects=()):
-        super().__init__(ID, x, y, side, column, row, game, formation, effects=effects)
 
     def attack(self, target):
         Arrow(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"],
@@ -1081,9 +1073,6 @@ class Archer(Unit):
 class Trebuchet(Unit):
     name = "Trebuchet"
 
-    def __init__(self, ID, x, y, side, column, row, game, formation, effects=()):
-        super().__init__(ID, x, y, side, column, row, game, formation, effects=effects)
-
     def attack(self, target):
         Boulder(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"],
                 self.stats["bulletspeed"],
@@ -1093,18 +1082,12 @@ class Trebuchet(Unit):
 class Defender(Unit):
     name = "Defender"
 
-    def __init__(self, ID, x, y, side, column, row, game, formation, effects=()):
-        super().__init__(ID, x, y, side, column, row, game, formation, effects=effects)
-
     def attack(self, target):
         target.take_damage(self.stats["dmg"], self)
 
 
 class Bear(Unit):
     name = "Bear"
-
-    def __init__(self, ID, x, y, side, column, row, game, formation, effects=()):
-        super().__init__(ID, x, y, side, column, row, game, formation, effects=effects)
 
     def attack(self, target):
         target.take_damage(self.stats["dmg"], self)
