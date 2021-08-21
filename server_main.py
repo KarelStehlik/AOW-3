@@ -64,10 +64,10 @@ class cw_server(Server):
         [e.tick() for e in self.games]
 
 
-#srvr = cw_server(localaddr=("192.168.1.237", 5071))
-srvr = cw_server(localaddr=("127.0.0.1", 5071))
+srvr = cw_server(localaddr=("192.168.1.237", 5071))
+# srvr = cw_server(localaddr=("127.0.0.1", 5071))
 
-#pyglet.clock.schedule_interval(srvr.tick, 1.0 / constants.FPS)
+# pyglet.clock.schedule_interval(srvr.tick, 1.0 / constants.FPS)
 while True:
     srvr.tick()
     time.sleep(0.001)
