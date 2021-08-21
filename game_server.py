@@ -1147,7 +1147,7 @@ class Projectile:
 
 
 class Bullet(Projectile):
-    def __init__(self, x, y, angle, game, side, damage, speed, reach, scale=None):
+    def __init__(self, x, y, angle, game, side, damage, speed, reach, scale=None,pierce=1,cluster=0):
         # (dx,dy) must be normalized
         self.x, self.y = x, y
         self.vx, self.vy = speed * math.cos(angle), speed * math.sin(angle)
@@ -1157,6 +1157,9 @@ class Bullet(Projectile):
         self.damage = damage
         game.projectiles.append(self)
         self.reach = reach
+        self.pierce = pierce
+        self.cluster = cluster
+        self.already_hit = []
 
 
 class Arrow(Projectile):

@@ -2248,7 +2248,7 @@ class Bullet(Projectile):
     image = images.Boulder
     scale = .035
 
-    def __init__(self, x, y, angle, game, side, damage, speed, reach, scale=None):
+    def __init__(self, x, y, angle, game, side, damage, speed, reach, scale=None,pierce=1,cluster=0):
         # (dx,dy) must be normalized
         self.x, self.y = x, y
         self.x, self.y = x, y
@@ -2261,6 +2261,9 @@ class Bullet(Projectile):
         self.side = side
         self.speed = speed
         self.game = game
+        self.pierce = pierce
+        self.cluster = cluster
+        self.already_hit = []
         self.damage = damage
         game.projectiles.append(self)
         self.reach = reach
