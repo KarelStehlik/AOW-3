@@ -255,7 +255,7 @@ class player:
         self.pending_upgrades = []
         self.owned_upgrades = [Upgrade_default(self)]
         self.unlocked_units = [Swordsman, Archer, Defender, Tower, Wall, Farm, Tower1, Tower2, Tower11, Tower21,
-                               Farm1, Farm2]
+                               Farm1, Farm2, Tower3, Tower31]
 
     def add_aura(self, aur):
         self.auras.append(aur)
@@ -445,7 +445,7 @@ class Tower(Building):
         self.current_cooldown = 0
         self.target = None
         self.shooting_in_chunks = get_chunks(self.x, self.y, 2 * self.stats["reach"])
-        self.upgrades_into = [Tower1, Tower2]
+        self.upgrades_into = [Tower1, Tower2, Tower3]
         self.turns_without_target = 0
 
     @classmethod
@@ -466,7 +466,8 @@ class Tower(Building):
     def attack(self, target):
         Arrow(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"],
               self.stats["bulletspeed"],
-              self.stats["reach"] * 1.5)
+              self.stats["reach"] * 1.5, pierce=self.stats["pierce"], cluster=self.stats["cluster"],
+              recursion=self.stats["recursion"])
 
     def acquire_target(self):
         if self.target is not None and self.target.exists and self.target.distance_to_point(self.x,
@@ -532,7 +533,8 @@ class Tower2(Tower):
     def attack(self, target):
         Boulder(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"],
                 self.stats["bulletspeed"],
-                target.distance_to_point(self.x, self.y), self.stats["explosion_radius"])
+                target.distance_to_point(self.x, self.y), self.stats["explosion_radius"], pierce=self.stats["pierce"],
+                cluster=self.stats["cluster"],recursion=self.stats["recursion"])
 
 
 class Tower21(Tower):
@@ -546,7 +548,8 @@ class Tower21(Tower):
     def attack(self, target):
         Meteor(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"],
                self.stats["bulletspeed"],
-               target.distance_to_point(self.x, self.y), self.stats["explosion_radius"])
+               target.distance_to_point(self.x, self.y), self.stats["explosion_radius"], pierce=self.stats["pierce"],
+               cluster=self.stats["cluster"],recursion=self.stats["recursion"])
 
 
 class Tower22(Tower):
@@ -560,8 +563,36 @@ class Tower22(Tower):
     def attack(self, target):
         Egg(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"],
             self.stats["bulletspeed"],
-            target.distance_to_point(self.x, self.y), self.stats["explosion_radius"])
+            target.distance_to_point(self.x, self.y), self.stats["explosion_radius"], pierce=self.stats["pierce"],
+            cluster=self.stats["cluster"],recursion=self.stats["recursion"])
 
+class Tower3(Tower):
+    name = "Tower3"
+
+    def __init__(self, target):
+        super().__init__(target.ID, target.x, target.y, target.side, target.game)
+        self.comes_from = target
+        self.upgrades_into = [Tower31]
+
+    def attack(self, target):
+        Arrow(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"],
+              self.stats["bulletspeed"],
+              self.stats["reach"], pierce=self.stats["pierce"], cluster=self.stats["cluster"],
+              recursion=self.stats["recursion"])
+
+class Tower31(Tower):
+    name = "Tower31"
+
+    def __init__(self, target):
+        super().__init__(target.ID, target.x, target.y, target.side, target.game)
+        self.comes_from = target
+        self.upgrades_into = []
+
+    def attack(self, target):
+        Arrow(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"],
+              self.stats["bulletspeed"],
+              self.stats["reach"], pierce=self.stats["pierce"], cluster=self.stats["cluster"],
+              recursion=self.stats["recursion"])
 
 class Farm(Building):
     name = "Farm"
@@ -598,7 +629,7 @@ class Farm2(Farm):
         self.upgrades_into = []
 
 
-possible_buildings = [Tower, Farm, Tower1, Tower2, Tower21, Tower11, Farm1, Farm2, Tower22]
+possible_buildings = [Tower, Farm, Tower1, Tower2, Tower21, Tower11, Farm1, Farm2, Tower22, Tower3, Tower31]
 
 
 class Wall:
@@ -1067,7 +1098,8 @@ class Archer(Unit):
     def attack(self, target):
         Arrow(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"],
               self.stats["bulletspeed"],
-              self.stats["reach"] * 1.5)
+              self.stats["reach"] * 1.5, pierce=self.stats["pierce"], cluster=self.stats["cluster"],
+              recursion=self.stats["recursion"])
 
 
 class Trebuchet(Unit):
@@ -1076,7 +1108,8 @@ class Trebuchet(Unit):
     def attack(self, target):
         Boulder(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"],
                 self.stats["bulletspeed"],
-                target.distance_to_point(self.x, self.y), self.stats["explosion_radius"])
+                target.distance_to_point(self.x, self.y), self.stats["explosion_radius"], pierce=self.stats["pierce"],
+                cluster=self.stats["cluster"],recursion=self.stats["recursion"])
 
 
 class Defender(Unit):
@@ -1098,9 +1131,10 @@ possible_units = [Swordsman, Archer, Trebuchet, Defender, Bear]
 
 class Projectile:
 
-    def __init__(self, x, y, dx, dy, game, side, damage, speed, reach, pierce=1, cluster=0):
+    def __init__(self, x, y, dx, dy, game, side, damage, speed, reach, pierce=2, cluster=5, rotation=None, recursion=2):
         self.x, self.y = x, y
-        rotation = get_rotation_norm(dx, dy)
+        if rotation is None:
+            rotation = get_rotation_norm(dx, dy)
         self.vx, self.vy = speed * math.cos(rotation), speed * math.sin(rotation)
         self.side = side
         self.speed = speed
@@ -1108,8 +1142,11 @@ class Projectile:
         self.damage = damage
         game.projectiles.append(self)
         self.reach = reach
+        self.max_reach = reach
         self.pierce = pierce
-        self.cluster = cluster
+        self.max_pierce = pierce
+        self.cluster = int(cluster)
+        self.recursion = recursion
         self.already_hit = []
 
     def tick(self):
@@ -1143,23 +1180,21 @@ class Projectile:
             self.delete()
 
     def delete(self):
+        self.split()
         self.game.projectiles.remove(self)
+
+    def split(self):
+        if self.recursion > 0:
+            for i in range(self.cluster):
+                self.__class__(self.x, self.y, 0, 0, self.game, self.side, self.damage, self.speed, self.max_reach * .7,
+                               pierce=self.max_pierce, cluster=self.cluster,
+                               rotation=self.game.ticks + 2 * math.pi * i / self.cluster, recursion=self.recursion - 1)
 
 
 class Bullet(Projectile):
-    def __init__(self, x, y, angle, game, side, damage, speed, reach, scale=None,pierce=1,cluster=0):
-        # (dx,dy) must be normalized
-        self.x, self.y = x, y
-        self.vx, self.vy = speed * math.cos(angle), speed * math.sin(angle)
-        self.side = side
-        self.speed = speed
-        self.game = game
-        self.damage = damage
-        game.projectiles.append(self)
-        self.reach = reach
-        self.pierce = pierce
-        self.cluster = cluster
-        self.already_hit = []
+    def __init__(self, x, y, angle, game, side, damage, speed, reach, scale=None, pierce=1, cluster=0, rotation=None,
+                 recursion=0):
+        super().__init__(x, y, 0, 0, game, side, damage, speed, reach, pierce, cluster, angle, recursion)
 
 
 class Arrow(Projectile):
@@ -1168,8 +1203,9 @@ class Arrow(Projectile):
 
 class Boulder(Projectile):
 
-    def __init__(self, x, y, dx, dy, game, side, damage, speed, reach, radius):
-        super().__init__(x, y, dx, dy, game, side, damage, speed, reach)
+    def __init__(self, x, y, dx, dy, game, side, damage, speed, reach, radius, pierce=2, cluster=5,
+                 rotation=None, recursion=1):
+        super().__init__(x, y, dx, dy, game, side, damage, speed, reach, pierce, cluster, rotation, recursion)
         self.radius = radius
 
     def tick(self):
@@ -1182,6 +1218,13 @@ class Boulder(Projectile):
     def explode(self):
         AOE_damage(self.x, self.y, self.radius, self.damage, self, self.game)
         self.delete()
+
+    def split(self):
+        if self.recursion > 0:
+            for i in range(self.cluster):
+                self.__class__(self.x, self.y, 0, 0, self.game, self.side, self.damage, self.speed, self.max_reach * .7,
+                               self.radius * .7, self.max_pierce, self.cluster,
+                               self.game.ticks + 2 * math.pi * i / self.cluster, self.recursion - 1)
 
 
 class Meteor(Boulder):

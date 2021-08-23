@@ -305,7 +305,7 @@ class player:
         self.pending_upgrades = []
         self.owned_upgrades = [Upgrade_default(self, 0)]
         self.unlocked_units = [Swordsman, Archer, Defender, Tower, Wall, Farm, Tower1, Tower2, Tower11, Tower21,
-                               Farm1, Farm2]
+                               Farm1, Farm2, Tower3, Tower31]
 
     def add_aura(self, aur):
         self.auras.append(aur)
@@ -1208,7 +1208,7 @@ class Tower(Building):
         self.stats["reach"] = unit_stats[self.name]["reach"]
         self.target = None
         self.shooting_in_chunks = get_chunks(self.x, self.y, 2 * self.stats["reach"])
-        self.upgrades_into = [Tower1, Tower2]
+        self.upgrades_into = [Tower1, Tower2, Tower3]
         self.turns_without_target = 0
 
     @classmethod
@@ -1236,7 +1236,8 @@ class Tower(Building):
         direction = target.towards(self.x, self.y)
         self.sprite.rotation = 90 - get_rotation_norm(*direction) * 180 / math.pi
         Arrow(self.x, self.y, *direction, self.game, self.side, self.stats["dmg"], self.stats["bulletspeed"],
-              self.stats["reach"] * 1.5, scale=self.stats["bullet_scale"])
+              self.stats["reach"] * 1.5, scale=self.stats["bullet_scale"], pierce=self.stats["pierce"],
+              cluster=self.stats["cluster"], recursion=self.stats["recursion"])
 
     def acquire_target(self):
         if self.target is not None and \
@@ -1302,7 +1303,8 @@ class Tower2(Tower):
         self.sprite.rotation = 90 - get_rotation_norm(*direction) * 180 / math.pi
         Boulder(self.x, self.y, *direction, self.game, self.side, self.stats["dmg"], self.stats["bulletspeed"],
                 target.distance_to_point(self.x, self.y), self.stats["explosion_radius"],
-                scale=self.stats["bullet_scale"])
+                scale=self.stats["bullet_scale"], pierce=self.stats["pierce"], cluster=self.stats["cluster"],
+                recursion=self.stats["recursion"])
 
 
 class Tower21(Tower):
@@ -1323,7 +1325,8 @@ class Tower21(Tower):
         self.sprite.rotation = 90 - get_rotation_norm(*direction) * 180 / math.pi
         Meteor(self.x, self.y, *direction, self.game, self.side, self.stats["dmg"], self.stats["bulletspeed"],
                target.distance_to_point(self.x, self.y), self.stats["explosion_radius"],
-               scale=self.stats["bullet_scale"])
+               scale=self.stats["bullet_scale"], pierce=self.stats["pierce"], cluster=self.stats["cluster"],
+               recursion=self.stats["recursion"])
 
 
 class Tower22(Tower):
@@ -1343,7 +1346,8 @@ class Tower22(Tower):
         direction = target.towards(self.x, self.y)
         self.sprite.rotation = 90 - get_rotation_norm(*direction) * 180 / math.pi
         Egg(self.x, self.y, *direction, self.game, self.side, self.stats["dmg"], self.stats["bulletspeed"],
-            target.distance_to_point(self.x, self.y), self.stats["explosion_radius"], scale=self.stats["bullet_scale"])
+            target.distance_to_point(self.x, self.y), self.stats["explosion_radius"], scale=self.stats["bullet_scale"],
+            pierce=self.stats["pierce"], cluster=self.stats["cluster"], recursion=self.stats["recursion"])
 
 
 class Tower11(Tower):
@@ -1369,6 +1373,48 @@ class Tower11(Tower):
             Bullet(self.x, self.y, rot + self.spread * math.sin(self.game.ticks + 5 * i), self.game, self.side,
                    self.stats["dmg"], self.stats["bulletspeed"],
                    self.stats["reach"] * 1.5, scale=self.stats["bullet_scale"])
+
+
+class Tower3(Tower):
+    name = "Tower3"
+    image = images.Tower1
+
+    def __init__(self, target=None, tick=None, x=None, y=None, side=None, game=None, ID=None):
+        if target is not None:
+            super().__init__(target.ID, target.x, target.y, tick, target.side, target.game)
+            self.comes_from = target
+        else:
+            super().__init__(ID, x, y, tick, side, game)
+            self.comes_from = None
+        self.upgrades_into = [Tower31]
+
+    def attack(self, target):
+        direction = target.towards(self.x, self.y)
+        self.sprite.rotation = 90 - get_rotation_norm(*direction) * 180 / math.pi
+        Arrow(self.x, self.y, *direction, self.game, self.side, self.stats["dmg"], self.stats["bulletspeed"],
+              self.stats["reach"], scale=self.stats["bullet_scale"], pierce=self.stats["pierce"],
+              cluster=self.stats["cluster"], recursion=self.stats["recursion"])
+
+
+class Tower31(Tower):
+    name = "Tower31"
+    image = images.Tower1
+
+    def __init__(self, target=None, tick=None, x=None, y=None, side=None, game=None, ID=None):
+        if target is not None:
+            super().__init__(target.ID, target.x, target.y, tick, target.side, target.game)
+            self.comes_from = target
+        else:
+            super().__init__(ID, x, y, tick, side, game)
+            self.comes_from = None
+        self.upgrades_into = []
+
+    def attack(self, target):
+        direction = target.towards(self.x, self.y)
+        self.sprite.rotation = 90 - get_rotation_norm(*direction) * 180 / math.pi
+        Arrow(self.x, self.y, *direction, self.game, self.side, self.stats["dmg"], self.stats["bulletspeed"],
+              self.stats["reach"], scale=self.stats["bullet_scale"], pierce=self.stats["pierce"],
+              cluster=self.stats["cluster"], recursion=self.stats["recursion"])
 
 
 class Farm(Building):
@@ -1418,7 +1464,7 @@ class Farm2(Farm):
         self.upgrades_into = []
 
 
-possible_buildings = [Tower, Farm, Tower1, Tower2, Tower21, Tower11, Farm1, Farm2, Tower22]
+possible_buildings = [Tower, Farm, Tower1, Tower2, Tower21, Tower11, Farm1, Farm2, Tower22, Tower3, Tower31]
 
 
 class Wall:
@@ -2028,7 +2074,8 @@ class Archer(Unit):
         Arrow(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"],
               self.stats["bulletspeed"],
               self.stats["reach"] * 1.5,
-              scale=self.stats["bullet_scale"])
+              scale=self.stats["bullet_scale"], pierce=self.stats["pierce"], cluster=self.stats["cluster"],
+              recursion=self.stats["recursion"])
 
 
 class selection_archer(selection_unit):
@@ -2044,7 +2091,8 @@ class Trebuchet(Unit):
         Boulder(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"],
                 self.stats["bulletspeed"],
                 target.distance_to_point(self.x, self.y), self.stats["explosion_radius"],
-                scale=self.stats["bullet_scale"])
+                scale=self.stats["bullet_scale"], pierce=self.stats["pierce"], cluster=self.stats["cluster"],
+                recursion=self.stats["recursion"])
 
 
 class Defender(Unit):
@@ -2088,7 +2136,8 @@ class Projectile:
     image = images.BazookaBullet
     scale = 1
 
-    def __init__(self, x, y, dx, dy, game, side, damage, speed, reach, scale=None, pierce=1, cluster=0):
+    def __init__(self, x, y, dx, dy, game, side, damage, speed, reach, scale=None, pierce=2, cluster=5, rotation=None,
+                 recursion=2):
         # (dx,dy) must be normalized
         self.x, self.y = x, y
         self.sprite = pyglet.sprite.Sprite(self.image, self.x, self.y, batch=game.batch, group=groups.g[5])
@@ -2096,7 +2145,8 @@ class Projectile:
             self.sprite.scale = self.scale * SPRITE_SIZE_MULT
         else:
             self.sprite.scale = scale * SPRITE_SIZE_MULT
-        rotation = get_rotation_norm(dx, dy)
+        if rotation is None:
+            rotation = get_rotation_norm(dx, dy)
         self.sprite.rotation = 90 - rotation * 180 / math.pi
         self.vx, self.vy = speed * math.cos(rotation), speed * math.sin(rotation)
         self.side = side
@@ -2105,8 +2155,11 @@ class Projectile:
         self.damage = damage
         game.projectiles.append(self)
         self.reach = reach
+        self.max_reach = reach
         self.pierce = pierce
-        self.cluster = cluster
+        self.max_pierce = pierce
+        self.cluster = int(cluster)
+        self.recursion = recursion
         self.already_hit = []
 
     def tick(self):
@@ -2140,12 +2193,21 @@ class Projectile:
             self.delete()
 
     def delete(self):
+        self.split()
         self.game.projectiles.remove(self)
         self.sprite.delete()
         self.already_hit = []
 
     def graphics_update(self):
         self.sprite.update(x=self.x * SPRITE_SIZE_MULT - self.game.camx, y=self.y * SPRITE_SIZE_MULT - self.game.camy)
+
+    def split(self):
+        if self.recursion > 0:
+            for i in range(self.cluster):
+                self.__class__(self.x, self.y, 0, 0, self.game, self.side, self.damage, self.speed, self.max_reach * .7,
+                               scale=self.sprite.scale / SPRITE_SIZE_MULT * .9, pierce=self.max_pierce,
+                               cluster=self.cluster, rotation=self.game.ticks + 2 * math.pi * i / self.cluster,
+                               recursion=self.recursion - 1)
 
 
 class Arrow(Projectile):
@@ -2157,10 +2219,12 @@ class Boulder(Projectile):
     image = images.Boulder
     scale = .15
 
-    def __init__(self, x, y, dx, dy, game, side, damage, speed, reach, radius, scale=None):
-        super().__init__(x, y, dx, dy, game, side, damage, speed, reach, scale=scale)
+    def __init__(self, x, y, dx, dy, game, side, damage, speed, reach, radius, scale=None, pierce=2, cluster=5,
+                 rotation=None, recursion=1):
+        super().__init__(x, y, dx, dy, game, side, damage, speed, reach, scale, pierce, cluster, rotation,
+                         recursion)
         self.radius = radius
-        self.rotation = (random.random() - .5) * 10
+        self.rotation_speed = (random.random() - .5) * 10
 
     def tick(self):
         self.x += self.vx
@@ -2176,15 +2240,26 @@ class Boulder(Projectile):
 
     def graphics_update(self):
         super().graphics_update()
-        self.sprite.rotation += self.rotation
+        self.sprite.rotation += self.rotation_speed
+
+    def split(self):
+        if self.recursion > 0:
+            for i in range(self.cluster):
+                self.__class__(self.x, self.y, 0, 0, self.game, self.side, self.damage, self.speed, self.max_reach * .7,
+                               self.radius * .7, self.sprite.scale / SPRITE_SIZE_MULT * .9, self.max_pierce,
+                               self.cluster,
+                               self.game.ticks + 2 * math.pi * i / self.cluster,
+                               self.recursion - 1)
 
 
 class Meteor(Projectile):
     image = images.Meteor
     scale = .15
 
-    def __init__(self, x, y, dx, dy, game, side, damage, speed, reach, radius, scale=None):
-        super().__init__(x, y, dx, dy, game, side, damage, speed, reach, scale=scale)
+    def __init__(self, x, y, dx, dy, game, side, damage, speed, reach, radius, scale=None, pierce=2, cluster=5,
+                 rotation=None, recursion=2):
+        super().__init__(x, y, dx, dy, game, side, damage, speed, reach, scale, pierce, cluster, rotation,
+                         recursion)
         self.radius = radius
 
     def tick(self):
@@ -2201,6 +2276,15 @@ class Meteor(Projectile):
 
     def graphics_update(self):
         super().graphics_update()
+
+    def split(self):
+        if self.recursion > 0:
+            for i in range(self.cluster):
+                self.__class__(self.x, self.y, 0, 0, self.game, self.side, self.damage, self.speed, self.max_reach * .7,
+                               self.radius * .7, self.sprite.scale / SPRITE_SIZE_MULT * .9, self.max_pierce,
+                               self.cluster,
+                               self.game.ticks + 2 * math.pi * i / self.cluster,
+                               self.recursion - 1)
 
 
 class Egg(Meteor):
@@ -2248,25 +2332,8 @@ class Bullet(Projectile):
     image = images.Boulder
     scale = .035
 
-    def __init__(self, x, y, angle, game, side, damage, speed, reach, scale=None,pierce=1,cluster=0):
-        # (dx,dy) must be normalized
-        self.x, self.y = x, y
-        self.x, self.y = x, y
-        self.sprite = pyglet.sprite.Sprite(self.image, self.x, self.y, batch=game.batch, group=groups.g[5])
-        if scale is None:
-            self.sprite.scale = self.scale * SPRITE_SIZE_MULT
-        else:
-            self.sprite.scale = scale * SPRITE_SIZE_MULT
-        self.vx, self.vy = speed * math.cos(angle), speed * math.sin(angle)
-        self.side = side
-        self.speed = speed
-        self.game = game
-        self.pierce = pierce
-        self.cluster = cluster
-        self.already_hit = []
-        self.damage = damage
-        game.projectiles.append(self)
-        self.reach = reach
+    def __init__(self, x, y, angle, game, side, damage, speed, reach, scale=None, pierce=1, cluster=0, recursion=0):
+        super().__init__(x, y, 0, 0, game, side, damage, speed, reach, scale, pierce, cluster, angle, recursion)
 
 
 def AOE_damage(x, y, size, amount, source, game):
