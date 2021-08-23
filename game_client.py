@@ -2007,7 +2007,7 @@ class Unit:
         self.game.players[self.side].on_unit_summon(self)
 
     def update_cam(self, x, y):
-        self.sprite.update(x=self.x * SPRITE_SIZE_MULT - x, y=self.y * SPRITE_SIZE_MULT - y)
+        return
 
     def try_move(self, x, y):
         if self.x == x and self.y == y:
