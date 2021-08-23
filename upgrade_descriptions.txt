@@ -2,7 +2,7 @@ The Beginning:desc=Does Nothing|flavor=Upgrading exists now!|cost=0|time=0
 Bigger Stalls:desc=Unlocks Bears|flavor=Bears may not be as tall as horses, but they are very fat. You need high quality stables.|cost=100000|time=60
 Bigger Arrows:desc=Increases arrow damage|flavor=There is no "correct size" for arrows, it turns out bigger is always better!|cost=5000|time=1|mod=1.5
 Catapults:desc=Unlocks catapults|flavor=If you can't throw the rock yourself, have a machine do it. We assure you it's not a work of the devil!|cost=10000|time=60
-Bigger Rocks:desc=Bigger explosions|flavor=Just in case you don't get crushed enough by the regular rocks|cost=50000|mod_dmg=1.5|mod_rad=2|time=1
-Egg Cannon:desc=Unlocks the egg tower|flavor=To unleash the might of the chicken god requires immense investment. Pray that it destroys your enemies, not you|cost=500000|time=300
+Bigger Rocks:desc=Bigger explosions|flavor=Just in case you don't get crushed enough by the regular rocks|cost=75000|mod_dmg=1.5|mod_rad=2|time=1
+Egg Cannon:desc=Unlocks the egg tower|flavor=To unleash the might of the chicken god requires immense investment. Pray that it destroys your enemies, not you|cost=666666|time=200
 Faster Archery:desc=Arros are shot faster|flavor=The best muscles money can buy for your archers|cost=100000|time=1|mod=.5
 Vigorous Farming:desc=Improves all farms|flavor=Research shows that yelling at plants makes them grow faster|cost=15000|time=1|mod=1.5
