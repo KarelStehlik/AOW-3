@@ -11,8 +11,8 @@ Farm:size=200,health=2000,cost=1000,production=0.2,proximity=500
 Farm1:size=200,health=5000,cost=4000,production=0.9,proximity=500
 Farm2:size=200,health=25000,cost=1000,production=0.2,proximity=500
 Wall:width=30,health=30000,cost=1000
-Swordsman:vwidth=20,vheight=20,speed=320,size=19,health=100,dmg=15,cd=1,reach=10,cost=20,mass=1
-Defender:vwidth=20,vheight=20,speed=150,size=19,health=1500,dmg=10,cd=1,reach=10,cost=125,mass=3
-Archer:vwidth=20,vheight=20,speed=200,size=19,health=20,dmg=30,cd=1,reach=300,cost=30,bulletspeed=7,mass=1,bullet_scale=.15,pierce=1,cluster=0,recursion=0
-Trebuchet:vwidth=50,vheight=50,speed=50,size=50,health=700,dmg=500,cd=8,reach=500,cost=300,bulletspeed=1.2,explosion_radius=100,mass=20,bullet_scale=.15,pierce=1,cluster=0,recursion=0
-Bear:vwidth=80,vheight=150,speed=300,size=60,health=10000,dmg=200,cd=0.1,reach=30,cost=5000,mass=10
+Swordsman:vwidth=20,vheight=20,speed=320,size=19,health=200,dmg=30,cd=1,reach=10,cost=50,mass=1
+Defender:vwidth=20,vheight=20,speed=150,size=19,health=2000,dmg=10,cd=1,reach=10,cost=200,mass=3
+Archer:vwidth=20,vheight=20,speed=200,size=19,health=20,dmg=50,cd=1,reach=300,cost=100,bulletspeed=7,mass=1,bullet_scale=.15,pierce=1,cluster=0,recursion=0
+Trebuchet:vwidth=50,vheight=50,speed=50,size=50,health=700,dmg=1500,cd=8,reach=500,cost=1000,bulletspeed=1.2,explosion_radius=100,mass=20,bullet_scale=.15,pierce=1,cluster=0,recursion=0
+Bear:vwidth=80,vheight=150,speed=300,size=60,health=15000,dmg=200,cd=0.1,reach=30,cost=8000,mass=10
