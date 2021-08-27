@@ -1376,22 +1376,23 @@ class Mine(Boulder):
         if self.lifetime <= 0:
             self.explode()
             return
-        c = self.game.find_chunk(get_chunk(self.x, self.y))
-        if c is not None:
-            for unit in c.units[1 - self.side]:
-                if unit.exists and unit not in self.already_hit and \
-                        (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= (unit.size ** 2) / 4:
+        if self.lifetime%2==0:
+            c = self.game.find_chunk(get_chunk(self.x, self.y))
+            if c is not None:
+                for unit in c.units[1 - self.side]:
+                    if unit.exists and unit not in self.already_hit and \
+                            (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= (unit.size ** 2) / 4:
+                        self.explode()
+                        return
+                for unit in c.buildings[1 - self.side]:
+                    if unit.exists and unit not in self.already_hit and \
+                            (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= (unit.size ** 2) / 4:
+                        self.explode()
+                        return
+            for wall in self.game.players[1 - self.side].walls:
+                if wall.exists and wall not in self.already_hit and wall.distance_to_point(self.x, self.y) <= 0:
                     self.explode()
                     return
-            for unit in c.buildings[1 - self.side]:
-                if unit.exists and unit not in self.already_hit and \
-                        (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= (unit.size ** 2) / 4:
-                    self.explode()
-                    return
-        for wall in self.game.players[1 - self.side].walls:
-            if wall.exists and wall not in self.already_hit and wall.distance_to_point(self.x, self.y) <= 0:
-                self.explode()
-                return
 
 
 class Meteor(Boulder):
