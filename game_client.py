@@ -8,7 +8,6 @@ import client_utility
 
 
 class Game:
-    UI_toolbars: List[client_utility.toolbar]
 
     def __init__(self, side, batch, connection, time0):
         self.camx, self.camy = 0, 0
@@ -425,7 +424,6 @@ class UI_bottom_bar(client_utility.toolbar):
 
 
 class UI_formation(client_utility.toolbar):
-    units: list[list[int]]
 
     def __init__(self, game):
         self.rows, self.columns = game.unit_formation_rows, game.unit_formation_columns
