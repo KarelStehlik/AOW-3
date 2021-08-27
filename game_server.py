@@ -850,16 +850,22 @@ class Formation:
                     self.instr_object = instruction_moving(self, instruction[1], instruction[2])
                 elif instruction[0] == "attack":
                     target = self.game.find_building(instruction[1], 1 - self.side)
-                    if target is not None:
+                    if target is not None and target.entity_type != "wall":
                         self.attack(target)
+                        self.x = target.x
+                        self.y = target.y
                     else:
                         target = self.game.find_wall(instruction[1], 1 - self.side)
                         if target is not None:
                             self.attack(target)
+                            self.x = (target.x1 + target.x2) / 2
+                            self.y = (target.y1 + target.y2) / 2
                         else:
                             target = self.game.find_formation(instruction[1], 1 - self.side)
                             if target is not None:
                                 self.attack(target)
+                                self.x = target.x
+                                self.y = target.y
             else:
                 return
         self.instr_object.tick()
@@ -901,7 +907,7 @@ class instruction_linear(instruction):
     def tick(self):
         if self.completed:
             return
-        if False not in [e.reached_goal for e in self.target.troops]:
+        if False not in [e.reached_goal or not e.wait_for_this for e in self.target.troops]:
             self.completed = True
             self.target.x, self.target.y = self.x, self.y
 
@@ -921,7 +927,7 @@ class instruction_rotate(instruction):
     def tick(self):
         if self.completed:
             return
-        if False not in [e.reached_goal for e in self.target.troops]:
+        if False not in [e.reached_goal or not e.wait_for_this for e in self.target.troops]:
             self.completed = True
 
 
@@ -951,6 +957,7 @@ class Unit:
         self.ID = ID
         self.lifetime = 0
         self.side = side
+        self.wait_for_this = True
         self.game = game
         self.formation = formation
         self.x, self.y = x, y
@@ -1007,13 +1014,13 @@ class Unit:
     def acquire_target(self):
         if self.target is not None and self.target.exists:
             return
-        self.target = self.formation.all_targets[0]
-        dist = self.target.distance_to_point(self.x, self.y) - self.size
+        dist = 1000000
         for e in self.formation.all_targets:
-            new_dist = e.distance_to_point(self.x, self.y) - self.size
-            if new_dist < dist:
-                dist = new_dist
-                self.target = e
+            if e.exists:
+                new_dist = e.distance_to_point(self.x, self.y) - self.size
+                if new_dist < dist:
+                    dist = new_dist
+                    self.target = e
 
     def move_in_range(self, other):
         if other.entity_type == "wall":
@@ -1089,7 +1096,7 @@ class Unit:
                     self.reached_goal = True
         else:
             self.acquire_target()
-            if self.move_in_range(self.target):
+            if self.target is not None and self.move_in_range(self.target):
                 self.attempt_attack(self.target)
 
         self.chunks = get_chunks(self.x, self.y, self.size)
@@ -1101,7 +1108,7 @@ class Unit:
             self.current_cooldown -= 1 / FPS
         if (not self.formation.all_targets) and (
                 not self.reached_goal) and self.x == self.last_x and self.y == self.last_y:
-            self.x += 10
+            self.reached_goal = True
             print("xdff")
         self.last_x, self.last_y = self.x, self.y
 
@@ -1204,7 +1211,50 @@ class Bear(Unit):
         target.take_damage(self.stats["dmg"], self)
 
 
-possible_units = [Swordsman, Archer, Trebuchet, Defender, Bear]
+class Necromancer(Unit):
+    name = "Necromancer"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.zombies = 0
+
+    def attack(self, target):
+        target.take_damage(self.stats["dmg"], self)
+        if target.entity_type == "unit" and not target.exists:
+            self.summon(target)
+
+    def summon(self, e):
+        if e.name=="Zombie":
+            return
+        a = Zombie([self.ID, self.zombies], e.x, e.y, self.side, self.column, self.row, self.game, self.formation)
+        a.summon_done()
+        self.formation.troops.append(a)
+        self.zombies += 1
+
+
+class Zombie(Unit):
+    name = "Zombie"
+
+    def __init__(self, *a, **k):
+        super().__init__(*a, **k)
+        self.zombies = 0
+        self.wait_for_this=False
+
+    def attack(self, target):
+        target.take_damage(self.stats["dmg"], self)
+        if target.entity_type == "unit" and not target.exists:
+            self.summon(target)
+
+    def summon(self, e):
+        if e.name == "Zombie":
+            return
+        a = Zombie([self.ID, self.zombies], e.x, e.y, self.side, self.column, self.row, self.game, self.formation)
+        a.summon_done()
+        self.formation.troops.append(a)
+        self.zombies += 1
+
+
+possible_units = [Swordsman, Archer, Trebuchet, Defender, Bear, Necromancer, Zombie]
 
 
 class Projectile:
@@ -1528,5 +1578,13 @@ class Upgrade_vigorous_farming(Upgrade):
                                   targets=["Farm", "Farm1", "Farm2"]))
 
 
+class Upgrade_necromancy(Upgrade):
+    name = "Necromancy"
+    previous = [Upgrade_test_1]
+
+    def on_finish(self):
+        self.player.unlock_unit(Necromancer)
+
+
 possible_upgrades = [Upgrade_default, Upgrade_test_1, Upgrade_bigger_arrows, Upgrade_catapult, Upgrade_bigger_rocks,
-                     Upgrade_egg, Upgrade_faster_archery, Upgrade_vigorous_farming, Upgrade_mines]
+                     Upgrade_egg, Upgrade_faster_archery, Upgrade_vigorous_farming, Upgrade_mines, Upgrade_necromancy]

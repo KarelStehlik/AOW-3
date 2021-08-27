@@ -43,6 +43,7 @@ class TextureBindGroup(pyglet.graphics.Group):
 
 wall_group = TextureBindGroup(images.Wall, layer=1)
 wall_crack_group = TextureBindGroup(images.WallCrack, layer=2)
+necro_beam_group = TextureBindGroup(images.Beam, layer=1)
 
 
 def do_nothing(*args):
