@@ -655,6 +655,8 @@ class minimap(client_utility.toolbar):
             self.game.camx += (x - self.x - self.width / 2) / self.scale
             self.game.camy += (y - self.y - self.width / 2) / self.scale
             self.last_mouse_pos = (x, y)
+            return True
+        return False
 
     def mouse_drag(self, x, y, button=0, modifiers=0):
         if super().mouse_drag(x, y, button, modifiers):
@@ -917,6 +919,34 @@ class selection_unit_formation(selection):
         self.update_moving_indicator_pos(x, y)
 
     def mouse_click(self, x, y):
+        for e in self.game.players[1 - self.game.side].all_buildings:
+            if e.distance_to_point((x + self.camx) / SPRITE_SIZE_MULT, (y + self.camy) / SPRITE_SIZE_MULT) <= 0:
+                self.instructions.append(["attack", e.ID])
+                visx, visy = e.x*SPRITE_SIZE_MULT, e.y*SPRITE_SIZE_MULT
+                self.update_moving_indicator_pos(visx, visy)
+                self.actual_indicator_points += [0 for _ in range(8)]
+                self.current_pos = [visx, visy]
+                self.add_indicator_point(visx, visy)
+                return
+        for e in self.game.players[1 - self.game.side].walls:
+            if e.distance_to_point((x + self.camx) / SPRITE_SIZE_MULT, (y + self.camy) / SPRITE_SIZE_MULT) <= 0:
+                self.instructions.append(["attack", e.ID])
+                visx, visy = (e.x1 + e.x2) / 2 * SPRITE_SIZE_MULT, (e.y1 + e.y2) * SPRITE_SIZE_MULT
+                self.update_moving_indicator_pos(visx, visy)
+                self.actual_indicator_points += [0 for _ in range(8)]
+                self.current_pos = [visx, visy]
+                self.add_indicator_point(visx, visy)
+                return
+        for e in self.game.players[1 - self.game.side].units:
+            if e.distance_to_point((x + self.camx) / SPRITE_SIZE_MULT, (y + self.camy) / SPRITE_SIZE_MULT) <= \
+                    100 * SPRITE_SIZE_MULT:
+                self.instructions.append(["attack", e.formation.ID])
+                visx, visy = e.x*SPRITE_SIZE_MULT, e.y*SPRITE_SIZE_MULT
+                self.update_moving_indicator_pos(visx, visy)
+                self.actual_indicator_points += [0 for _ in range(8)]
+                self.current_pos = [visx, visy]
+                self.add_indicator_point(visx, visy)
+                return
         if not self.cancelbutton.mouse_click(x, y) and [x + self.camx, y + self.camy] != self.current_pos:
             self.instructions.append(["walk", (x + self.camx) / SPRITE_SIZE_MULT,
                                       (y + self.camy) / SPRITE_SIZE_MULT])
@@ -1307,9 +1337,9 @@ class Tower2(Tower):
                 recursion=self.stats["recursion"])
 
 
-class Tower21(Tower):
-    name = "Tower21"
-    image = images.Tower21
+class Tower22(Tower):
+    name = "Tower22"
+    image = images.Tower22
 
     def __init__(self, target=None, tick=None, x=None, y=None, side=None, game=None, ID=None):
         if target is not None:
@@ -1321,6 +1351,67 @@ class Tower21(Tower):
         self.upgrades_into = []
 
     def attack(self, target):
+        if target is None:
+            angle = self.game.ticks ** 2
+            dist = self.stats["reach"] * abs(math.sin(self.game.ticks))
+            dx = dist * math.cos(angle)
+            dy = dist * math.sin(angle)
+        else:
+            dx, dy = target.x - self.x, target.y - self.y
+        self.sprite.rotation = 90 - get_rotation(dx, dy) * 180 / math.pi
+        Mine(self.x, self.y, dx, dy, self.game, self.side, self.stats["dmg"],
+             self.stats["bulletspeed"],
+             distance(dx, dy, 0, 0), self.stats["explosion_radius"], self.stats["duration"],
+             scale=self.stats["bullet_scale"], pierce=self.stats["pierce"], cluster=self.stats["cluster"],
+             recursion=self.stats["recursion"])
+
+    def tick2(self):
+        self.shove()
+        if self.current_cooldown > 0:
+            self.current_cooldown -= 1 / FPS
+        if self.current_cooldown <= 0:
+            self.current_cooldown += self.stats["cd"]
+            if self.acquire_target():
+                self.attack(self.target)
+            else:
+                self.turns_without_target += 1
+                self.attack(None)
+
+    def acquire_target(self):
+        if self.target is not None and \
+                self.target.exists and self.target.distance_to_point(self.x, self.y) < self.stats["reach"]:
+            return True
+        self.turns_without_target = 0
+        for c in self.shooting_in_chunks:
+            chonker = self.game.find_chunk(c)
+            if chonker is not None:
+                for unit in chonker.units[1 - self.side]:
+                    if unit.exists and unit.distance_to_point(self.x, self.y) < self.stats["reach"]:
+                        self.target = unit
+                        self.turns_without_target = 0
+                        return True
+                for unit in chonker.buildings[1 - self.side]:
+                    if unit.exists and unit.distance_to_point(self.x, self.y) < self.stats["reach"]:
+                        self.target = unit
+                        self.turns_without_target = 0
+                        return True
+        return False
+
+
+class Tower21(Tower):
+    name = "Tower21"
+    image = images.Tower21
+
+    def __init__(self, target=None, tick=None, x=None, y=None, side=None, game=None, ID=None):
+        if target is not None:
+            super().__init__(target.ID, target.x, target.y, tick, target.side, target.game)
+            self.comes_from = target
+        else:
+            super().__init__(ID, x, y, tick, side, game)
+            self.comes_from = None
+        self.upgrades_into = [Tower211]
+
+    def attack(self, target):
         direction = target.towards(self.x, self.y)
         self.sprite.rotation = 90 - get_rotation_norm(*direction) * 180 / math.pi
         Meteor(self.x, self.y, *direction, self.game, self.side, self.stats["dmg"], self.stats["bulletspeed"],
@@ -1329,8 +1420,8 @@ class Tower21(Tower):
                recursion=self.stats["recursion"])
 
 
-class Tower22(Tower):
-    name = "Tower22"
+class Tower211(Tower):
+    name = "Tower211"
     image = images.Tower21
 
     def __init__(self, target=None, tick=None, x=None, y=None, side=None, game=None, ID=None):
@@ -1464,7 +1555,7 @@ class Farm2(Farm):
         self.upgrades_into = []
 
 
-possible_buildings = [Tower, Farm, Tower1, Tower2, Tower21, Tower11, Farm1, Farm2, Tower22, Tower3, Tower31]
+possible_buildings = [Tower, Farm, Tower1, Tower2, Tower21, Tower11, Farm1, Farm2, Tower211, Tower3, Tower31, Tower22]
 
 
 class Wall:
@@ -1667,6 +1758,18 @@ class Formation:
                 instruction = self.instructions.pop(0)
                 if instruction[0] == "walk":
                     self.instr_object = instruction_moving(self, instruction[1], instruction[2])
+                elif instruction[0] == "attack":
+                    target = self.game.find_building(instruction[1], 1 - self.side)
+                    if target is not None:
+                        self.attack(target)
+                    else:
+                        target = self.game.find_wall(instruction[1], 1 - self.side)
+                        if target is not None:
+                            self.attack(target)
+                        else:
+                            target = self.game.find_formation(instruction[1], 1 - self.side)
+                            if target is not None:
+                                self.attack(target)
             else:
                 return
         self.instr_object.tick()
@@ -1706,7 +1809,9 @@ class Formation:
             enemy = enemy.troops
         else:
             enemy = [enemy, ]
-        self.all_targets += enemy
+        for e in enemy:
+            if e not in self.all_targets:
+                self.all_targets.append(e)
         for e in self.troops:
             e.target = None
 
@@ -1786,6 +1891,7 @@ class Unit:
         self.game = game
         self.formation = formation
         self.x, self.y = x, y
+        self.flying = False
         self.last_x, self.last_y = x, y
         self.column, self.row = column, row
         self.game.players[self.side].units.append(self)
@@ -2252,6 +2358,48 @@ class Boulder(Projectile):
                                self.recursion - 1)
 
 
+class Mine(Boulder):
+    image = images.Mine
+
+    def __init__(self, x, y, dx, dy, game, side, damage, speed, reach, radius, lifetime, scale=None, pierce=2,
+                 cluster=5, recursion=1):
+        d = inv_h(dx, dy)
+        super().__init__(x, y, dx * d, dy * d, game, side, damage, speed, reach, radius, scale, pierce, cluster,
+                         recursion=recursion)
+        self.final_x, self.final_y = x + dx, y + dy
+        self.finished = False
+        self.lifetime = lifetime
+
+    def tick(self):
+        if not self.finished:
+            self.x += self.vx
+            self.y += self.vy
+            self.reach -= self.speed
+            if self.reach < 0:
+                self.finished = True
+                self.rotation_speed = 0
+        self.lifetime -= 1
+        if self.lifetime <= 0:
+            self.explode()
+            return
+        c = self.game.find_chunk(get_chunk(self.x, self.y))
+        if c is not None:
+            for unit in c.units[1 - self.side]:
+                if unit.exists and unit not in self.already_hit and \
+                        (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= (unit.size ** 2) / 4:
+                    self.explode()
+                    return
+            for unit in c.buildings[1 - self.side]:
+                if unit.exists and unit not in self.already_hit and \
+                        (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= (unit.size ** 2) / 4:
+                    self.explode()
+                    return
+        for wall in self.game.players[1 - self.side].walls:
+            if wall.exists and wall not in self.already_hit and wall.distance_to_point(self.x, self.y) <= 0:
+                self.explode()
+                return
+
+
 class Meteor(Projectile):
     image = images.Meteor
     scale = .15
@@ -2292,6 +2440,11 @@ class Egg(Meteor):
     scale = .15
     explosion_size = 80
     explosion_speed = 100
+
+    def explode(self):
+        AOE_damage(self.x, self.y, self.radius, self.damage, self, self.game)
+        animation_explosion(self.x, self.y, self.radius, 300, self.game)
+        self.delete()
 
 
 class animation_explosion:
@@ -2424,6 +2577,7 @@ class Upgrade:
     def finished(self):
         self.player.pending_upgrades.remove(self)
         self.player.owned_upgrades.append(self)
+        print(self.name, self.player.game.ticks)
         self.on_finish()
 
     def on_finish(self):
@@ -2675,8 +2829,9 @@ class Upgrade_bigger_arrows(Upgrade):
 
     def on_finish(self):
         self.player.add_aura(aura(effect_stat_mult, ("dmg", float(upgrade_stats[self.name]["mod"])),
-                                  targets=["Archer", "Tower", "Tower1"]))
-        self.player.add_aura(aura(effect_stat_mult, ("bullet_scale", 2), targets=["Archer", "Tower", "Tower1"]))
+                                  targets=["Archer", "Tower", "Tower1", "Tower3", "Tower31"]))
+        self.player.add_aura(aura(effect_stat_mult, ("bullet_scale", 2),
+                                  targets=["Archer", "Tower", "Tower1", "Tower3", "Tower31"]))
 
 
 class Upgrade_bigger_rocks(Upgrade):
@@ -2702,6 +2857,17 @@ class Upgrade_egg(Upgrade):
     y = 1090
 
     def on_finish(self):
+        self.player.unlock_unit(Tower211)
+
+
+class Upgrade_mines(Upgrade):
+    name = "Mines"
+    previous = [Upgrade_bigger_rocks]
+    image = images.Egg
+    x = 1310
+    y = 1090
+
+    def on_finish(self):
         self.player.unlock_unit(Tower22)
 
 
@@ -2714,7 +2880,7 @@ class Upgrade_faster_archery(Upgrade):
 
     def on_finish(self):
         self.player.add_aura(aura(effect_stat_mult, ("cd", float(upgrade_stats[self.name]["mod"])),
-                                  targets=["Archer", "Tower", "Tower1"]))
+                                  targets=["Archer", "Tower", "Tower1", "Tower3", "Tower31"]))
 
 
 class Upgrade_vigorous_farming(Upgrade):
@@ -2730,4 +2896,4 @@ class Upgrade_vigorous_farming(Upgrade):
 
 
 possible_upgrades = [Upgrade_default, Upgrade_test_1, Upgrade_bigger_arrows, Upgrade_catapult, Upgrade_bigger_rocks,
-                     Upgrade_egg, Upgrade_faster_archery, Upgrade_vigorous_farming]
+                     Upgrade_egg, Upgrade_faster_archery, Upgrade_vigorous_farming, Upgrade_mines]

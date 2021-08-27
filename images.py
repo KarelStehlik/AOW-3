@@ -40,6 +40,7 @@ Towerbutton = RI("Towerbutton")
 UnitSlot = RI("UnitSlot")
 UnitFormFrame = RI("UnitFormFrame", False)
 Fire = RI("fire")
+Beam = IL("beam", False).get_texture()
 Shockwave = RI("shockwave")
 Boulder = RI("Boulder")
 Meteor = RI("Meteor")
@@ -48,6 +49,7 @@ Meteor.anchor_y = Meteor.height * .7
 Bullet = RI("Bullet")
 Arrow_upg = RI("Arrow_upg")
 Arrow_upg_2 = RI("Arrow_upg_2")
+Mine = RI("mine")
 
 Farm = RI("farm")
 Farm1 = RI("Farm1")
@@ -59,6 +61,7 @@ TowerCrack = RI("tower_crack")
 Tower11 = RI("Tower11")
 Tower21 = RI("Tower21")
 Townhall = RI("Townhall")
+Tower22 = RI("tower22")
 
 Arrow = RI("Arrow")
 Arrow.anchor_x = Arrow.width / 2
