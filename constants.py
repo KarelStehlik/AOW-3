@@ -1,5 +1,6 @@
 import pyglet
 
+CHEATS = True
 display = pyglet.canvas.Display()
 screen = display.get_default_screen()
 SCREEN_WIDTH = screen.width  # //2
@@ -11,9 +12,9 @@ TH_DISTANCE = 3000
 UNIT_FORMATION_ROWS = 8
 UNIT_FORMATION_COLUMNS = 16
 CHUNK_SIZE = 75
-PASSIVE_INCOME = 1
+PASSIVE_INCOME = 1000 if CHEATS else 1
 ACTION_DELAY = 1
-WAVE_INTERVAL = 60*150
+WAVE_INTERVAL = 60 * 150
 # size   fps
 # 30     40
 # 40     50

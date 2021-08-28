@@ -44,6 +44,8 @@ def load_upgrades():
             for e in name_stats[1].split("|"):
                 k = e.split("=")
                 stats[k[0]] = k[1]
+                if constants.CHEATS and k[0] == "time":
+                    stats[k[0]] = "1"
             del e
             unit_statst[name_stats[0]] = stats
     return unit_statst

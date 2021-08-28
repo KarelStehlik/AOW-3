@@ -521,8 +521,8 @@ class UI_formation(client_utility.toolbar):
         self.cost_count.text = "Cost: " + str(int(self.cost))
 
     def detect_obstruction(self, size, x, y):
-       # if size <= UNIT_SIZE:
-       #     return
+        # if size <= UNIT_SIZE:
+        #     return
         for x2 in range(UNIT_FORMATION_COLUMNS):
             for y2 in range(UNIT_FORMATION_ROWS):
                 if self.units[x2][y2] != -1 and not (x2 == x and y2 == y):
@@ -1180,6 +1180,7 @@ class Building:
     def tick2(self):
         if self.exists:
             self.shove()
+            [e.tick() for e in self.effects]
 
     def shove(self):
         for c in self.chunks:
@@ -1217,7 +1218,7 @@ class TownHall(Building):
         print("game over", self.game.ticks)
 
     def tick(self):
-        self.shove()
+        super().tick2()
 
 
 class Tower(Building):
@@ -1251,7 +1252,7 @@ class Tower(Building):
         self.sprite2.delete()
 
     def tick2(self):
-        self.shove()
+        super().tick2()
         if self.current_cooldown > 0:
             self.current_cooldown -= 1 / FPS
         if self.current_cooldown <= 0:
@@ -1290,10 +1291,9 @@ class Tower(Building):
             return False
         return False
 
-    def take_damage(self, amount, source):
-        if self.exists:
-            self.sprite2.opacity = 255 * max(0, (self.stats["health"] - self.health)) / self.stats["health"]
-            super().take_damage(amount, source)
+    def update_hpbar(self):
+        super().update_hpbar()
+        self.sprite2.opacity = 255 * max(0, (self.stats["health"] - self.health)) / self.stats["health"]
 
     def update_cam(self, x, y):
         super().update_cam(x, y)
@@ -1365,7 +1365,7 @@ class Tower22(Tower):
              recursion=self.stats["recursion"])
 
     def tick2(self):
-        self.shove()
+        super().tick()
         if self.current_cooldown > 0:
             self.current_cooldown -= 1 / FPS
         if self.current_cooldown <= 0:
@@ -1578,6 +1578,7 @@ class Wall:
         self.game = game
         game.players[side].walls.append(self)
         game.players[side].all_buildings.append(self)
+        game.players[side].on_building_summon(self)
         x = self.width * .5 / self.length
         a = x * (self.y2 - self.y1)
         b = x * (self.x1 - self.x2)
@@ -1599,6 +1600,12 @@ class Wall:
             ("c4B", (255, 255, 255, 0) * 4)
         )
         self.update_cam(self.game.camx, self.game.camy)
+        self.effects = []
+        self.base_stats = unit_stats[self.name]
+        self.mods_add = {e: [] for e in unit_stats[self.name].keys()}
+        self.mods_multiply = {e: [] for e in unit_stats[self.name].keys()}
+        self.stats = {e: (self.base_stats[e] + sum(self.mods_add[e])) * product(*self.mods_multiply[e]) for e in
+                      self.base_stats.keys()}
 
     @classmethod
     def get_cost(cls, params):
@@ -1640,7 +1647,6 @@ class Wall:
         if self.health <= 0:
             self.die()
             return
-        self.crack_sprite.colors[3::4] = [int((255 * (self.max_health - self.health)) // self.max_health)] * 4
 
     def shove(self):
         for e in self.game.players[1 - self.side].units:
@@ -1666,9 +1672,10 @@ class Wall:
 
     def tick2(self):
         self.shove()
+        [e.tick() for e in self.effects]
 
     def graphics_update(self):
-        pass
+        self.crack_sprite.colors[3::4] = [int((255 * (self.max_health - self.health)) // self.max_health)] * 4
 
 
 class Formation:
@@ -1776,6 +1783,8 @@ class Formation:
                                 self.x = target.x
                                 self.y = target.y
             else:
+                if self.game.players[1-self.side].TownHall.exists:
+                    self.attack(self.game.players[1-self.side].TownHall)
                 return
         self.instr_object.tick()
 
@@ -1992,7 +2001,7 @@ class Unit:
     def acquire_target(self):
         if self.target is not None and self.target.exists:
             return
-        dist=1000000
+        dist = 1000000
         for e in self.formation.all_targets:
             if e.exists:
                 new_dist = e.distance_to_point(self.x, self.y) - self.size
@@ -2078,6 +2087,7 @@ class Unit:
             self.reached_goal = True
             print("xdff")
         self.last_x, self.last_y = self.x, self.y
+        [e.tick() for e in self.effects]
 
     def die(self):
         if not self.exists:
@@ -2635,6 +2645,29 @@ class effect_stat_mult:
             self.remove()
 
 
+class effect_regen:
+    def __init__(self, amount, duration=None):
+        self.strength = amount
+        self.remaining_duration = duration
+        self.target = None
+
+    def apply(self, target):
+        self.target = target
+        self.target.effects.append(self)
+
+    def remove(self):
+        self.target.effects.remove(self)
+
+    def tick(self):
+        self.target.health = min(self.target.stats["health"], self.target.health + self.strength)
+        if self.remaining_duration is None:
+            return
+        self.remaining_duration -= 1 / FPS
+        if self.remaining_duration <= 0:
+            self.remove()
+            return
+
+
 class aura:
     def __init__(self, effect, args, duration=None, targets=None):
         self.effect = effect
@@ -2995,6 +3028,18 @@ class Upgrade_vigorous_farming(Upgrade):
                                   targets=["Farm", "Farm1", "Farm2"]))
 
 
+class Upgrade_nanobots(Upgrade):
+    name = "Nanobots"
+    x = 960
+    y = 140
+    image = images.Farm1
+    previous = [Upgrade_vigorous_farming]
+
+    def on_finish(self):
+        self.player.add_aura(aura(effect_regen, (float(upgrade_stats[self.name]["mod"]),),
+                                  targets=["TownHall", "Wall"] + [e.name for e in possible_buildings]))
+
+
 class Upgrade_necromancy(Upgrade):
     name = "Necromancy"
     previous = [Upgrade_test_1]
@@ -3007,4 +3052,5 @@ class Upgrade_necromancy(Upgrade):
 
 
 possible_upgrades = [Upgrade_default, Upgrade_test_1, Upgrade_bigger_arrows, Upgrade_catapult, Upgrade_bigger_rocks,
-                     Upgrade_egg, Upgrade_faster_archery, Upgrade_vigorous_farming, Upgrade_mines, Upgrade_necromancy]
+                     Upgrade_egg, Upgrade_faster_archery, Upgrade_vigorous_farming, Upgrade_mines, Upgrade_necromancy,
+                     Upgrade_nanobots]

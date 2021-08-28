@@ -410,6 +410,7 @@ class Building:
     def tick2(self):
         if self.exists:
             self.shove()
+            [e.tick() for e in self.effects]
 
     def shove(self):
         for c in self.chunks:
@@ -439,7 +440,7 @@ class TownHall(Building):
         # self.game.end(1 - self.side)
 
     def tick(self):
-        self.shove()
+        super().tick2()
 
 
 class Tower(Building):
@@ -459,6 +460,7 @@ class Tower(Building):
         return unit_stats[cls.name]["cost"]
 
     def tick2(self):
+        super().tick2()
         self.shove()
         if self.current_cooldown > 0:
             self.current_cooldown -= 1 / FPS
@@ -566,7 +568,7 @@ class Tower22(Tower):
              cluster=self.stats["cluster"], recursion=self.stats["recursion"])
 
     def tick2(self):
-        self.shove()
+        super().tick()
         if self.current_cooldown > 0:
             self.current_cooldown -= 1 / FPS
         if self.current_cooldown <= 0:
@@ -716,6 +718,13 @@ class Wall:
         self.game = game
         game.players[side].walls.append(self)
         game.players[side].all_buildings.append(self)
+        game.players[side].on_building_summon(self)
+        self.effects = []
+        self.base_stats = unit_stats[self.name]
+        self.mods_add = {e: [] for e in unit_stats[self.name].keys()}
+        self.mods_multiply = {e: [] for e in unit_stats[self.name].keys()}
+        self.stats = {e: (self.base_stats[e] + sum(self.mods_add[e])) * product(*self.mods_multiply[e]) for e in
+                      self.base_stats.keys()}
 
     def die(self):
         if not self.exists:
@@ -775,6 +784,7 @@ class Wall:
 
     def tick2(self):
         self.shove()
+        [e.tick() for e in self.effects]
 
     def delete(self):
         self.game.players[self.side].walls.remove(self)
@@ -867,6 +877,8 @@ class Formation:
                                 self.x = target.x
                                 self.y = target.y
             else:
+                if self.game.players[1 - self.side].TownHall.exists:
+                    self.attack(self.game.players[1 - self.side].TownHall)
                 return
         self.instr_object.tick()
 
@@ -1111,6 +1123,7 @@ class Unit:
             self.reached_goal = True
             print("xdff")
         self.last_x, self.last_y = self.x, self.y
+        [e.tick() for e in self.effects]
 
     def rotate(self, x, y):
         if x == 0 == y:
@@ -1224,7 +1237,7 @@ class Necromancer(Unit):
             self.summon(target)
 
     def summon(self, e):
-        if e.name=="Zombie":
+        if e.name == "Zombie":
             return
         a = Zombie([self.ID, self.zombies], e.x, e.y, self.side, self.column, self.row, self.game, self.formation)
         a.summon_done()
@@ -1238,7 +1251,7 @@ class Zombie(Unit):
     def __init__(self, *a, **k):
         super().__init__(*a, **k)
         self.zombies = 0
-        self.wait_for_this=False
+        self.wait_for_this = False
 
     def attack(self, target):
         target.take_damage(self.stats["dmg"], self)
@@ -1376,7 +1389,7 @@ class Mine(Boulder):
         if self.lifetime <= 0:
             self.explode()
             return
-        if self.lifetime%2==0:
+        if self.lifetime % 2 == 0:
             c = self.game.find_chunk(get_chunk(self.x, self.y))
             if c is not None:
                 for unit in c.units[1 - self.side]:
@@ -1447,6 +1460,29 @@ class effect_stat_mult:
         self.remaining_duration -= 1 / FPS
         if self.remaining_duration <= 0:
             self.remove()
+
+
+class effect_regen:
+    def __init__(self, amount, duration=None):
+        self.strength = amount
+        self.remaining_duration = duration
+        self.target = None
+
+    def apply(self, target):
+        self.target = target
+        self.target.effects.append(self)
+
+    def remove(self):
+        self.target.effects.remove(self)
+
+    def tick(self):
+        self.target.health = min(self.target.stats["health"], self.target.health + self.strength)
+        if self.remaining_duration is None:
+            return
+        self.remaining_duration -= 1 / FPS
+        if self.remaining_duration <= 0:
+            self.remove()
+            return
 
 
 class aura:
@@ -1579,6 +1615,15 @@ class Upgrade_vigorous_farming(Upgrade):
                                   targets=["Farm", "Farm1", "Farm2"]))
 
 
+class Upgrade_nanobots(Upgrade):
+    name = "Nanobots"
+    previous = [Upgrade_vigorous_farming]
+
+    def on_finish(self):
+        self.player.add_aura(aura(effect_regen, (float(upgrade_stats[self.name]["mod"]),),
+                                  targets=["TownHall", "Wall"] + [e.name for e in possible_buildings]))
+
+
 class Upgrade_necromancy(Upgrade):
     name = "Necromancy"
     previous = [Upgrade_test_1]
@@ -1588,4 +1633,5 @@ class Upgrade_necromancy(Upgrade):
 
 
 possible_upgrades = [Upgrade_default, Upgrade_test_1, Upgrade_bigger_arrows, Upgrade_catapult, Upgrade_bigger_rocks,
-                     Upgrade_egg, Upgrade_faster_archery, Upgrade_vigorous_farming, Upgrade_mines, Upgrade_necromancy]
+                     Upgrade_egg, Upgrade_faster_archery, Upgrade_vigorous_farming, Upgrade_mines, Upgrade_necromancy,
+                     Upgrade_nanobots]
