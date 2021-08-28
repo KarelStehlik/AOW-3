@@ -718,13 +718,13 @@ class Wall:
         self.game = game
         game.players[side].walls.append(self)
         game.players[side].all_buildings.append(self)
-        game.players[side].on_building_summon(self)
         self.effects = []
         self.base_stats = unit_stats[self.name]
         self.mods_add = {e: [] for e in unit_stats[self.name].keys()}
         self.mods_multiply = {e: [] for e in unit_stats[self.name].keys()}
         self.stats = {e: (self.base_stats[e] + sum(self.mods_add[e])) * product(*self.mods_multiply[e]) for e in
                       self.base_stats.keys()}
+        game.players[side].on_building_summon(self)
 
     def die(self):
         if not self.exists:

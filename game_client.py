@@ -1578,7 +1578,6 @@ class Wall:
         self.game = game
         game.players[side].walls.append(self)
         game.players[side].all_buildings.append(self)
-        game.players[side].on_building_summon(self)
         x = self.width * .5 / self.length
         a = x * (self.y2 - self.y1)
         b = x * (self.x1 - self.x2)
@@ -1606,6 +1605,7 @@ class Wall:
         self.mods_multiply = {e: [] for e in unit_stats[self.name].keys()}
         self.stats = {e: (self.base_stats[e] + sum(self.mods_add[e])) * product(*self.mods_multiply[e]) for e in
                       self.base_stats.keys()}
+        game.players[side].on_building_summon(self)
 
     @classmethod
     def get_cost(cls, params):
