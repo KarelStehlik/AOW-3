@@ -1146,7 +1146,7 @@ class Building:
 
     def take_damage(self, amount, source):
         if self.exists:
-            self.health -= amount
+            self.health -= amount * self.stats["resistance"]
             if self.health <= 0:
                 self.die()
 
@@ -1611,6 +1611,12 @@ class Wall:
     def get_cost(cls, params):
         return unit_stats[cls.name]["cost"]
 
+    def update_stats(self, stats=None):
+        if stats is None:
+            stats = self.stats.keys()
+        for e in stats:
+            self.stats[e] = (self.base_stats[e] + sum(self.mods_add[e])) * product(*self.mods_multiply[e])
+
     def towards(self, x, y):
         if point_line_dist(x, y, (self.norm_vector[1], -self.norm_vector[0]), self.crossline_c) < self.length * .5:
             if x * self.norm_vector[0] + y * self.norm_vector[1] + self.line_c < 0:
@@ -1643,7 +1649,7 @@ class Wall:
     def take_damage(self, amount, source):
         if not self.exists:
             return
-        self.health -= amount
+        self.health -= amount * self.stats["resistance"]
         if self.health <= 0:
             self.die()
             return
@@ -1783,8 +1789,8 @@ class Formation:
                                 self.x = target.x
                                 self.y = target.y
             else:
-                if self.game.players[1-self.side].TownHall.exists:
-                    self.attack(self.game.players[1-self.side].TownHall)
+                if self.game.players[1 - self.side].TownHall.exists:
+                    self.attack(self.game.players[1 - self.side].TownHall)
                 return
         self.instr_object.tick()
 
@@ -1973,7 +1979,7 @@ class Unit:
     def take_damage(self, amount, source):
         if not self.exists:
             return
-        self.health -= amount
+        self.health -= amount * self.stats["resistance"]
         if self.health <= 0:
             self.die()
 
@@ -3040,10 +3046,22 @@ class Upgrade_nanobots(Upgrade):
                                   targets=["TownHall", "Wall"] + [e.name for e in possible_buildings]))
 
 
+class Upgrade_walls(Upgrade):
+    name = "Tough Walls"
+    x = 960
+    y = -60
+    image = images.Farm1
+    previous = [Upgrade_nanobots]
+
+    def on_finish(self):
+        self.player.add_aura(aura(effect_stat_mult, ("resistance", float(upgrade_stats[self.name]["mod"])),
+                                  targets=["Wall"]))
+
+
 class Upgrade_necromancy(Upgrade):
     name = "Necromancy"
-    previous = [Upgrade_test_1]
-    x = 1360
+    previous = [Upgrade_catapult]
+    x = 560
     y = 540
     image = images.Beam
 
@@ -3053,4 +3071,4 @@ class Upgrade_necromancy(Upgrade):
 
 possible_upgrades = [Upgrade_default, Upgrade_test_1, Upgrade_bigger_arrows, Upgrade_catapult, Upgrade_bigger_rocks,
                      Upgrade_egg, Upgrade_faster_archery, Upgrade_vigorous_farming, Upgrade_mines, Upgrade_necromancy,
-                     Upgrade_nanobots]
+                     Upgrade_nanobots,Upgrade_walls]

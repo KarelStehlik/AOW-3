@@ -378,7 +378,7 @@ class Building:
 
     def take_damage(self, amount, source):
         if self.exists:
-            self.health -= amount
+            self.health -= amount * self.stats["resistance"]
             if self.health <= 0:
                 self.die()
 
@@ -733,6 +733,12 @@ class Wall:
         self.game.players[self.side].all_buildings.remove(self)
         self.exists = False
 
+    def update_stats(self, stats=None):
+        if stats is None:
+            stats = self.stats.keys()
+        for e in stats:
+            self.stats[e] = (self.base_stats[e] + sum(self.mods_add[e])) * product(*self.mods_multiply[e])
+
     @classmethod
     def get_cost(cls, params):
         return unit_stats[cls.name]["cost"]
@@ -740,7 +746,7 @@ class Wall:
     def take_damage(self, amount, source):
         if not self.exists:
             return
-        self.health -= amount
+        self.health -= amount * self.stats["resistance"]
         if self.health <= 0:
             self.die()
             return
@@ -1019,7 +1025,7 @@ class Unit:
     def take_damage(self, amount, source):
         if not self.exists:
             return
-        self.health -= amount
+        self.health -= amount * self.stats["resistance"]
         if self.health <= 0:
             self.die()
 
@@ -1624,9 +1630,18 @@ class Upgrade_nanobots(Upgrade):
                                   targets=["TownHall", "Wall"] + [e.name for e in possible_buildings]))
 
 
+class Upgrade_walls(Upgrade):
+    name = "Tough Walls"
+    previous = [Upgrade_nanobots]
+
+    def on_finish(self):
+        self.player.add_aura(aura(effect_stat_mult, ("resistance", float(upgrade_stats[self.name]["mod"])),
+                                  targets=["Wall"]))
+
+
 class Upgrade_necromancy(Upgrade):
     name = "Necromancy"
-    previous = [Upgrade_test_1]
+    previous = [Upgrade_catapult]
 
     def on_finish(self):
         self.player.unlock_unit(Necromancer)
@@ -1634,4 +1649,4 @@ class Upgrade_necromancy(Upgrade):
 
 possible_upgrades = [Upgrade_default, Upgrade_test_1, Upgrade_bigger_arrows, Upgrade_catapult, Upgrade_bigger_rocks,
                      Upgrade_egg, Upgrade_faster_archery, Upgrade_vigorous_farming, Upgrade_mines, Upgrade_necromancy,
-                     Upgrade_nanobots]
+                     Upgrade_nanobots, Upgrade_walls]
