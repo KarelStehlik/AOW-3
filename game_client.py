@@ -1365,7 +1365,7 @@ class Tower22(Tower):
              recursion=self.stats["recursion"])
 
     def tick2(self):
-        super().tick()
+        super().tick2()
         if self.current_cooldown > 0:
             self.current_cooldown -= 1 / FPS
         if self.current_cooldown <= 0:
@@ -2234,7 +2234,7 @@ class Bear(Unit):
 
 
 class Necromancer(Unit):
-    image = images.Farm
+    image = images.Necromancer
     name = "Necromancer"
     beam_half_width = 20
 
@@ -2297,7 +2297,7 @@ class Necromancer(Unit):
 
 
 class Zombie(Unit):
-    image = images.Swordsman
+    image = images.Zombie
     name = "Zombie"
 
     def __init__(self, *a, **k):
@@ -2996,7 +2996,7 @@ class Upgrade_egg(Upgrade):
 class Upgrade_mines(Upgrade):
     name = "Mines"
     previous = [Upgrade_bigger_rocks]
-    image = images.Egg
+    image = images.Mine
     x = 1310
     y = 1090
 
@@ -3045,7 +3045,7 @@ class Upgrade_necromancy(Upgrade):
     previous = [Upgrade_test_1]
     x = 1360
     y = 540
-    image = images.Mine
+    image = images.Beam
 
     def on_finish(self):
         self.player.unlock_unit(Necromancer)

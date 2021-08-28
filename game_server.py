@@ -568,7 +568,7 @@ class Tower22(Tower):
              cluster=self.stats["cluster"], recursion=self.stats["recursion"])
 
     def tick2(self):
-        super().tick()
+        super().tick2()
         if self.current_cooldown > 0:
             self.current_cooldown -= 1 / FPS
         if self.current_cooldown <= 0:

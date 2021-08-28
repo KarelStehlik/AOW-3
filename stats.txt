@@ -17,5 +17,5 @@ Defender:vwidth=20,vheight=20,speed=150,size=19,health=2000,dmg=10,cd=1,reach=10
 Archer:vwidth=20,vheight=20,speed=200,size=19,health=20,dmg=50,cd=1,reach=300,cost=100,bulletspeed=7,mass=.8,bullet_scale=.15,pierce=1,cluster=0,recursion=0
 Trebuchet:vwidth=50,vheight=50,speed=50,size=50,health=700,dmg=1500,cd=8,reach=500,cost=1000,bulletspeed=1.2,explosion_radius=100,mass=30,bullet_scale=.15,pierce=1,cluster=0,recursion=0
 Bear:vwidth=80,vheight=150,speed=350,size=60,health=15000,dmg=400,cd=0.1,reach=30,cost=8000,mass=20
-Necromancer:vwidth=40,vheight=40,speed=150,size=40,health=400,dmg=5,cd=.01,reach=500,cost=2500,mass=2
-Zombie:vwidth=20,vheight=20,speed=400,size=19,health=200,dmg=70,cd=1,reach=8,cost=50,mass=.2
+Necromancer:vwidth=40,vheight=40,speed=150,size=40,health=400,dmg=8,cd=.01,reach=500,cost=2500,mass=2
+Zombie:vwidth=22,vheight=22,speed=400,size=19,health=200,dmg=70,cd=1,reach=8,cost=50,mass=.2

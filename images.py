@@ -78,6 +78,8 @@ Trebuchet.anchor_x = Trebuchet.width / 2
 Trebuchet.anchor_y = Trebuchet.height * .6
 Defender = RI("Defender")
 Bear = RI("Bear")
+Necromancer=RI("Necromancer")
+Zombie=RI("Zombie")
 
 # #######################  CLONE  ############################
 gunmanR = pyglet.resource.image("imagefolder/BGunman.png")
