@@ -1,6 +1,6 @@
 import pyglet
 
-CHEATS = True
+CHEATS = False
 display = pyglet.canvas.Display()
 screen = display.get_default_screen()
 SCREEN_WIDTH = screen.width  # //2
