@@ -114,10 +114,13 @@ def get_wall_chunks(x1, y1, x2, y2, norm, c, size):
     min_x = (min(x1, x2) // constants.CHUNK_SIZE) * constants.CHUNK_SIZE
     max_y = (max(y1, y2) // constants.CHUNK_SIZE + 1) * constants.CHUNK_SIZE
     min_y = (min(y1, y2) // constants.CHUNK_SIZE) * constants.CHUNK_SIZE
-    for x in range(min_x+constants.CHUNK_SIZE/2,max_x,constants.CHUNK_SIZE):
-        for y in range(min_y+constants.CHUNK_SIZE/2,max_y,constants.CHUNK_SIZE):
-            if abs(x * norm[0] + y * norm[1] + c)<size+constants.CHUNK_SIZE*.7:
-                re.append(get_chunk(x,y))
+    n1 = max(abs(norm[0]), abs(norm[1]))
+    n0 = min(abs(norm[0]), abs(norm[1]))
+    rotation_factor = .5 / n1 + n0 * (.5 - n0 / n1 / 2)
+    for x in range(min_x + constants.CHUNK_SIZE / 2, max_x, constants.CHUNK_SIZE):
+        for y in range(min_y + constants.CHUNK_SIZE / 2, max_y, constants.CHUNK_SIZE):
+            if abs(x * norm[0] + y * norm[1] + c) < size + constants.CHUNK_SIZE * rotation_factor:
+                re.append(get_chunk(x, y))
     return re
 
 
