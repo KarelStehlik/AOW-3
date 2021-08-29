@@ -308,7 +308,7 @@ class player:
         self.units = []
         self.formations = []
         self.all_buildings = []
-        self.money = 0.0
+        self.money = STARTING_MONEY
         self.TownHall = None
         self.auras = []
         self.pending_upgrades = []
@@ -601,7 +601,7 @@ class minimap(client_utility.toolbar):
                          image=images.UpgradeScreen)
         self.game = game
         self.batch = game.batch
-        self.view_range = 4000
+        self.view_range = 6000
         self.scale = self.width / self.view_range
         self.dot_scale = self.scale
         self.game.UI_toolbars.append(self)
@@ -2639,7 +2639,7 @@ class Egg(Meteor):
 
     def explode(self):
         AOE_damage(self.x, self.y, self.radius, self.damage, self, self.game)
-        animation_explosion(self.x, self.y, self.radius, 300, self.game)
+        animation_explosion(self.x, self.y, self.radius/2, 300, self.game)
         self.delete()
 
 

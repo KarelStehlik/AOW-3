@@ -263,7 +263,7 @@ class player:
         self.units = []
         self.formations = []
         self.all_buildings = []
-        self.money = 0.0
+        self.money = STARTING_MONEY
         self.TownHall = None
         self.ai_wave = 0
         self.time_until_wave = WAVE_INTERVAL
