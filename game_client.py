@@ -314,7 +314,7 @@ class player:
         self.pending_upgrades = []
         self.owned_upgrades = [Upgrade_default(self, 0)]
         self.unlocked_units = [Swordsman, Archer, Defender, Tower, Wall, Farm, Tower1, Tower2, Tower11, Tower21,
-                               Farm1, Farm2, Tower3, Tower31]
+                               Farm1, Farm2, Tower3, Tower31, Farm11]
 
     def add_aura(self, aur):
         self.auras.append(aur)
@@ -603,10 +603,10 @@ class minimap(client_utility.toolbar):
         self.batch = game.batch
         self.view_range = 4000
         self.scale = self.width / self.view_range
-        self.dot_scale = .025
+        self.dot_scale = self.scale
         self.game.UI_toolbars.append(self)
         self.game.drawables.append(self)
-        self.max_entities = 1000
+        self.max_entities = 800
         self.current_entity = 0
         self.already_checked = []
         self.sprite2 = game.batch.add(
@@ -648,7 +648,7 @@ class minimap(client_utility.toolbar):
                 self.game.camx + SCREEN_WIDTH / 2) / SPRITE_SIZE_MULT + self.view_range / 2) * self.scale),
                     int((e.y - (
                             self.game.camy + SCREEN_HEIGHT / 2) / SPRITE_SIZE_MULT + self.view_range / 2) * self.scale))
-        dsize = max(int(e.size * self.dot_scale), 1)
+        dsize = max(int(e.size /2 * self.dot_scale), 1)
         if -dsize < location[0] < self.width + dsize and -dsize < location[1] < self.width + dsize and \
                 e not in self.already_checked:
             self.sprite2.colors[self.current_entity * 16: self.current_entity * 16 + 16] = color * 4
@@ -1085,6 +1085,7 @@ class Building:
     def __init__(self, ID, x, y, tick, side, game):
         self.spawning = game.ticks - tick
         self.ID = ID
+        self.shown=True
         self.x, self.y = x, y
         self.side = side
         self.size = unit_stats[self.name]["size"]
@@ -1113,7 +1114,7 @@ class Building:
                      hpbar_x_centre + hpbar_x_range, hpbar_y_centre + hpbar_y_range,
                      hpbar_x_centre + hpbar_x_range, hpbar_y_centre + hpbar_y_range,
                      hpbar_x_centre + hpbar_x_range, hpbar_y_centre - hpbar_y_range)),
-            ("c3B", (0, 255, 0, 0, 255, 0, 0, 255, 0, 0, 255, 0, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50)
+            ("c3B/static", (0, 255, 0, 0, 255, 0, 0, 255, 0, 0, 255, 0, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50)
             if self.game.side == self.side else (
                 163, 73, 163, 163, 73, 163, 163, 73, 163, 163, 73, 163, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50))
         )
@@ -1127,6 +1128,14 @@ class Building:
         self.stats = {e: (self.base_stats[e] + sum(self.mods_add[e])) * product(*self.mods_multiply[e]) for e in
                       self.base_stats.keys()}
         self.game.players[side].on_building_summon(self)
+
+    def show(self):
+        self.sprite.batch = self.game.batch
+        self.shown = True
+
+    def hide(self):
+        self.sprite.batch = None
+        self.shown = False
 
     def update_stats(self, stats=None):
         if stats is None:
@@ -1176,8 +1185,17 @@ class Building:
         return distance(self.x, self.y, x, y) - self.size / 2
 
     def update_cam(self, x, y):
-        self.sprite.update(x=self.x * SPRITE_SIZE_MULT - x,
-                           y=self.y * SPRITE_SIZE_MULT - y)
+        if not self.exists:
+            return
+        x, y = self.x * SPRITE_SIZE_MULT - x, self.y * SPRITE_SIZE_MULT - y
+        if self.shown:
+            self.sprite.update(x=x, y=y)
+            if x + self.size < 0 or x - self.size > SCREEN_WIDTH or y + self.size < 0 or y - self.size > SCREEN_HEIGHT:
+                self.hide()
+                self.update_hpbar()
+                return
+        elif x + self.size > 0 and x - self.size < SCREEN_WIDTH and y + self.size > 0 and y - self.size < SCREEN_HEIGHT:
+            self.show()
 
     def tick(self):
         if self.spawning < FPS * ACTION_DELAY:
@@ -1204,7 +1222,8 @@ class Building:
                         e.take_knockback((e.x - self.x) * shovage, (e.y - self.y) * shovage, self)
 
     def graphics_update(self):
-        self.update_hpbar()
+        if self.shown:
+            self.update_hpbar()
 
 
 class TownHall(Building):
@@ -1303,11 +1322,23 @@ class Tower(Building):
 
     def update_hpbar(self):
         super().update_hpbar()
-        self.sprite2.opacity = 255 * max(0, (self.stats["health"] - self.health)) / self.stats["health"]
+        if self.shown:
+            self.sprite2.opacity = 255 * max(0, (self.stats["health"] - self.health)) / self.stats["health"]
 
     def update_cam(self, x, y):
         super().update_cam(x, y)
-        self.sprite2.update(x=self.x * SPRITE_SIZE_MULT - x, y=self.y * SPRITE_SIZE_MULT - y)
+        if self.shown:
+            self.sprite2.update(x=self.x * SPRITE_SIZE_MULT - x, y=self.y * SPRITE_SIZE_MULT - y)
+
+    def show(self):
+        self.sprite.batch = self.game.batch
+        self.sprite2.batch = self.game.batch
+        self.shown = True
+
+    def hide(self):
+        self.sprite.batch = None
+        self.sprite2.batch = None
+        self.shown = False
 
 
 class Tower1(Tower):
@@ -1547,6 +1578,20 @@ class Farm1(Farm):
         else:
             super().__init__(ID, x, y, tick, side, game)
             self.comes_from = None
+        self.upgrades_into = [Farm11]
+
+
+class Farm11(Farm):
+    name = "Farm11"
+    image = images.Farm11
+
+    def __init__(self, target=None, tick=None, x=None, y=None, side=None, game=None, ID=None):
+        if target is not None:
+            super().__init__(target.ID, target.x, target.y, tick, target.side, target.game)
+            self.comes_from = target
+        else:
+            super().__init__(ID, x, y, tick, side, game)
+            self.comes_from = None
         self.upgrades_into = []
 
 
@@ -1564,7 +1609,8 @@ class Farm2(Farm):
         self.upgrades_into = []
 
 
-possible_buildings = [Tower, Farm, Tower1, Tower2, Tower21, Tower11, Farm1, Farm2, Tower211, Tower3, Tower31, Tower22]
+possible_buildings = [Tower, Farm, Tower1, Tower2, Tower21, Tower11, Farm1, Farm2, Tower211, Tower3, Tower31, Tower22,
+                      Farm11]
 
 
 class Wall:
@@ -1672,7 +1718,7 @@ class Wall:
 
     def shove(self):
         for c in self.chunks:
-            chonk=self.game.find_chunk(c)
+            chonk = self.game.find_chunk(c)
             if chonk is not None:
                 for e in chonk.units[1 - self.side]:
                     if point_line_dist(e.x, e.y, self.norm_vector, self.line_c) < (self.width + e.size) * .5 and \
@@ -1932,6 +1978,7 @@ class Unit:
         self.formation = formation
         self.x, self.y = x, y
         self.flying = False
+        self.shown = True
         self.last_x, self.last_y = x, y
         self.column, self.row = column, row
         self.game.players[self.side].units.append(self)
@@ -1954,7 +2001,7 @@ class Unit:
                      hpbar_x_centre + hpbar_x_range, hpbar_y_centre + hpbar_y_range,
                      hpbar_x_centre + hpbar_x_range, hpbar_y_centre + hpbar_y_range,
                      hpbar_x_centre + hpbar_x_range, hpbar_y_centre - hpbar_y_range)),
-            ("c3B", (0, 255, 0, 0, 255, 0, 0, 255, 0, 0, 255, 0, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50)
+            ("c3B/static", (0, 255, 0, 0, 255, 0, 0, 255, 0, 0, 255, 0, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50)
             if self.game.side == self.side else (
                 163, 73, 163, 163, 73, 163, 163, 73, 163, 163, 73, 163, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50))
         )
@@ -1980,6 +2027,14 @@ class Unit:
         for e in effects:
             e.apply(self)
         self.health = self.stats["health"]
+
+    def show(self):
+        self.sprite.batch = self.game.batch
+        self.shown = True
+
+    def hide(self):
+        self.sprite.batch = None
+        self.shown = False
 
     def update_stats(self, stats=None):
         if stats is None:
@@ -2189,11 +2244,17 @@ class Unit:
                                     other)
 
     def graphics_update(self):
-        if self.exists:
-            self.sprite.update(x=self.x * SPRITE_SIZE_MULT - self.game.camx,
-                               y=self.y * SPRITE_SIZE_MULT - self.game.camy,
-                               rotation=-self.rotation * 180 / math.pi + 90)
+        if not self.exists:
+            return
+        x, y = self.x * SPRITE_SIZE_MULT - self.game.camx, self.y * SPRITE_SIZE_MULT - self.game.camy
+        if self.shown:
+            self.sprite.update(x=x, y=y, rotation=-self.rotation * 180 / math.pi + 90)
             self.update_hpbar()
+            if x + self.size < 0 or x - self.size > SCREEN_WIDTH or y + self.size < 0 or y - self.size > SCREEN_HEIGHT:
+                self.hide()
+                return
+        elif x + self.size > 0 and x - self.size < SCREEN_WIDTH and y + self.size > 0 and y - self.size < SCREEN_HEIGHT:
+            self.show()
 
     @classmethod
     def get_image(cls):

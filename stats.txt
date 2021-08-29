@@ -10,6 +10,7 @@ Tower3:size=50,health=9000,cost=5000,dmg=50,cd=0.2,reach=400,bulletspeed=10,prox
 Tower31:size=50,health=15000,cost=10000,dmg=50,cd=0.35,reach=400,bulletspeed=20,proximity=500,bullet_scale=.15,pierce=2,cluster=6,recursion=2,resistance=1
 Farm:size=200,health=2000,cost=1000,production=0.2,proximity=500,resistance=1
 Farm1:size=200,health=5000,cost=4000,production=0.9,proximity=500,resistance=1
+Farm11:size=200,health=10000,cost=100000,production=40,proximity=500,resistance=1
 Farm2:size=200,health=25000,cost=1000,production=0.2,proximity=500,resistance=1
 Wall:width=35,health=30000,cost=1000,resistance=1
 Swordsman:vwidth=20,vheight=20,speed=250,size=19,health=200,dmg=30,cd=1,reach=10,cost=50,mass=1,resistance=1

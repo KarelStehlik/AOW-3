@@ -224,7 +224,6 @@ class Game:
     def remove_building_from_chunk(self, unit, location):
         self.chunks[location].buildings[unit.side].remove(unit)
 
-
     def find_building(self, ID, side, entity_type=None):
         for e in self.players[side].all_buildings:
             if e.ID == ID and (entity_type is None or e.entity_type == entity_type):
@@ -272,7 +271,7 @@ class player:
         self.pending_upgrades = []
         self.owned_upgrades = [Upgrade_default(self)]
         self.unlocked_units = [Swordsman, Archer, Defender, Tower, Wall, Farm, Tower1, Tower2, Tower11, Tower21,
-                               Farm1, Farm2, Tower3, Tower31]
+                               Farm1, Farm2, Tower3, Tower31, Farm11]
 
     def add_aura(self, aur):
         self.auras.append(aur)
@@ -694,6 +693,15 @@ class Farm1(Farm):
     def __init__(self, target):
         super().__init__(target.ID, target.x, target.y, target.side, target.game)
         self.comes_from = target
+        self.upgrades_into = [Farm11]
+
+
+class Farm11(Farm):
+    name = "Farm11"
+
+    def __init__(self, target):
+        super().__init__(target.ID, target.x, target.y, target.side, target.game)
+        self.comes_from = target
         self.upgrades_into = []
 
 
@@ -706,7 +714,8 @@ class Farm2(Farm):
         self.upgrades_into = []
 
 
-possible_buildings = [Tower, Farm, Tower1, Tower2, Tower21, Tower11, Farm1, Farm2, Tower211, Tower3, Tower31, Tower22]
+possible_buildings = [Tower, Farm, Tower1, Tower2, Tower21, Tower11, Farm1, Farm2, Tower211, Tower3, Tower31, Tower22,
+                      Farm11]
 
 
 class Wall:
