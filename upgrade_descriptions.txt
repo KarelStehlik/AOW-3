@@ -9,4 +9,4 @@ Vigorous Farming:desc=Improves all farms|flavor=Research shows that yelling at p
 Mines:desc=Unlocks mine towers|flavor=Parry this, you filthy casual!|cost=100000|time=30
 Necromancy:desc=Unlocks Necromancers|flavor=My king, why must we research death magic? is it safe?|cost=50000|time=100
 Nanobots:desc=passive regen for buildings|flavor=Nanobots are actually quite trivial, easy to produce in medieval times with one simple trick!|cost=15000|time=10|mod=8
-Tough Walls:desc=Makes walls much stronger|flavor=step 1 is to add bricks. step 2, add more bricks.|cost=40000|time=42|mod=.33
+Tough Walls:desc=Makes walls much stronger|flavor=step 1 is to add bricks. step 2, add more bricks.|cost=40000|time=42|mod=.5

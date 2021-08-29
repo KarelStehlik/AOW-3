@@ -1,6 +1,5 @@
 from PodSixNet.Connection import connection, ConnectionListener
 
-import constants
 import game_client as game_stuff
 import groups
 import images

@@ -1,7 +1,6 @@
 from PodSixNet.Channel import Channel
 from PodSixNet.Server import Server
 from imports import *
-import constants
 import game_server as game_stuff
 
 
