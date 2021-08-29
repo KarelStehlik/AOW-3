@@ -83,6 +83,16 @@ class Game:
         self.chunks[location] = chunk()
         self.chunks[location].buildings[unit.side].append(unit)
 
+    def add_wall_to_chunk(self, unit, location):
+        if location in self.chunks:
+            self.chunks[location].walls[unit.side].append(unit)
+            return
+        self.chunks[location] = chunk()
+        self.chunks[location].walls[unit.side].append(unit)
+
+    def remove_wall_from_chunk(self, unit, location):
+        self.chunks[location].walls[unit.side].remove(unit)
+
     def remove_unit_from_chunk(self, unit, location):
         self.chunks[location].units[unit.side].remove(unit)
 
@@ -390,9 +400,11 @@ class chunk:
     def __init__(self):
         self.units = [[], []]
         self.buildings = [[], []]
+        self.walls = [[], []]
 
     def is_empty(self):
-        return self.units[0] == [] == self.units[1] and self.buildings[0] == [] == self.buildings[1]
+        return self.units[0] == [] == self.units[1] == self.buildings[0] == [] == self.buildings[1] == \
+               self.walls[0] == self.walls[1]
 
     def clear_units(self):
         self.units = [[], []]
@@ -400,7 +412,7 @@ class chunk:
 
 class UI_bottom_bar(client_utility.toolbar):
     def __init__(self, game):
-        super().__init__(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT / 5, game.batch)
+        super().__init__(-2, 0, SCREEN_WIDTH + 2, SCREEN_HEIGHT / 5, game.batch)
         self.game = game
         self.page = 0
         self.loaded = []
@@ -1185,8 +1197,6 @@ class Building:
     def shove(self):
         for c in self.chunks:
             for e in self.game.chunks[c].units[1 - self.side]:
-                if e == self:
-                    continue
                 if max(abs(e.x - self.x), abs(e.y - self.y)) < (self.size + e.size) / 2:
                     dist_sq = (e.x - self.x) ** 2 + (e.y - self.y) ** 2
                     if dist_sq < ((e.size + self.size) * .5) ** 2:
@@ -1578,6 +1588,11 @@ class Wall:
         self.game = game
         game.players[side].walls.append(self)
         game.players[side].all_buildings.append(self)
+
+        self.chunks = get_wall_chunks(self.x1, self.y1, self.x2, self.y2, self.norm_vector, self.line_c, self.width)
+        for e in self.chunks:
+            self.game.add_wall_to_chunk(self, e)
+
         x = self.width * .5 / self.length
         a = x * (self.y2 - self.y1)
         b = x * (self.x1 - self.x2)
@@ -1644,6 +1659,7 @@ class Wall:
         self.crack_sprite.delete()
         self.game.players[self.side].walls.remove(self)
         self.game.players[self.side].all_buildings.remove(self)
+        [self.game.remove_wall_from_chunk(self, e) for e in self.chunks]
         self.exists = False
 
     def take_damage(self, amount, source):
@@ -1655,14 +1671,17 @@ class Wall:
             return
 
     def shove(self):
-        for e in self.game.players[1 - self.side].units:
-            if point_line_dist(e.x, e.y, self.norm_vector, self.line_c) < (self.width + e.size) * .5 and \
-                    point_line_dist(e.x, e.y, (self.norm_vector[1], -self.norm_vector[0]),
-                                    self.crossline_c) < self.length * .5:
-                shovage = point_line_dist(e.x, e.y, self.norm_vector, self.line_c) - (self.width + e.size) * .5
-                if e.x * self.norm_vector[0] + e.y * self.norm_vector[1] + self.line_c > 0:
-                    shovage *= -1
-                e.take_knockback(self.norm_vector[0] * shovage, self.norm_vector[1] * shovage, self)
+        for c in self.chunks:
+            chonk=self.game.find_chunk(c)
+            if chonk is not None:
+                for e in chonk.units[1 - self.side]:
+                    if point_line_dist(e.x, e.y, self.norm_vector, self.line_c) < (self.width + e.size) * .5 and \
+                            point_line_dist(e.x, e.y, (self.norm_vector[1], -self.norm_vector[0]),
+                                            self.crossline_c) < self.length * .5:
+                        shovage = point_line_dist(e.x, e.y, self.norm_vector, self.line_c) - (self.width + e.size) * .5
+                        if e.x * self.norm_vector[0] + e.y * self.norm_vector[1] + self.line_c > 0:
+                            shovage *= -1
+                        e.take_knockback(self.norm_vector[0] * shovage, self.norm_vector[1] * shovage, self)
 
     def update_cam(self, x, y):
         self.sprite.vertices = self.crack_sprite.vertices = [(self.vertices_no_cam[i] - (x if i % 2 == 0 else y)) for i
@@ -2398,10 +2417,10 @@ class Projectile:
                         (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= (unit.size ** 2) / 4:
                     self.collide(unit)
                     return
-        for wall in self.game.players[1 - self.side].walls:
-            if wall.exists and wall not in self.already_hit and wall.distance_to_point(self.x, self.y) <= 0:
-                self.collide(wall)
-                return
+            for wall in c.walls[1 - self.side]:
+                if wall.exists and wall not in self.already_hit and wall.distance_to_point(self.x, self.y) <= 0:
+                    self.collide(wall)
+                    return
         self.reach -= self.speed
         if self.reach <= 0:
             self.delete()
@@ -2510,10 +2529,10 @@ class Mine(Boulder):
                             (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= (unit.size ** 2) / 4:
                         self.explode()
                         return
-            for wall in self.game.players[1 - self.side].walls:
-                if wall.exists and wall not in self.already_hit and wall.distance_to_point(self.x, self.y) <= 0:
-                    self.explode()
-                    return
+                for wall in c.walls[1 - self.side]:
+                    if wall.exists and wall not in self.already_hit and wall.distance_to_point(self.x, self.y) <= 0:
+                        self.explode()
+                        return
 
 
 class Meteor(Projectile):
@@ -2618,9 +2637,9 @@ def AOE_damage(x, y, size, amount, source, game):
             for unit in c.buildings[1 - side]:
                 if unit.distance_to_point(x, y) < size and unit not in affected_things:
                     affected_things.append(unit)
-    for wall in game.players[1 - side].walls:
-        if wall.distance_to_point(x, y) < size and wall not in affected_things:
-            affected_things.append(wall)
+            for wall in c.walls[1 - side]:
+                if wall.distance_to_point(x, y) < size and wall not in affected_things:
+                    affected_things.append(wall)
     for e in affected_things:
         e.take_damage(amount, source)
 
@@ -3071,4 +3090,4 @@ class Upgrade_necromancy(Upgrade):
 
 possible_upgrades = [Upgrade_default, Upgrade_test_1, Upgrade_bigger_arrows, Upgrade_catapult, Upgrade_bigger_rocks,
                      Upgrade_egg, Upgrade_faster_archery, Upgrade_vigorous_farming, Upgrade_mines, Upgrade_necromancy,
-                     Upgrade_nanobots,Upgrade_walls]
+                     Upgrade_nanobots, Upgrade_walls]

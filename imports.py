@@ -84,10 +84,11 @@ point_line_dist(1.1, 1.1, (1.1, 1.1), 1.1)
 @njit
 def get_chunks(x, y, size):
     # return [[int(x // constants.CHUNK_SIZE), int(y // constants.CHUNK_SIZE)]]
-    minx = int((x - size * .5) // constants.CHUNK_SIZE)
-    miny = int((y - size * .5) // constants.CHUNK_SIZE)
-    maxx = int((x + size * .5) // constants.CHUNK_SIZE)
-    maxy = int((y + size * .5) // constants.CHUNK_SIZE)
+    size /= 2
+    minx = int((x - size) // constants.CHUNK_SIZE)
+    miny = int((y - size) // constants.CHUNK_SIZE)
+    maxx = int((x + size) // constants.CHUNK_SIZE)
+    maxy = int((y + size) // constants.CHUNK_SIZE)
     chunks = [str(a) + " " + str(b) for a in range(minx, maxx + 1) for b in range(miny, maxy + 1)]
     return chunks
 
@@ -103,6 +104,25 @@ def get_chunk(x, y):
 
 
 get_chunk(1.1, 1.1)
+
+
+@njit
+def get_wall_chunks(x1, y1, x2, y2, norm, c, size):
+    re = []
+    size /= 2
+    max_x = (max(x1, x2) // constants.CHUNK_SIZE + 1) * constants.CHUNK_SIZE
+    min_x = (min(x1, x2) // constants.CHUNK_SIZE) * constants.CHUNK_SIZE
+    max_y = (max(y1, y2) // constants.CHUNK_SIZE + 1) * constants.CHUNK_SIZE
+    min_y = (min(y1, y2) // constants.CHUNK_SIZE) * constants.CHUNK_SIZE
+    for x in range(min_x+constants.CHUNK_SIZE/2,max_x,constants.CHUNK_SIZE):
+        for y in range(min_y+constants.CHUNK_SIZE/2,max_y,constants.CHUNK_SIZE):
+            if abs(x * norm[0] + y * norm[1] + c)<size+constants.CHUNK_SIZE*.7:
+                re.append(get_chunk(x,y))
+    return re
+
+
+get_wall_chunks(-164.42324829101562, 283.2799987792969, 360.5767517089844, 310.2799987792969,
+                (0.05136069438302041, -0.9986801685587303), 291.35100913516345, 30.0)
 
 
 @njit

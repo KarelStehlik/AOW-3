@@ -7,7 +7,7 @@ Tower21:size=50,health=30000,cost=6000,dmg=300,cd=2,reach=800,bulletspeed=20,exp
 Tower22:size=50,health=30000,cost=6000,dmg=1500,cd=8,reach=250,bulletspeed=20,explosion_radius=200,bullet_scale=.07,pierce=1,cluster=0,recursion=0,duration=5000,resistance=1
 Tower211:size=50,health=50000,cost=100000,dmg=150,cd=0.03,reach=900,bulletspeed=40,explosion_radius=80,bullet_scale=.15,pierce=1,cluster=3,recursion=2,resistance=1
 Tower3:size=50,health=9000,cost=5000,dmg=50,cd=0.2,reach=400,bulletspeed=6,proximity=500,bullet_scale=.15,pierce=2,cluster=10,recursion=1,resistance=1
-Tower31:size=50,health=15000,cost=10000,dmg=50,cd=0.35,reach=400,bulletspeed=15,proximity=500,bullet_scale=.15,pierce=2,cluster=10,recursion=2,resistance=1
+Tower31:size=50,health=15000,cost=10000,dmg=50,cd=0.35,reach=400,bulletspeed=15,proximity=500,bullet_scale=.15,pierce=2,cluster=6,recursion=2,resistance=1
 Farm:size=200,health=2000,cost=1000,production=0.2,proximity=500,resistance=1
 Farm1:size=200,health=5000,cost=4000,production=0.9,proximity=500,resistance=1
 Farm2:size=200,health=25000,cost=1000,production=0.2,proximity=500,resistance=1

@@ -208,11 +208,22 @@ class Game:
         self.chunks[location] = chunk()
         self.chunks[location].buildings[unit.side].append(unit)
 
+    def add_wall_to_chunk(self, unit, location):
+        if location in self.chunks:
+            self.chunks[location].walls[unit.side].append(unit)
+            return
+        self.chunks[location] = chunk()
+        self.chunks[location].walls[unit.side].append(unit)
+
+    def remove_wall_from_chunk(self, unit, location):
+        self.chunks[location].walls[unit.side].remove(unit)
+
     def remove_unit_from_chunk(self, unit, location):
         self.chunks[location].units[unit.side].remove(unit)
 
     def remove_building_from_chunk(self, unit, location):
         self.chunks[location].buildings[unit.side].remove(unit)
+
 
     def find_building(self, ID, side, entity_type=None):
         for e in self.players[side].all_buildings:
@@ -332,9 +343,11 @@ class chunk:
     def __init__(self):
         self.units = [[], []]
         self.buildings = [[], []]
+        self.walls = [[], []]
 
     def is_empty(self):
-        return self.units[0] == [] == self.units[1] and self.buildings[0] == [] == self.buildings[1]
+        return self.units[0] == [] == self.units[1] == self.buildings[0] == [] == self.buildings[1] == \
+               self.walls[0] == self.walls[1]
 
     def clear_units(self):
         self.units = [[], []]
@@ -415,8 +428,6 @@ class Building:
     def shove(self):
         for c in self.chunks:
             for e in self.game.chunks[c].units[1 - self.side]:
-                if e == self:
-                    continue
                 if max(abs(e.x - self.x), abs(e.y - self.y)) < (self.size + e.size) / 2:
                     dist_sq = (e.x - self.x) ** 2 + (e.y - self.y) ** 2
                     if dist_sq < ((e.size + self.size) * .5) ** 2:
@@ -718,6 +729,11 @@ class Wall:
         self.game = game
         game.players[side].walls.append(self)
         game.players[side].all_buildings.append(self)
+
+        self.chunks = get_wall_chunks(self.x1, self.y1, self.x2, self.y2, self.norm_vector, self.line_c, self.width)
+        for e in self.chunks:
+            self.game.add_wall_to_chunk(self, e)
+
         self.effects = []
         self.base_stats = unit_stats[self.name]
         self.mods_add = {e: [] for e in unit_stats[self.name].keys()}
@@ -731,6 +747,7 @@ class Wall:
             return
         self.game.players[self.side].walls.remove(self)
         self.game.players[self.side].all_buildings.remove(self)
+        [self.game.remove_wall_from_chunk(self, e) for e in self.chunks]
         self.exists = False
 
     def update_stats(self, stats=None):
@@ -752,14 +769,17 @@ class Wall:
             return
 
     def shove(self):
-        for e in self.game.players[1 - self.side].units:
-            if point_line_dist(e.x, e.y, self.norm_vector, self.line_c) < (self.width + e.size) * .5 and \
-                    point_line_dist(e.x, e.y, (self.norm_vector[1], -self.norm_vector[0]),
-                                    self.crossline_c) < self.length * .5:
-                shovage = point_line_dist(e.x, e.y, self.norm_vector, self.line_c) - (self.width + e.size) * .5
-                if e.x * self.norm_vector[0] + e.y * self.norm_vector[1] + self.line_c > 0:
-                    shovage *= -1
-                e.take_knockback(self.norm_vector[0] * shovage, self.norm_vector[1] * shovage, self)
+        for c in self.chunks:
+            chonk = self.game.find_chunk(c)
+            if chonk is not None:
+                for e in chonk.units[1 - self.side]:
+                    if point_line_dist(e.x, e.y, self.norm_vector, self.line_c) < (self.width + e.size) * .5 and \
+                            point_line_dist(e.x, e.y, (self.norm_vector[1], -self.norm_vector[0]),
+                                            self.crossline_c) < self.length * .5:
+                        shovage = point_line_dist(e.x, e.y, self.norm_vector, self.line_c) - (self.width + e.size) * .5
+                        if e.x * self.norm_vector[0] + e.y * self.norm_vector[1] + self.line_c > 0:
+                            shovage *= -1
+                        e.take_knockback(self.norm_vector[0] * shovage, self.norm_vector[1] * shovage, self)
 
     def towards(self, x, y):
         if point_line_dist(x, y, (self.norm_vector[1], -self.norm_vector[0]), self.crossline_c) < self.length * .5:
@@ -791,10 +811,6 @@ class Wall:
     def tick2(self):
         self.shove()
         [e.tick() for e in self.effects]
-
-    def delete(self):
-        self.game.players[self.side].walls.remove(self)
-        self.game.players[self.side].all_buildings.remove(self)
 
 
 class Formation:
@@ -1311,10 +1327,10 @@ class Projectile:
                         (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= (unit.size ** 2) / 4:
                     self.collide(unit)
                     return
-        for wall in self.game.players[1 - self.side].walls:
-            if wall.exists and wall not in self.already_hit and wall.distance_to_point(self.x, self.y) <= 0:
-                self.collide(wall)
-                return
+            for wall in c.walls[1 - self.side]:
+                if wall.exists and wall not in self.already_hit and wall.distance_to_point(self.x, self.y) <= 0:
+                    self.collide(wall)
+                    return
         self.reach -= self.speed
         if self.reach <= 0:
             self.delete()
@@ -1408,10 +1424,10 @@ class Mine(Boulder):
                             (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= (unit.size ** 2) / 4:
                         self.explode()
                         return
-            for wall in self.game.players[1 - self.side].walls:
-                if wall.exists and wall not in self.already_hit and wall.distance_to_point(self.x, self.y) <= 0:
-                    self.explode()
-                    return
+                for wall in c.walls[1 - self.side]:
+                    if wall.exists and wall not in self.already_hit and wall.distance_to_point(self.x, self.y) <= 0:
+                        self.explode()
+                        return
 
 
 class Meteor(Boulder):
@@ -1426,8 +1442,8 @@ def AOE_damage(x, y, size, amount, source, game):
     chunks_affected = get_chunks(x, y, size)
     side = source.side
     affected_things = []
-    for chunk in chunks_affected:
-        c = game.find_chunk(chunk)
+    for coord in chunks_affected:
+        c = game.find_chunk(coord)
         if c is not None:
             for unit in c.units[1 - side]:
                 if unit.distance_to_point(x, y) < size and unit not in affected_things:
@@ -1435,9 +1451,9 @@ def AOE_damage(x, y, size, amount, source, game):
             for unit in c.buildings[1 - side]:
                 if unit.distance_to_point(x, y) < size and unit not in affected_things:
                     affected_things.append(unit)
-    for wall in game.players[1 - side].walls:
-        if wall.distance_to_point(x, y) < size and wall not in affected_things:
-            affected_things.append(wall)
+            for wall in c.walls[1 - side]:
+                if wall.distance_to_point(x, y) < size and wall not in affected_things:
+                    affected_things.append(wall)
     for e in affected_things:
         e.take_damage(amount, source)
 
