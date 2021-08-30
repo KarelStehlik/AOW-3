@@ -229,6 +229,7 @@ while True:
         connection.Pump()
         place.nwl.Pump()
         place.tick()
+        pyglet.clock.tick()
     except Exception as e:
         place.error_close()
         raise e

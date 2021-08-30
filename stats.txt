@@ -10,13 +10,13 @@ Tower3:size=50,health=9000,cost=5000,dmg=50,cd=0.2,reach=400,bulletspeed=10,prox
 Tower31:size=50,health=15000,cost=10000,dmg=50,cd=0.35,reach=400,bulletspeed=20,proximity=500,bullet_scale=.15,pierce=2,cluster=6,recursion=2,resistance=1
 Farm:size=200,health=2000,cost=1000,production=0.2,proximity=500,resistance=1
 Farm1:size=200,health=5000,cost=4000,production=0.9,proximity=500,resistance=1
-Farm11:size=200,health=10000,cost=100000,production=40,proximity=500,resistance=1
+Farm11:size=200,health=10000,cost=100000,production=30,proximity=500,resistance=1
 Farm2:size=200,health=25000,cost=1000,production=0.2,proximity=500,resistance=1
-Wall:width=35,health=30000,cost=1000,resistance=1
+Wall:size=35,health=30000,cost=1000,resistance=1
 Swordsman:vwidth=20,vheight=20,speed=250,size=19,health=200,dmg=30,cd=1,reach=10,cost=50,mass=1,resistance=1
 Defender:vwidth=20,vheight=20,speed=150,size=19,health=1500,dmg=10,cd=1,reach=10,cost=200,mass=3,resistance=1
 Archer:vwidth=20,vheight=20,speed=200,size=19,health=20,dmg=50,cd=1,reach=300,cost=100,bulletspeed=7,mass=.8,bullet_scale=.15,pierce=1,cluster=0,recursion=0,resistance=1
 Trebuchet:vwidth=50,vheight=50,speed=50,size=50,health=700,dmg=2000,cd=8,reach=500,cost=1000,bulletspeed=1.2,explosion_radius=100,mass=30,bullet_scale=.15,pierce=1,cluster=0,recursion=0,resistance=1
 Bear:vwidth=80,vheight=150,speed=350,size=60,health=15000,dmg=400,cd=0.1,reach=30,cost=8000,mass=20,resistance=1
-Necromancer:vwidth=40,vheight=40,speed=150,size=40,health=400,dmg=8,cd=.01,reach=500,cost=2500,mass=2,resistance=1
-Zombie:vwidth=22,vheight=22,speed=400,size=19,health=120,dmg=150,cd=1,reach=8,cost=100,mass=.2,resistance=1
+Necromancer:vwidth=40,vheight=40,speed=150,size=40,health=400,dmg=8,cd=.01,reach=500,cost=2500,mass=2,resistance=1,steal=1
+Zombie:vwidth=20,vheight=22,speed=400,size=19,health=100,dmg=50,cd=1,reach=8,cost=30,mass=.2,resistance=1,steal=1

@@ -383,10 +383,13 @@ class Building:
         self.game.players[side].on_building_summon(self)
 
     def update_stats(self, stats=None):
+        health_part = self.health / self.stats["health"]
         if stats is None:
             stats = self.stats.keys()
         for e in stats:
             self.stats[e] = (self.base_stats[e] + sum(self.mods_add[e])) * product(*self.mods_multiply[e])
+        self.health = self.stats["health"] * health_part
+        self.size = self.stats["size"]
 
     def take_damage(self, amount, source):
         if self.exists:
@@ -726,7 +729,7 @@ class Wall:
         self.exists = False
         self.spawning = 0
         self.health = unit_stats[self.name]["health"]
-        self.width = unit_stats[self.name]["width"]
+        self.width = unit_stats[self.name]["size"]
         self.ID = ID
         self.x1, self.y1, self.x2, self.y2 = t1.x, t1.y, t2.x, t2.y
         self.length = ((self.x1 - self.x2) ** 2 + (self.y1 - self.y2) ** 2) ** .5
@@ -760,10 +763,13 @@ class Wall:
         self.exists = False
 
     def update_stats(self, stats=None):
+        health_part = self.health / self.stats["health"]
         if stats is None:
             stats = self.stats.keys()
         for e in stats:
             self.stats[e] = (self.base_stats[e] + sum(self.mods_add[e])) * product(*self.mods_multiply[e])
+        self.health = self.stats["health"] * health_part
+        self.width = self.stats["size"]
 
     @classmethod
     def get_cost(cls, params):
@@ -1025,15 +1031,18 @@ class Unit:
         self.mods_multiply = {e: [] for e in unit_stats[self.name].keys()}
         self.stats = {e: (self.base_stats[e] + sum(self.mods_add[e])) * product(*self.mods_multiply[e]) for e in
                       self.base_stats.keys()}
+        self.health = self.stats["health"]
         for e in effects:
             e.apply(self)
-        self.health = self.stats["health"]
 
     def update_stats(self, stats=None):
+        health_part = self.health / self.stats["health"]
         if stats is None:
             stats = self.stats.keys()
         for e in stats:
             self.stats[e] = (self.base_stats[e] + sum(self.mods_add[e])) * product(*self.mods_multiply[e])
+        self.health = self.stats["health"] * health_part
+        self.size = self.stats["size"]
 
     def distance_to_point(self, x, y):
         return distance(self.x, self.y, x, y) - self.size / 2
@@ -1057,6 +1066,7 @@ class Unit:
     def acquire_target(self):
         if self.target is not None and self.target.exists:
             return
+        self.target = None
         dist = 1000000
         for e in self.formation.all_targets:
             if e.exists:
@@ -1270,7 +1280,12 @@ class Necromancer(Unit):
     def summon(self, e):
         if e.name == "Zombie":
             return
-        a = Zombie([self.ID, self.zombies], e.x, e.y, self.side, self.column, self.row, self.game, self.formation)
+        a = Zombie([self.ID, self.zombies], e.x, e.y, self.side, self.column, self.row, self.game, self.formation,
+                   effects=(effect_stat_add("health", e.base_stats["health"] * self.stats["steal"]),
+                            effect_stat_add("dmg", e.base_stats["dmg"] * self.stats["steal"]),
+                            effect_stat_add("size", e.base_stats["size"] * self.stats["steal"] - 19)
+                            )
+                   )
         a.summon_done()
         self.formation.troops.append(a)
         self.zombies += 1
@@ -1292,7 +1307,12 @@ class Zombie(Unit):
     def summon(self, e):
         if e.name == "Zombie":
             return
-        a = Zombie([self.ID, self.zombies], e.x, e.y, self.side, self.column, self.row, self.game, self.formation)
+        a = Zombie([self.ID, self.zombies], e.x, e.y, self.side, self.column, self.row, self.game, self.formation,
+                   effects=(effect_stat_add("health", e.base_stats["health"] * self.stats["steal"]),
+                            effect_stat_add("dmg", e.base_stats["dmg"] * self.stats["steal"]),
+                            effect_stat_add("size", e.base_stats["size"] * self.stats["steal"] - 19)
+                            )
+                   )
         a.summon_done()
         self.formation.troops.append(a)
         self.zombies += 1
@@ -1467,53 +1487,75 @@ def AOE_damage(x, y, size, amount, source, game):
         e.take_damage(amount, source)
 
 
-class effect_stat_mult:
-    def __init__(self, stat, amount, duration=None):
-        self.stat = stat
-        self.mult = amount
+class effect:
+    def __init__(self, duration=None):
         self.remaining_duration = duration
         self.target = None
 
     def apply(self, target):
         self.target = target
         self.target.effects.append(self)
+        self.on_apply(target)
+
+    def remove(self):
+        self.target.effects.remove(self)
+        self.on_remove()
+
+    def tick(self):
+        self.on_tick()
+        if self.remaining_duration is None:
+            return
+        self.remaining_duration -= 1 / FPS
+        if self.remaining_duration <= 0:
+            self.remove()
+
+    def on_apply(self, target):
+        pass
+
+    def on_remove(self):
+        pass
+
+    def on_tick(self):
+        pass
+
+
+class effect_stat_mult(effect):
+    def __init__(self, stat, amount, duration=None):
+        super().__init__(duration)
+        self.stat = stat
+        self.mult = amount
+
+    def on_apply(self, target):
         self.target.mods_multiply[self.stat].append(self.mult)
         self.target.update_stats([self.stat])
 
-    def remove(self):
-        self.target.effects.remove(self)
+    def on_remove(self):
         self.target.mods_multiply[self.stat].remove(self.mult)
         self.target.update_stats(self.stat)
 
-    def tick(self):
-        if self.remaining_duration is None:
-            return
-        self.remaining_duration -= 1 / FPS
-        if self.remaining_duration <= 0:
-            self.remove()
+
+class effect_stat_add(effect):
+    def __init__(self, stat, amount, duration=None):
+        super().__init__(duration)
+        self.stat = stat
+        self.mult = amount
+
+    def on_apply(self, target):
+        self.target.mods_add[self.stat].append(self.mult)
+        self.target.update_stats([self.stat])
+
+    def on_remove(self):
+        self.target.mods_add[self.stat].remove(self.mult)
+        self.target.update_stats(self.stat)
 
 
-class effect_regen:
+class effect_regen(effect):
     def __init__(self, amount, duration=None):
+        super().__init__(duration)
         self.strength = amount
-        self.remaining_duration = duration
-        self.target = None
 
-    def apply(self, target):
-        self.target = target
-        self.target.effects.append(self)
-
-    def remove(self):
-        self.target.effects.remove(self)
-
-    def tick(self):
+    def on_tick(self):
         self.target.health = min(self.target.stats["health"], self.target.health + self.strength)
-        if self.remaining_duration is None:
-            return
-        self.remaining_duration -= 1 / FPS
-        if self.remaining_duration <= 0:
-            self.remove()
-            return
 
 
 class aura:

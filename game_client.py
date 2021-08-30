@@ -54,6 +54,7 @@ class Game:
         self.drawables = []
         self.upgrade_menu = None
         self.minimap = minimap(self)
+        self.test = 0
 
     def open_upgrade_menu(self):
         if self.upgrade_menu is None:
@@ -648,7 +649,7 @@ class minimap(client_utility.toolbar):
                 self.game.camx + SCREEN_WIDTH / 2) / SPRITE_SIZE_MULT + self.view_range / 2) * self.scale),
                     int((e.y - (
                             self.game.camy + SCREEN_HEIGHT / 2) / SPRITE_SIZE_MULT + self.view_range / 2) * self.scale))
-        dsize = max(int(e.size /2 * self.dot_scale), 1)
+        dsize = max(int(e.size / 2 * self.dot_scale), 1)
         if -dsize < location[0] < self.width + dsize and -dsize < location[1] < self.width + dsize and \
                 e not in self.already_checked:
             self.sprite2.colors[self.current_entity * 16: self.current_entity * 16 + 16] = color * 4
@@ -1085,7 +1086,7 @@ class Building:
     def __init__(self, ID, x, y, tick, side, game):
         self.spawning = game.ticks - tick
         self.ID = ID
-        self.shown=True
+        self.shown = True
         self.x, self.y = x, y
         self.side = side
         self.size = unit_stats[self.name]["size"]
@@ -1138,10 +1139,14 @@ class Building:
         self.shown = False
 
     def update_stats(self, stats=None):
+        health_part = self.health / self.stats["health"]
         if stats is None:
             stats = self.stats.keys()
         for e in stats:
             self.stats[e] = (self.base_stats[e] + sum(self.mods_add[e])) * product(*self.mods_multiply[e])
+        self.health = self.stats["health"] * health_part
+        self.sprite.scale=self.stats["vwidth"] * SPRITE_SIZE_MULT / self.image.width
+        self.size=self.stats["size"]
 
     def towards(self, x, y):
         dx, dy = self.x - x, self.y - y
@@ -1629,7 +1634,7 @@ class Wall:
         self.crossline_c = (-self.norm_vector[1] * (self.x1 + self.x2) + self.norm_vector[0] * (self.y1 + self.y2)) * .5
         self.side = side
         self.tower_1, self.tower_2 = t1, t2
-        self.width = unit_stats[self.name]["width"]
+        self.width = unit_stats[self.name]["size"]
         self.health = self.max_health = unit_stats[self.name]["health"]
         self.game = game
         game.players[side].walls.append(self)
@@ -1673,10 +1678,13 @@ class Wall:
         return unit_stats[cls.name]["cost"]
 
     def update_stats(self, stats=None):
+        health_part = self.health / self.stats["health"]
         if stats is None:
             stats = self.stats.keys()
         for e in stats:
             self.stats[e] = (self.base_stats[e] + sum(self.mods_add[e])) * product(*self.mods_multiply[e])
+        self.health = self.stats["health"] * health_part
+        self.size = self.stats["size"]
 
     def towards(self, x, y):
         if point_line_dist(x, y, (self.norm_vector[1], -self.norm_vector[0]), self.crossline_c) < self.length * .5:
@@ -2024,9 +2032,9 @@ class Unit:
         self.mods_multiply = {e: [] for e in unit_stats[self.name].keys()}
         self.stats = {e: (self.base_stats[e] + sum(self.mods_add[e])) * product(*self.mods_multiply[e]) for e in
                       self.base_stats.keys()}
+        self.health = self.stats["health"]
         for e in effects:
             e.apply(self)
-        self.health = self.stats["health"]
 
     def show(self):
         self.sprite.batch = self.game.batch
@@ -2037,10 +2045,14 @@ class Unit:
         self.shown = False
 
     def update_stats(self, stats=None):
+        health_part=self.health/self.stats["health"]
         if stats is None:
             stats = self.stats.keys()
         for e in stats:
             self.stats[e] = (self.base_stats[e] + sum(self.mods_add[e])) * product(*self.mods_multiply[e])
+        self.health=self.stats["health"]*health_part
+        self.sprite.scale=self.stats["vwidth"] * SPRITE_SIZE_MULT / self.image.width
+        self.size = self.stats["size"]
 
     def distance_to_point(self, x, y):
         return distance(self.x, self.y, x, y) - self.size / 2
@@ -2081,6 +2093,7 @@ class Unit:
     def acquire_target(self):
         if self.target is not None and self.target.exists:
             return
+        self.target=None
         dist = 1000000
         for e in self.formation.all_targets:
             if e.exists:
@@ -2372,7 +2385,13 @@ class Necromancer(Unit):
     def summon(self, e):
         if e.name == "Zombie":
             return
-        a = Zombie([self.ID, self.zombies], e.x, e.y, self.side, self.column, self.row, self.game, self.formation)
+        a = Zombie([self.ID, self.zombies], e.x, e.y, self.side, self.column, self.row, self.game, self.formation,
+                   effects=(effect_stat_add("health", e.base_stats["health"] * self.stats["steal"]),
+                            effect_stat_add("dmg", e.base_stats["dmg"] * self.stats["steal"]),
+                            effect_stat_add("size", e.base_stats["size"] * self.stats["steal"]-19),
+                            effect_stat_add("vwidth", e.base_stats["vwidth"] * self.stats["steal"]-20)
+                            )
+                   )
         a.summon_done()
         self.formation.troops.append(a)
         self.zombies += 1
@@ -2400,7 +2419,13 @@ class Zombie(Unit):
     def summon(self, e):
         if e.name == "Zombie":
             return
-        a = Zombie([self.ID, self.zombies], e.x, e.y, self.side, self.column, self.row, self.game, self.formation)
+        a = Zombie([self.ID, self.zombies], e.x, e.y, self.side, self.column, self.row, self.game, self.formation,
+                   effects=(effect_stat_add("health", e.base_stats["health"] * self.stats["steal"]),
+                            effect_stat_add("dmg", e.base_stats["dmg"] * self.stats["steal"]),
+                            effect_stat_add("size", e.base_stats["size"] * self.stats["steal"]-19),
+                            effect_stat_add("vwidth", e.base_stats["vwidth"] * self.stats["steal"]-20)
+                            )
+                   )
         a.summon_done()
         self.formation.troops.append(a)
         self.zombies += 1
@@ -2639,7 +2664,7 @@ class Egg(Meteor):
 
     def explode(self):
         AOE_damage(self.x, self.y, self.radius, self.damage, self, self.game)
-        animation_explosion(self.x, self.y, self.radius/2, 300, self.game)
+        animation_explosion(self.x, self.y, self.radius / 2, 300, self.game)
         self.delete()
 
 
@@ -2667,7 +2692,7 @@ class animation_explosion:
         self.sprite.update(x=self.x * SPRITE_SIZE_MULT - self.game.camx, y=self.y * SPRITE_SIZE_MULT - self.game.camy,
                            scale=self.exists_time / 128 * self.size / images.Fire.width)
         self.sprite2.update(x=self.x * SPRITE_SIZE_MULT - self.game.camx, y=self.y * SPRITE_SIZE_MULT - self.game.camy,
-                            scale=self.exists_time ** 1.6 / 256 * self.size / images.Shockwave.width)
+                            scale=self.exists_time * 3 / 256 * self.size / images.Shockwave.width)
         self.sprite.opacity = (256 - 2 * self.exists_time)
         self.sprite2.opacity = (256 - 2 * self.exists_time) * 0.6
 
@@ -2705,53 +2730,75 @@ def AOE_damage(x, y, size, amount, source, game):
         e.take_damage(amount, source)
 
 
-class effect_stat_mult:
-    def __init__(self, stat, amount, duration=None):
-        self.stat = stat
-        self.mult = amount
+class effect:
+    def __init__(self, duration=None):
         self.remaining_duration = duration
         self.target = None
 
     def apply(self, target):
         self.target = target
         self.target.effects.append(self)
+        self.on_apply(target)
+
+    def remove(self):
+        self.target.effects.remove(self)
+        self.on_remove()
+
+    def tick(self):
+        self.on_tick()
+        if self.remaining_duration is None:
+            return
+        self.remaining_duration -= 1 / FPS
+        if self.remaining_duration <= 0:
+            self.remove()
+
+    def on_apply(self, target):
+        pass
+
+    def on_remove(self):
+        pass
+
+    def on_tick(self):
+        pass
+
+
+class effect_stat_mult(effect):
+    def __init__(self, stat, amount, duration=None):
+        super().__init__(duration)
+        self.stat = stat
+        self.mult = amount
+
+    def on_apply(self, target):
         self.target.mods_multiply[self.stat].append(self.mult)
         self.target.update_stats([self.stat])
 
-    def remove(self):
-        self.target.effects.remove(self)
+    def on_remove(self):
         self.target.mods_multiply[self.stat].remove(self.mult)
         self.target.update_stats(self.stat)
 
-    def tick(self):
-        if self.remaining_duration is None:
-            return
-        self.remaining_duration -= 1 / FPS
-        if self.remaining_duration <= 0:
-            self.remove()
+
+class effect_stat_add(effect):
+    def __init__(self, stat, amount, duration=None):
+        super().__init__(duration)
+        self.stat = stat
+        self.mult = amount
+
+    def on_apply(self, target):
+        self.target.mods_add[self.stat].append(self.mult)
+        self.target.update_stats([self.stat])
+
+    def on_remove(self):
+        self.target.mods_add[self.stat].remove(self.mult)
+        self.target.update_stats(self.stat)
 
 
-class effect_regen:
+class effect_regen(effect):
     def __init__(self, amount, duration=None):
+        super().__init__(duration)
         self.strength = amount
-        self.remaining_duration = duration
-        self.target = None
 
-    def apply(self, target):
-        self.target = target
-        self.target.effects.append(self)
-
-    def remove(self):
-        self.target.effects.remove(self)
-
-    def tick(self):
+    def on_tick(self):
         self.target.health = min(self.target.stats["health"], self.target.health + self.strength)
-        if self.remaining_duration is None:
-            return
-        self.remaining_duration -= 1 / FPS
-        if self.remaining_duration <= 0:
-            self.remove()
-            return
 
 
 class aura:

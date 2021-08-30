@@ -20,6 +20,8 @@ def centre_anchor(e):
     e.anchor_y = e.height // 2
 
 
+seq = [IL("test/t" + str(i)) for i in range(128)]
+explosion = pyglet.image.Animation.from_image_sequence(seq, duration=.01)
 Background = IL("Background").get_texture()
 Wall = IL("Wall").get_texture()
 WallCrack = IL("wall_crack").get_texture()
@@ -79,8 +81,8 @@ Trebuchet.anchor_x = Trebuchet.width / 2
 Trebuchet.anchor_y = Trebuchet.height * .6
 Defender = RI("Defender")
 Bear = RI("Bear")
-Necromancer=RI("Necromancer")
-Zombie=RI("Zombie")
+Necromancer = RI("Necromancer")
+Zombie = RI("Zombie")
 
 # #######################  CLONE  ############################
 gunmanR = pyglet.resource.image("imagefolder/BGunman.png")
