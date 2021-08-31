@@ -20,8 +20,6 @@ def centre_anchor(e):
     e.anchor_y = e.height // 2
 
 
-seq = [IL("test/t" + str(i)) for i in range(128)]
-explosion = pyglet.image.Animation.from_image_sequence(seq, duration=.01)
 Background = IL("Background").get_texture()
 Wall = IL("Wall").get_texture()
 WallCrack = IL("wall_crack").get_texture()
