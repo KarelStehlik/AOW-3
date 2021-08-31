@@ -1220,6 +1220,8 @@ class Building:
     def shove(self):
         for c in self.chunks:
             for e in self.game.chunks[c].units[1 - self.side]:
+                if not e.exists:
+                    continue
                 if max(abs(e.x - self.x), abs(e.y - self.y)) < (self.size + e.size) / 2:
                     dist_sq = (e.x - self.x) ** 2 + (e.y - self.y) ** 2
                     if dist_sq < ((e.size + self.size) * .5) ** 2:
@@ -1729,6 +1731,8 @@ class Wall:
             chonk = self.game.find_chunk(c)
             if chonk is not None:
                 for e in chonk.units[1 - self.side]:
+                    if not e.exists:
+                        continue
                     if point_line_dist(e.x, e.y, self.norm_vector, self.line_c) < (self.width + e.size) * .5 and \
                             point_line_dist(e.x, e.y, (self.norm_vector[1], -self.norm_vector[0]),
                                             self.crossline_c) < self.length * .5:
@@ -2069,11 +2073,11 @@ class Unit:
         if not self.exists:
             return
         self.health -= amount * self.stats["resistance"]
+        if source is not None and source.exists:
+            self.formation.attack(source)
         if self.health <= 0:
             self.die()
             return
-        if source is not None and source.exists:
-            self.formation.attack(source)
 
     @classmethod
     def get_cost(cls, params):
@@ -2729,13 +2733,13 @@ def AOE_damage(x, y, size, amount, source, game):
         c = game.find_chunk(coord)
         if c is not None:
             for unit in c.units[1 - side]:
-                if unit.distance_to_point(x, y) < size and unit not in affected_things:
+                if unit.exists and unit.distance_to_point(x, y) < size and unit not in affected_things:
                     affected_things.append(unit)
             for unit in c.buildings[1 - side]:
-                if unit.distance_to_point(x, y) < size and unit not in affected_things:
+                if  unit.exists and unit.distance_to_point(x, y) < size and unit not in affected_things:
                     affected_things.append(unit)
             for wall in c.walls[1 - side]:
-                if wall.distance_to_point(x, y) < size and wall not in affected_things:
+                if  wall.exists and wall.distance_to_point(x, y) < size and wall not in affected_things:
                     affected_things.append(wall)
     for e in affected_things:
         e.take_damage(amount, source)

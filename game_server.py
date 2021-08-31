@@ -430,6 +430,8 @@ class Building:
     def shove(self):
         for c in self.chunks:
             for e in self.game.chunks[c].units[1 - self.side]:
+                if not e.exists:
+                    continue
                 if max(abs(e.x - self.x), abs(e.y - self.y)) < (self.size + e.size) / 2:
                     dist_sq = (e.x - self.x) ** 2 + (e.y - self.y) ** 2
                     if dist_sq < ((e.size + self.size) * .5) ** 2:
@@ -552,7 +554,7 @@ class Tower2(Tower):
         self.upgrades_into = [Tower21, Tower22]
 
     def attack(self, target):
-        Boulder(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"],self,
+        Boulder(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"], self,
                 self.stats["bulletspeed"],
                 target.distance_to_point(self.x, self.y), self.stats["explosion_radius"], pierce=self.stats["pierce"],
                 cluster=self.stats["cluster"], recursion=self.stats["recursion"])
@@ -574,7 +576,7 @@ class Tower22(Tower):
             dy = dist * math.sin(angle)
         else:
             dx, dy = target.x - self.x, target.y - self.y
-        Mine(self.x, self.y, dx, dy, self.game, self.side, self.stats["dmg"],self,
+        Mine(self.x, self.y, dx, dy, self.game, self.side, self.stats["dmg"], self,
              self.stats["bulletspeed"],
              distance(dx, dy, 0, 0), self.stats["explosion_radius"], self.stats["duration"],
              pierce=self.stats["pierce"],
@@ -622,7 +624,7 @@ class Tower21(Tower):
         self.upgrades_into = [Tower211]
 
     def attack(self, target):
-        Meteor(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"],self,
+        Meteor(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"], self,
                self.stats["bulletspeed"],
                target.distance_to_point(self.x, self.y), self.stats["explosion_radius"], pierce=self.stats["pierce"],
                cluster=self.stats["cluster"], recursion=self.stats["recursion"])
@@ -637,7 +639,7 @@ class Tower211(Tower):
         self.upgrades_into = []
 
     def attack(self, target):
-        Egg(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"],self,
+        Egg(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"], self,
             self.stats["bulletspeed"],
             target.distance_to_point(self.x, self.y), self.stats["explosion_radius"], pierce=self.stats["pierce"],
             cluster=self.stats["cluster"], recursion=self.stats["recursion"])
@@ -667,7 +669,7 @@ class Tower31(Tower):
         self.upgrades_into = []
 
     def attack(self, target):
-        Arrow(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"],self,
+        Arrow(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"], self,
               self.stats["bulletspeed"],
               self.stats["reach"], pierce=self.stats["pierce"], cluster=self.stats["cluster"],
               recursion=self.stats["recursion"])
@@ -788,6 +790,8 @@ class Wall:
             chonk = self.game.find_chunk(c)
             if chonk is not None:
                 for e in chonk.units[1 - self.side]:
+                    if not e.exists:
+                        return
                     if point_line_dist(e.x, e.y, self.norm_vector, self.line_c) < (self.width + e.size) * .5 and \
                             point_line_dist(e.x, e.y, (self.norm_vector[1], -self.norm_vector[0]),
                                             self.crossline_c) < self.length * .5:
@@ -1064,11 +1068,11 @@ class Unit:
         if not self.exists:
             return
         self.health -= amount * self.stats["resistance"]
+        if source is not None and source.exists:
+            self.formation.attack(source)
         if self.health <= 0:
             self.die()
             return
-        if source is not None and source.exists:
-            self.formation.attack(source)
 
     def acquire_target(self):
         if self.target is not None and self.target.exists:
@@ -1242,7 +1246,7 @@ class Archer(Unit):
     name = "Archer"
 
     def attack(self, target):
-        Arrow(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"],self,
+        Arrow(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"], self,
               self.stats["bulletspeed"],
               self.stats["reach"] * 1.5, pierce=self.stats["pierce"], cluster=self.stats["cluster"],
               recursion=self.stats["recursion"])
@@ -1252,7 +1256,7 @@ class Trebuchet(Unit):
     name = "Trebuchet"
 
     def attack(self, target):
-        Boulder(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"],self,
+        Boulder(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"], self,
                 self.stats["bulletspeed"],
                 target.distance_to_point(self.x, self.y), self.stats["explosion_radius"], pierce=self.stats["pierce"],
                 cluster=self.stats["cluster"], recursion=self.stats["recursion"])
@@ -1345,7 +1349,7 @@ class Projectile:
         self.max_reach = reach
         self.pierce = pierce
         self.max_pierce = pierce
-        self.source=source
+        self.source = source
         self.cluster = int(cluster)
         self.recursion = recursion
         self.already_hit = []
@@ -1486,13 +1490,13 @@ def AOE_damage(x, y, size, amount, source, game):
         c = game.find_chunk(coord)
         if c is not None:
             for unit in c.units[1 - side]:
-                if unit.distance_to_point(x, y) < size and unit not in affected_things:
+                if unit.exists and unit.distance_to_point(x, y) < size and unit not in affected_things:
                     affected_things.append(unit)
             for unit in c.buildings[1 - side]:
-                if unit.distance_to_point(x, y) < size and unit not in affected_things:
+                if unit.exists and unit.distance_to_point(x, y) < size and unit not in affected_things:
                     affected_things.append(unit)
             for wall in c.walls[1 - side]:
-                if wall.distance_to_point(x, y) < size and wall not in affected_things:
+                if wall.exists and wall.distance_to_point(x, y) < size and wall not in affected_things:
                     affected_things.append(wall)
     for e in affected_things:
         e.take_damage(amount, source)
