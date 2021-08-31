@@ -90,7 +90,6 @@ class mode_intro(mode):
         [e.mouse_move(x, y) for e in self.buttons]
 
     def join(self):
-        print(time.time())
         if not self.joined:
             connection.Send({"action": "join"})
             self.joined = True

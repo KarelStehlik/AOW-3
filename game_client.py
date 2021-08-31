@@ -1271,7 +1271,6 @@ class Tower(Building):
         self.sprite2.opacity = 0
         self.sprite2.scale = self.size * SPRITE_SIZE_MULT / self.sprite2.width
         self.current_cooldown = 0
-        self.stats["reach"] = unit_stats[self.name]["reach"]
         self.target = None
         self.shooting_in_chunks = get_chunks(self.x, self.y, 2 * self.stats["reach"])
         self.upgrades_into = [Tower1, Tower2, Tower3]
