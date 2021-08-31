@@ -1145,7 +1145,6 @@ class Building:
         for e in stats:
             self.stats[e] = (self.base_stats[e] + sum(self.mods_add[e])) * product(*self.mods_multiply[e])
         self.health = self.stats["health"] * health_part
-        self.sprite.scale = self.stats["vwidth"] * SPRITE_SIZE_MULT / self.image.width
         self.size = self.stats["size"]
 
     def towards(self, x, y):
