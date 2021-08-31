@@ -1,8 +1,8 @@
-TownHall:size=200,health=15000,resistance=1
+TownHall:size=200,health=15000,resistance=.1
 Tower:size=50,health=9000,cost=1500,dmg=50,cd=0.2,reach=400,bulletspeed=6,proximity=500,bullet_scale=.15,pierce=1,cluster=0,recursion=0,resistance=1
 Tower1:size=50,health=9000,cost=1500,dmg=35,cd=0.05,reach=400,bulletspeed=14,bullet_scale=.15,pierce=1,cluster=0,recursion=0,resistance=1
 Tower2:size=50,health=20000,cost=1500,dmg=50,cd=1.2,reach=300,bulletspeed=8,explosion_radius=120,bullet_scale=.15,pierce=1,cluster=0,recursion=0,resistance=1
-Tower11:size=50,health=15000,cost=3500,dmg=45,cd=0.02,reach=300,bulletspeed=25,spread=0.2,shots=2,bullet_scale=.05,pierce=1,cluster=0,recursion=0,resistance=1
+Tower11:size=50,health=15000,cost=3500,dmg=45,cd=0.02,reach=300,bulletspeed=15,spread=0.2,shots=2,bullet_scale=.05,pierce=1,cluster=0,recursion=0,resistance=1
 Tower21:size=50,health=30000,cost=6000,dmg=400,cd=2,reach=800,bulletspeed=20,explosion_radius=100,bullet_scale=.15,pierce=1,cluster=0,recursion=0,resistance=1
 Tower22:size=50,health=30000,cost=25000,dmg=2000,cd=8,reach=250,bulletspeed=20,explosion_radius=200,bullet_scale=.07,pierce=1,cluster=0,recursion=0,duration=5000,resistance=1
 Tower211:size=50,health=50000,cost=250000,dmg=250,cd=0.03,reach=900,bulletspeed=40,explosion_radius=80,bullet_scale=.15,pierce=1,cluster=10,recursion=1,resistance=1

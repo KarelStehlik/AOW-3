@@ -168,6 +168,7 @@ class Game:
                 if tar is not None:
                     tar.upgrades_into[data["upgrade num"]](tar, data["tick"])
                     tar.upgrades_into = []
+                    tar.ID = -1
                 else:
                     bu = data["backup"]
                     possible_buildings[bu[0]](x=bu[1], y=bu[2], tick=bu[3], side=bu[4], ID=bu[5], game=self)
@@ -1298,7 +1299,7 @@ class Tower(Building):
     def attack(self, target):
         direction = target.towards(self.x, self.y)
         self.sprite.rotation = 90 - get_rotation_norm(*direction) * 180 / math.pi
-        Arrow(self.x, self.y, *direction, self.game, self.side, self.stats["dmg"], self,  self.stats["bulletspeed"],
+        Arrow(self.x, self.y, *direction, self.game, self.side, self.stats["dmg"], self, self.stats["bulletspeed"],
               self.stats["reach"] * 1.5, scale=self.stats["bullet_scale"], pierce=self.stats["pierce"],
               cluster=self.stats["cluster"], recursion=self.stats["recursion"])
 
@@ -1403,7 +1404,7 @@ class Tower22(Tower):
         else:
             dx, dy = target.x - self.x, target.y - self.y
         self.sprite.rotation = 90 - get_rotation(dx, dy) * 180 / math.pi
-        Mine(self.x, self.y, dx, dy, self.game, self.side, self.stats["dmg"],self,
+        Mine(self.x, self.y, dx, dy, self.game, self.side, self.stats["dmg"], self,
              self.stats["bulletspeed"],
              distance(dx, dy, 0, 0), self.stats["explosion_radius"], self.stats["duration"],
              scale=self.stats["bullet_scale"], pierce=self.stats["pierce"], cluster=self.stats["cluster"],
@@ -2054,7 +2055,6 @@ class Unit:
         for e in stats:
             self.stats[e] = (self.base_stats[e] + sum(self.mods_add[e])) * product(*self.mods_multiply[e])
         self.health = self.stats["health"] * health_part
-        self.sprite.scale = self.stats["vwidth"] * SPRITE_SIZE_MULT / self.image.width
         self.size = self.stats["size"]
 
     def distance_to_point(self, x, y):
@@ -2315,7 +2315,7 @@ class Trebuchet(Unit):
     name = "Trebuchet"
 
     def attack(self, target):
-        Boulder(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"],self,
+        Boulder(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"], self,
                 self.stats["bulletspeed"],
                 target.distance_to_point(self.x, self.y), self.stats["explosion_radius"],
                 scale=self.stats["bullet_scale"], pierce=self.stats["pierce"], cluster=self.stats["cluster"],
@@ -2490,7 +2490,7 @@ class Projectile:
         self.max_reach = reach
         self.pierce = pierce
         self.max_pierce = pierce
-        self.source=source
+        self.source = source
         self.cluster = int(cluster)
         self.recursion = recursion
         self.already_hit = []
@@ -2673,7 +2673,7 @@ class Egg(Meteor):
     explosion_speed = 100
 
     def explode(self):
-        AOE_damage(self.x, self.y, self.radius, self.damage, self.source,self.game)
+        AOE_damage(self.x, self.y, self.radius, self.damage, self.source, self.game)
         animation_explosion(self.x, self.y, self.radius / 2, 300, self.game)
         self.delete()
 
