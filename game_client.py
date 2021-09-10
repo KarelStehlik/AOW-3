@@ -1042,7 +1042,7 @@ class building_upgrade_menu(client_utility.toolbar):
                          self.target.y * SPRITE_SIZE_MULT - game.camy - self.height / 2, self.width, self.height,
                          game.batch)
         self.game = game
-        game.UI_toolbars.append(self)
+        game.mouse_click_detectors.append(self)
         i = 0
         self.texts = []
         for e in self.target.upgrades_into:
@@ -1075,7 +1075,7 @@ class building_upgrade_menu(client_utility.toolbar):
 
     def close(self):
         [e.delete() for e in self.texts]
-        self.game.UI_toolbars.remove(self)
+        self.game.mouse_click_detectors.remove(self)
         self.delete()
 
 
@@ -1190,8 +1190,6 @@ class Building:
         return distance(self.x, self.y, x, y) - self.size / 2
 
     def update_cam(self, x, y):
-        if not self.exists:
-            return
         x, y = self.x * SPRITE_SIZE_MULT - x, self.y * SPRITE_SIZE_MULT - y
         if self.shown:
             self.sprite.update(x=x, y=y)
@@ -2735,10 +2733,10 @@ def AOE_damage(x, y, size, amount, source, game):
                 if unit.exists and unit.distance_to_point(x, y) < size and unit not in affected_things:
                     affected_things.append(unit)
             for unit in c.buildings[1 - side]:
-                if  unit.exists and unit.distance_to_point(x, y) < size and unit not in affected_things:
+                if unit.exists and unit.distance_to_point(x, y) < size and unit not in affected_things:
                     affected_things.append(unit)
             for wall in c.walls[1 - side]:
-                if  wall.exists and wall.distance_to_point(x, y) < size and wall not in affected_things:
+                if wall.exists and wall.distance_to_point(x, y) < size and wall not in affected_things:
                     affected_things.append(wall)
     for e in affected_things:
         e.take_damage(amount, source)
