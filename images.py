@@ -26,6 +26,8 @@ WallCrack = IL("wall_crack").get_texture()
 blue_arrow = IL("blue_arrow").get_texture()
 Beam = IL("beam").get_texture()
 
+Freeze=RI("Freeze")
+UpgradeButton=RI("UpgradeButton")
 Warn = RI("Warn")
 UpgradeLine = RI("UpgradeLine")
 Egg = RI('Egg')

@@ -150,12 +150,37 @@ class animation_explosion:
         self.sprite.delete()
         self.sprite2.delete()
 
+class animation_frost:
+    def __init__(self, x, y, size, speed, win):
+        self.sprite = pyglet.sprite.Sprite(images.Freeze, x=x,
+                                           y=y,
+                                           batch=win.batch, group=groups.g[6])
+        self.sprite.rotation = random.randint(0, 360)
+        self.sprite.scale = constants.SCREEN_HEIGHT/self.sprite.height*.95
+        self.x, self.y = x, y
+        self.window = win
+        self.size, self.speed = size, speed
+        self.exists_time = 0
+        win.animations.append(self)
+
+    def tick(self):
+        self.exists_time += self.speed
+        if self.exists_time > 128:
+            self.delete()
+            return
+        self.sprite.update(x=self.x, y=self.y)
+        self.sprite.opacity = (256 - 2 * self.exists_time)
+
+    def delete(self):
+        self.window.animations.remove(self)
+        self.sprite.delete()
+
 
 def main():
     place = windoo(caption='test', style=pyglet.window.Window.WINDOW_STYLE_BORDERLESS, width=constants.SCREEN_WIDTH,
                    height=constants.SCREEN_HEIGHT)
 
-    animation_explosion(constants.SCREEN_WIDTH / 2, constants.SCREEN_HEIGHT / 2, 500, 20, place)
+    animation_frost(constants.SCREEN_WIDTH / 2, constants.SCREEN_HEIGHT / 2, 500, 20, place)
 
     while place.open:
         try:

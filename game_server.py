@@ -73,12 +73,15 @@ class Game:
             self.ticks += 1
             self.players[0].gain_money(PASSIVE_INCOME)
             self.players[1].gain_money(PASSIVE_INCOME)
+            self.players[0].gain_mana(PASSIVE_MANA)
+            self.players[1].gain_mana(PASSIVE_MANA)
             self.players[odd_tick].tick_wave_timer()
             self.players[odd_tick - 1].tick_wave_timer()
 
     def network(self, data, side):
         if "action" in data:
-            if data["action"] == "place_building":
+            action = data["action"]
+            if action == "place_building":
                 entity_type = possible_buildings[data["entity_type"]]
                 if not self.players[side].has_unit(entity_type):
                     print("cheating detected! (B)")
@@ -103,7 +106,7 @@ class Game:
                     # print({"action": "place_building", "xy": data["xy"], "tick": self.ticks, "side": side,
                     #       "ID": self.object_ID, "entity_type": data["entity_type"]})
                     self.object_ID += 1
-            elif data["action"] == "place_wall":
+            elif action == "place_wall":
                 if self.players[side].attempt_purchase(Wall.get_cost([])):
                     t1, t2 = self.find_building(data["ID1"], side, "tower"), self.find_building(data["ID2"], side,
                                                                                                 "tower")
@@ -120,7 +123,7 @@ class Game:
                                     "ID2": data["ID2"], "tick": self.ticks, "side": side,
                                     "ID": self.object_ID})
                     self.object_ID += 1
-            elif data["action"] == "summon_formation":
+            elif action == "summon_formation":
                 confirmed_units = []
                 for e in data["troops"]:
                     for troop in e:
@@ -139,7 +142,7 @@ class Game:
                                     "instructions": data["instructions"], "troops": data["troops"],
                                     "ID": oid})
                     self.object_ID += 1
-            elif data["action"] == "buy upgrade":
+            elif action == "buy upgrade":
                 target = self.find_building(data["building ID"], side)
                 if target is None or len(target.upgrades_into) <= data["upgrade num"]:
                     return
@@ -153,14 +156,14 @@ class Game:
                                     "backup": [possible_buildings.index(target.upgrades_into[data["upgrade num"]]),
                                                target.x, target.y, self.ticks, side, target.ID]})
                     target.upgrades_into = []
-            elif data["action"] == "ping":
+            elif action == "ping":
                 self.channels[side].Send({"action": "pong", "time": str(time.time())})
-            elif data["action"] == "send_wave":
+            elif action == "send_wave":
                 for e in self.players[1 - side].formations:
                     if e.AI:
                         return
                 self.summon_ai_wave(side)
-            elif data["action"] == "th upgrade":
+            elif action == "th upgrade":
                 upg = possible_upgrades[data["num"]]
                 for e in upg.previous:
                     if not self.players[side].has_upgrade(e):
@@ -170,6 +173,16 @@ class Game:
                 if self.players[side].attempt_purchase(upg.get_cost()):
                     upg(self.players[side])
                     self.send_both({"action": "th upgrade", "side": side, "tick": self.ticks, "num": data["num"]})
+            elif action == "spell":
+                entity_type = possible_spells[data["num"]]
+                if not self.players[side].has_unit(entity_type):
+                    print("cheating detected! (178)")
+                    return
+                if self.players[side].attempt_mana_purchase(entity_type.get_cost()):
+                    entity_type(self, side, data["x"], data["y"])
+                    data["tick"] = self.ticks
+                    data["side"] = side
+                    self.send_both(data)
 
     def summon_ai_wave(self, side):
         self.players[side].ai_wave += 1
@@ -263,7 +276,9 @@ class player:
         self.units = []
         self.formations = []
         self.all_buildings = []
+        self.spells = []
         self.money = STARTING_MONEY
+        self.mana = STARTING_MANA
         self.TownHall = None
         self.ai_wave = 0
         self.time_until_wave = WAVE_INTERVAL
@@ -271,7 +286,10 @@ class player:
         self.pending_upgrades = []
         self.owned_upgrades = [Upgrade_default(self)]
         self.unlocked_units = [Swordsman, Archer, Defender, Tower, Wall, Farm, Tower1, Tower2, Tower11, Tower21,
-                               Farm1, Farm2, Tower3, Tower31, Farm11]
+                               Farm1, Farm2, Tower3, Tower31, Farm11, Fireball, Freeze]
+
+    def gain_mana(self, amount):
+        self.mana += amount
 
     def add_aura(self, aur):
         self.auras.append(aur)
@@ -323,6 +341,12 @@ class player:
         self.money -= amount
         return True
 
+    def attempt_mana_purchase(self, amount):
+        if self.mana < amount:
+            return False
+        self.mana -= amount
+        return True
+
     def tick_units(self):
         # ticks before other stuff to ensure the units are in their chunks
         [e.tick() for e in self.units]
@@ -331,6 +355,7 @@ class player:
         [e.tick() for e in self.all_buildings]
         [e.tick() for e in self.walls]
         [e.tick() for e in self.formations]
+        [e.tick() for e in self.spells]
         for e in self.auras:
             e.tick()
             if not e.exists:
@@ -380,6 +405,7 @@ class Building:
         self.mods_multiply = {e: [] for e in unit_stats[self.name].keys()}
         self.stats = {e: (self.base_stats[e] + sum(self.mods_add[e])) * product(*self.mods_multiply[e]) for e in
                       self.base_stats.keys()}
+        self.frozen = 0
         self.game.players[side].on_building_summon(self)
 
     def update_stats(self, stats=None):
@@ -391,8 +417,11 @@ class Building:
         self.health = self.stats["health"] * health_part
         self.size = self.stats["size"]
 
-    def take_damage(self, amount, source):
+    def take_damage(self, amount, source, type=None):
         if self.exists:
+            if type is not None:
+                if type + "_resistance" in self.stats.keys():
+                    amount *= self.stats[type + "_resistance"]
             self.health -= amount * self.stats["resistance"]
             if self.health <= 0:
                 self.die()
@@ -416,7 +445,7 @@ class Building:
     def tick(self):
         if self.spawning < FPS * ACTION_DELAY:
             self.spawning += 1
-        if self.spawning == FPS * ACTION_DELAY:
+        if self.spawning >= FPS * ACTION_DELAY:
             self.exists = True
             self.tick = self.tick2
             if self.comes_from is not None:
@@ -476,14 +505,16 @@ class Tower(Building):
 
     def tick2(self):
         super().tick2()
-        if self.current_cooldown > 0:
-            self.current_cooldown -= 1 / FPS
-        if self.current_cooldown <= 0:
-            if self.acquire_target():
-                self.current_cooldown += self.stats["cd"]
-                self.attack(self.target)
-            else:
-                self.turns_without_target += 1
+        assert self.frozen >= 0
+        if self.frozen == 0:
+            if self.current_cooldown > 0:
+                self.current_cooldown -= 1 / FPS
+            if self.current_cooldown <= 0:
+                if self.acquire_target():
+                    self.current_cooldown += self.stats["cd"]
+                    self.attack(self.target)
+                else:
+                    self.turns_without_target += 1
 
     def attack(self, target):
         Arrow(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"], self,
@@ -687,7 +718,9 @@ class Farm(Building):
 
     def tick2(self):
         super().tick2()
-        self.game.players[self.side].gain_money(self.stats["production"])
+        assert self.frozen >= 0
+        if self.frozen == 0:
+            self.game.players[self.side].gain_money(self.stats["production"])
 
 
 class Farm1(Farm):
@@ -752,6 +785,7 @@ class Wall:
         self.mods_multiply = {e: [] for e in unit_stats[self.name].keys()}
         self.stats = {e: (self.base_stats[e] + sum(self.mods_add[e])) * product(*self.mods_multiply[e]) for e in
                       self.base_stats.keys()}
+        self.frozen = 0
         game.players[side].on_building_summon(self)
 
     def die(self):
@@ -775,9 +809,12 @@ class Wall:
     def get_cost(cls, params):
         return unit_stats[cls.name]["cost"]
 
-    def take_damage(self, amount, source):
+    def take_damage(self, amount, source, type=None):
         if not self.exists:
             return
+        if type is not None:
+            if type + "_resistance" in self.stats.keys():
+                amount *= self.stats[type + "_resistance"]
         self.health -= amount * self.stats["resistance"]
         if self.health <= 0:
             self.die()
@@ -821,7 +858,7 @@ class Wall:
     def tick(self):
         if self.spawning < FPS * ACTION_DELAY:
             self.spawning += 1
-        if self.spawning == FPS * ACTION_DELAY:
+        if self.spawning >= FPS * ACTION_DELAY:
             self.exists = True
             self.tick = self.tick2
 
@@ -880,7 +917,7 @@ class Formation:
     def tick(self):
         if self.spawning < FPS * ACTION_DELAY:
             self.spawning += 1
-        if self.spawning == FPS * ACTION_DELAY:
+        if self.spawning >= FPS * ACTION_DELAY:
             self.exists = True
             self.tick = self.tick2
             [e.summon_done() for e in self.troops]
@@ -1038,6 +1075,7 @@ class Unit:
         self.stats = {e: (self.base_stats[e] + sum(self.mods_add[e])) * product(*self.mods_multiply[e]) for e in
                       self.base_stats.keys()}
         self.health = self.stats["health"]
+        self.frozen = 0
         for e in effects:
             e.apply(self)
 
@@ -1062,11 +1100,14 @@ class Unit:
     def get_cost(cls, params):
         return unit_stats[cls.name]["cost"]
 
-    def take_damage(self, amount, source):
+    def take_damage(self, amount, source, type=None):
         if not self.exists:
             return
+        if type is not None:
+            if type + "_resistance" in self.stats.keys():
+                amount *= self.stats[type + "_resistance"]
         self.health -= amount * self.stats["resistance"]
-        if source is not None and source.exists:
+        if source is not None and source.entity_type in ["unit", "tower"] and source.exists:
             self.formation.attack(source)
         if self.health <= 0:
             self.die()
@@ -1140,26 +1181,28 @@ class Unit:
     def tick2(self):
         if not self.exists:
             return
-        if not self.formation.all_targets:
-            x, y = self.x, self.y
-            if self.reached_goal:
-                pass
+        assert self.frozen >= 0
+        if self.frozen == 0:
+            if not self.formation.all_targets:
+                x, y = self.x, self.y
+                if self.reached_goal:
+                    pass
+                else:
+                    self.rotate(self.desired_x - self.x, self.desired_y - self.y)
+                    if self.x <= self.desired_x:
+                        self.x += min(self.vx, self.desired_x - self.x)
+                    else:
+                        self.x += max(self.vx, self.desired_x - self.x)
+                    if self.y <= self.desired_y:
+                        self.y += min(self.vy, self.desired_y - self.y)
+                    else:
+                        self.y += max(self.vy, self.desired_y - self.y)
+                    if self.y == self.desired_y and self.x == self.desired_x:
+                        self.reached_goal = True
             else:
-                self.rotate(self.desired_x - self.x, self.desired_y - self.y)
-                if self.x <= self.desired_x:
-                    self.x += min(self.vx, self.desired_x - self.x)
-                else:
-                    self.x += max(self.vx, self.desired_x - self.x)
-                if self.y <= self.desired_y:
-                    self.y += min(self.vy, self.desired_y - self.y)
-                else:
-                    self.y += max(self.vy, self.desired_y - self.y)
-                if self.y == self.desired_y and self.x == self.desired_x:
-                    self.reached_goal = True
-        else:
-            self.acquire_target()
-            if self.target is not None and self.move_in_range(self.target):
-                self.attempt_attack(self.target)
+                self.acquire_target()
+                if self.target is not None and self.move_in_range(self.target):
+                    self.attempt_attack(self.target)
 
         self.chunks = get_chunks(self.x, self.y, self.size)
         for e in self.chunks:
@@ -1480,8 +1523,8 @@ class Egg(Meteor):
     pass
 
 
-def AOE_damage(x, y, size, amount, source, game):
-    chunks_affected = get_chunks(x, y, size)
+def AOE_damage(x, y, size, amount, source, game, type=None):
+    chunks_affected = get_chunks(x, y, size * 2)
     side = source.side
     affected_things = []
     for coord in chunks_affected:
@@ -1497,7 +1540,7 @@ def AOE_damage(x, y, size, amount, source, game):
                 if wall.exists and wall.distance_to_point(x, y) < size and wall not in affected_things:
                     affected_things.append(wall)
     for e in affected_things:
-        e.take_damage(amount, source)
+        e.take_damage(amount, source, type)
 
 
 class effect:
@@ -1544,7 +1587,15 @@ class effect_stat_mult(effect):
 
     def on_remove(self):
         self.target.mods_multiply[self.stat].remove(self.mult)
-        self.target.update_stats(self.stat)
+        self.target.update_stats([self.stat])
+
+
+class effect_freeze(effect):
+    def on_apply(self, target):
+        target.frozen += 1
+
+    def on_remove(self):
+        self.target.frozen -= 1
 
 
 class effect_stat_add(effect):
@@ -1572,12 +1623,13 @@ class effect_regen(effect):
 
 
 class aura:
-    def __init__(self, effect, args, duration=None, targets=None):
+    def __init__(self, effect, args, duration=None, targets=None, x_y_rad=None):
         self.effect = effect
         self.args = args
         self.remaining_duration = duration
         self.exists = True
         self.targets = targets
+        self.x_y_rad = x_y_rad
 
     def tick(self):
         if self.remaining_duration is None:
@@ -1587,8 +1639,9 @@ class aura:
             self.exists = False
 
     def apply(self, target):
-        if self.targets is None or target.name in self.targets:
-            self.effect(*self.args).apply(target)
+        if self.x_y_rad is None or target.distance_to_point(self.x_y_rad[0], self.x_y_rad[1]) < self.x_y_rad[2]:
+            if self.targets is None or target.name in self.targets:
+                self.effect(*self.args).apply(target)
 
 
 ##################  ---/units---  #################
@@ -1730,3 +1783,62 @@ class Upgrade_necromancy(Upgrade):
 possible_upgrades = [Upgrade_default, Upgrade_test_1, Upgrade_bigger_arrows, Upgrade_catapult, Upgrade_bigger_rocks,
                      Upgrade_egg, Upgrade_faster_archery, Upgrade_vigorous_farming, Upgrade_mines, Upgrade_necromancy,
                      Upgrade_nanobots, Upgrade_walls]
+
+
+class Spell:
+    name = "Spell"
+    entity_type = "spell"
+
+    def __init__(self, game, side, x, y):
+        game.players[side].spells.append(self)
+        self.spawning = 0
+        self.game = game
+        self.side = side
+        self.x, self.y = x, y
+        self.delay = unit_stats[self.name]["delay"]
+
+    def tick(self):
+        if self.spawning < self.delay:
+            self.spawning += 1
+        if self.spawning >= self.delay:
+            self.main()
+            self.game.players[self.side].spells.remove(self)
+
+    def main(self):
+        pass
+
+    @classmethod
+    def get_cost(cls):
+        return unit_stats[cls.name]["cost"]
+
+
+class Fireball(Spell):
+    name = "Fireball"
+
+    def __init__(self, game, side, x, y):
+        super().__init__(game, side, x, y)
+        self.x1, self.y1 = game.players[side].TownHall.x, game.players[side].TownHall.y
+        self.radius = unit_stats[self.name]["radius"]
+        self.dmg = unit_stats[self.name]["dmg"]
+        self.delay *= distance(self.x1, self.y1, x, y)
+        self.delay = max(self.delay, ACTION_DELAY * FPS)
+
+    def main(self):
+        AOE_damage(self.x, self.y, self.radius, self.dmg, self, self.game, "spell")
+
+
+class Freeze(Spell):
+    name = "Freeze"
+
+    def __init__(self, game, side, x, y):
+        super().__init__(game, side, x, y)
+        self.radius = unit_stats[self.name]["radius"]
+        self.duration = unit_stats[self.name]["duration"]
+
+    def main(self):
+        self.game.players[1 - self.side].add_aura(aura(effect_freeze, (self.duration,),
+                                                       0.1,
+                                                       x_y_rad=[self.x, self.y, self.radius]))
+
+
+possible_spells = [Fireball, Freeze]
