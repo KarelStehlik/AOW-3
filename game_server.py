@@ -286,7 +286,7 @@ class player:
         self.pending_upgrades = []
         self.owned_upgrades = [Upgrade_default(self)]
         self.unlocked_units = [Swordsman, Archer, Defender, Tower, Wall, Farm, Tower1, Tower2, Tower11, Tower21,
-                               Farm1, Farm2, Tower3, Tower31, Farm11, Fireball, Freeze]
+                               Farm1, Farm2, Tower3, Tower31, Farm11, Fireball, Freeze, Rage, Tower23]
 
     def gain_mana(self, amount):
         self.mana += amount
@@ -461,11 +461,14 @@ class Building:
             for e in self.game.chunks[c].units[1 - self.side]:
                 if not e.exists:
                     continue
-                if max(abs(e.x - self.x), abs(e.y - self.y)) < (self.size + e.size) / 2:
-                    dist_sq = (e.x - self.x) ** 2 + (e.y - self.y) ** 2
-                    if dist_sq < ((e.size + self.size) * .5) ** 2:
-                        shovage = (e.size + self.size) * .5 * dist_sq ** -.5 - 1
-                        e.take_knockback((e.x - self.x) * shovage, (e.y - self.y) * shovage, self)
+                dx = e.x - self.x
+                dy = e.y - self.y
+                s = (e.size + self.size) / 2
+                if max(abs(dx), abs(dy)) < s:
+                    dist_sq = dx ** 2 + dy ** 2
+                    if dist_sq < s ** 2:
+                        shovage = s * dist_sq ** -.5 - 1
+                        e.take_knockback(dx * shovage, dy * shovage, self)
 
 
 class TownHall(Building):
@@ -508,7 +511,7 @@ class Tower(Building):
         assert self.frozen >= 0
         if self.frozen == 0:
             if self.current_cooldown > 0:
-                self.current_cooldown -= 1 / FPS
+                self.current_cooldown -= 1 * INV_FPS
             if self.current_cooldown <= 0:
                 if self.acquire_target():
                     self.current_cooldown += self.stats["cd"]
@@ -580,13 +583,25 @@ class Tower2(Tower):
     def __init__(self, target):
         super().__init__(target.ID, target.x, target.y, target.side, target.game)
         self.comes_from = target
-        self.upgrades_into = [Tower21, Tower22]
+        self.upgrades_into = [Tower21, Tower22, Tower23]
 
     def attack(self, target):
         Boulder(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"], self,
                 self.stats["bulletspeed"],
                 target.distance_to_point(self.x, self.y), self.stats["explosion_radius"], pierce=self.stats["pierce"],
                 cluster=self.stats["cluster"], recursion=self.stats["recursion"])
+
+
+class Tower23(Tower):
+    name = "Tower23"
+
+    def __init__(self, target):
+        super().__init__(target.ID, target.x, target.y, target.side, target.game)
+        self.comes_from = target
+        self.upgrades_into = []
+
+    def attack(self, target):
+        AOE_damage(self.x, self.y, self.stats["reach"], self.stats["dmg"], self, self.game)
 
 
 class Tower22(Tower):
@@ -614,7 +629,7 @@ class Tower22(Tower):
     def tick2(self):
         super().tick2()
         if self.current_cooldown > 0:
-            self.current_cooldown -= 1 / FPS
+            self.current_cooldown -= 1 * INV_FPS
         if self.current_cooldown <= 0:
             self.current_cooldown += self.stats["cd"]
             if self.acquire_target():
@@ -751,7 +766,7 @@ class Farm2(Farm):
 
 
 possible_buildings = [Tower, Farm, Tower1, Tower2, Tower21, Tower11, Farm1, Farm2, Tower211, Tower3, Tower31, Tower22,
-                      Farm11]
+                      Farm11, Tower23]
 
 
 class Wall:
@@ -868,7 +883,7 @@ class Wall:
 
 
 class Formation:
-    def __init__(self, ID, instructions, troops, side, game, x=None, y=None, amplifier=1, AI=False):
+    def __init__(self, ID, instructions, troops, side, game, x=None, y=None, amplifier=1.0, AI=False):
         self.AI = AI
         self.entity_type = "formation"
         self.exists = False
@@ -898,7 +913,7 @@ class Formation:
                             row - self.game.unit_formation_rows / 2,
                             game, self,
                             effects=(effect_stat_mult("health", amplifier),
-                                     effect_stat_mult("health", amplifier))
+                                     effect_stat_mult("dmg", amplifier))
                         )
                     )
                     i += 1
@@ -1210,7 +1225,7 @@ class Unit:
         self.shove()
         self.lifetime += 1
         if self.current_cooldown > 0:
-            self.current_cooldown -= 1 / FPS
+            self.current_cooldown -= 1 * INV_FPS
         if (not self.formation.all_targets) and (
                 not self.reached_goal) and self.x == self.last_x and self.y == self.last_y:
             self.reached_goal = True
@@ -1260,19 +1275,20 @@ class Unit:
     def check_collision(self, other):
         if other.ID == self.ID or not other.exists:
             return
-        if max(abs(other.x - self.x), abs(other.y - self.y)) < (self.size + other.size) / 2:
-            dist_sq = (other.x - self.x) ** 2 + (other.y - self.y) ** 2
+        dx = other.x - self.x
+        dy = other.y - self.y
+        size = (self.size + other.size) / 2
+        if max(abs(dx), abs(dy)) < size:
+            dist_sq = dx ** 2 + dy ** 2
             if dist_sq == 0:
                 dist_sq = .01
-                self.x += .01
-            if dist_sq < ((other.size + self.size) * .5) ** 2:
-                shovage = (other.size + self.size) * .5 * dist_sq ** -.5 - 1  # desired dist / current dist -1
-                mass_ratio = self.mass / (self.mass + other.mass)
-                ex, sx, ey, sy = other.x, self.x, other.y, self.y
-                other.take_knockback((ex - sx) * shovage * mass_ratio, (ey - sy) * shovage * mass_ratio,
+            if dist_sq < size ** 2:
+                shovage = size * dist_sq ** -.5 - 1  # desired dist / current dist -1
+                mass_ratio = self.stats["mass"] / (self.stats["mass"] + other.stats["mass"])
+                other.take_knockback(dx * shovage * mass_ratio, dy * shovage * mass_ratio,
                                      self)
-                self.take_knockback((sx - ex) * shovage * (1 - mass_ratio),
-                                    (sy - ey) * shovage * (1 - mass_ratio),
+                self.take_knockback(dx * shovage * (mass_ratio - 1),
+                                    dy * shovage * (mass_ratio - 1),
                                     other)
 
 
@@ -1561,7 +1577,7 @@ class effect:
         self.on_tick()
         if self.remaining_duration is None:
             return
-        self.remaining_duration -= 1 / FPS
+        self.remaining_duration -= 1
         if self.remaining_duration <= 0:
             self.remove()
 
@@ -1581,9 +1597,12 @@ class effect_stat_mult(effect):
         self.stat = stat
         self.mult = amount
 
-    def on_apply(self, target):
-        self.target.mods_multiply[self.stat].append(self.mult)
-        self.target.update_stats([self.stat])
+    def apply(self, target):
+        if self.stat in target.stats.keys():
+            self.target = target
+            self.target.effects.append(self)
+            self.target.mods_multiply[self.stat].append(self.mult)
+            self.target.update_stats([self.stat])
 
     def on_remove(self):
         self.target.mods_multiply[self.stat].remove(self.mult)
@@ -1623,25 +1642,68 @@ class effect_regen(effect):
 
 
 class aura:
-    def __init__(self, effect, args, duration=None, targets=None, x_y_rad=None):
+    def __init__(self, effect, args, duration=None, targets=None):
+        self.effect = effect
+        self.args = args
+        self.remaining_duration = duration
+        self.exists = True
+        self.targets = targets
+
+    def tick(self):
+        if self.remaining_duration is None:
+            return
+        self.remaining_duration -= 1
+        if self.remaining_duration <= 0:
+            self.exists = False
+
+    def apply(self, target):
+        if self.targets is None or target.name in self.targets:
+            self.effect(*self.args).apply(target)
+
+
+class AOE_aura:
+    def __init__(self, effect, args, x_y_rad, game: Game, side, duration=None, targets=None, frequency=1):
         self.effect = effect
         self.args = args
         self.remaining_duration = duration
         self.exists = True
         self.targets = targets
         self.x_y_rad = x_y_rad
+        self.chunks = get_chunks(*x_y_rad)
+        self.game = game
+        self.side = side
+        self.game.players[side].auras.append(self)
+        self.frequency = frequency
 
     def tick(self):
+        if self.remaining_duration % self.frequency == 0:
+            affected = []
+            for c in self.chunks:
+                ch = self.game.find_chunk(c)
+                if ch is not None:
+                    for e in ch.units[self.side]:
+                        if e.distance_to_point(self.x_y_rad[0], self.x_y_rad[1]) < self.x_y_rad[2]:
+                            if e not in affected:
+                                affected.append(e)
+                    for e in ch.buildings[self.side]:
+                        if e.distance_to_point(self.x_y_rad[0], self.x_y_rad[1]) < self.x_y_rad[2]:
+                            if e not in affected:
+                                affected.append(e)
+                    for e in ch.walls[self.side]:
+                        if e.distance_to_point(self.x_y_rad[0], self.x_y_rad[1]) < self.x_y_rad[2]:
+                            if e not in affected:
+                                affected.append(e)
+            for e in affected:
+                self.apply(e)
         if self.remaining_duration is None:
             return
-        self.remaining_duration -= 1 / FPS
+        self.remaining_duration -= 1
         if self.remaining_duration <= 0:
             self.exists = False
 
     def apply(self, target):
-        if self.x_y_rad is None or target.distance_to_point(self.x_y_rad[0], self.x_y_rad[1]) < self.x_y_rad[2]:
-            if self.targets is None or target.name in self.targets:
-                self.effect(*self.args).apply(target)
+        if self.targets is None or target.name in self.targets:
+            self.effect(*self.args).apply(target)
 
 
 ##################  ---/units---  #################
@@ -1836,9 +1898,24 @@ class Freeze(Spell):
         self.duration = unit_stats[self.name]["duration"]
 
     def main(self):
-        self.game.players[1 - self.side].add_aura(aura(effect_freeze, (self.duration,),
-                                                       0.1,
-                                                       x_y_rad=[self.x, self.y, self.radius]))
+        AOE_aura(effect_freeze, (self.duration,), [self.x, self.y, self.radius], self.game, 1-self.side, 0)
 
 
-possible_spells = [Fireball, Freeze]
+class Rage(Spell):
+    name = "Rage"
+
+    def __init__(self, game, side, x, y):
+        super().__init__(game, side, x, y)
+        self.radius = unit_stats[self.name]["radius"]
+        self.duration = unit_stats[self.name]["duration"]
+        self.buff = unit_stats[self.name]["buff"]
+
+    def main(self):
+        freq = 16
+        AOE_aura(effect_stat_mult, ("speed", self.buff, freq), [self.x, self.y, self.radius],
+                 self.game, self.side, self.duration, [e.name for e in possible_units], freq)
+        AOE_aura(effect_stat_mult, ("cd", 1/self.buff, freq), [self.x, self.y, self.radius],
+                 self.game, self.side, self.duration, frequency=freq)
+
+
+possible_spells = [Fireball, Freeze, Rage]

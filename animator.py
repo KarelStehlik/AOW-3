@@ -6,6 +6,7 @@ import constants
 import images
 import groups
 import random
+import math
 from PIL import Image
 from numba import njit
 
@@ -87,9 +88,9 @@ class windoo(pyglet.window.Window):
                 a = pyglet.image.get_buffer_manager().get_color_buffer().get_image_data()
                 dat1 = list(a.get_data("RGBA", 4 * a.width))
                 i = make_image(dat1, "imagefolder/test/t", self.ticks)
-                i.save("imagefolder/test/t" + str(self.ticks)+".png", "png")
+                i.save("imagefolder/test/t" + str(self.ticks) + ".png", "png")
             else:
-                time.sleep(1/144)
+                time.sleep(1 / 144)
             self.ticks += 1
             self.flip()
             self.last_tick = time.time()
@@ -150,13 +151,14 @@ class animation_explosion:
         self.sprite.delete()
         self.sprite2.delete()
 
+
 class animation_frost:
     def __init__(self, x, y, size, speed, win):
-        self.sprite = pyglet.sprite.Sprite(images.Freeze, x=x,
+        self.sprite = pyglet.sprite.Sprite(images.Fire, x=x,
                                            y=y,
                                            batch=win.batch, group=groups.g[6])
         self.sprite.rotation = random.randint(0, 360)
-        self.sprite.scale = constants.SCREEN_HEIGHT/self.sprite.height*.95
+        self.sprite.scale = constants.SCREEN_HEIGHT / self.sprite.height * .95
         self.x, self.y = x, y
         self.window = win
         self.size, self.speed = size, speed
@@ -176,11 +178,68 @@ class animation_frost:
         self.sprite.delete()
 
 
+class flame:
+    def __init__(self, x, y, vx, vy, duration, size, win):
+        self.x, self.y = x, y
+        self.vx, self.vy = vx, vy
+        self.duration = duration
+        self.remaining = duration
+        self.sprite = pyglet.sprite.Sprite(images.Fire, x=x,
+                                           y=y,
+                                           batch=win.batch, group=groups.g[6])
+        self.sprite.scale = size / images.Fire.width
+        self.sprite.rotation = random.random() * 360
+        self.exists = True
+
+    def tick(self):
+        if not self.exists:
+            return
+        self.x += self.vx
+        self.y += self.vy
+        self.sprite.update(self.x, self.y)
+        self.sprite.opacity = 255 * self.remaining / self.duration
+        self.remaining -= 1
+        if self.remaining < 0:
+            self.sprite.delete()
+            self.exists = False
+
+
+class animation_ring_of_fire:
+    def __init__(self, x, y, win):
+        self.sprites = []
+        self.x, self.y = x, y
+        self.window = win
+        self.exists_time = 0
+        self.spawning_time = 20
+        self.speed = 5
+        self.spawns = 18
+        self.duration = 100
+        self.size = 50
+        win.animations.append(self)
+
+    def tick(self):
+        if self.exists_time <= self.spawning_time:
+            for e in range(self.spawns):
+                angle = random.random() * math.pi * 2
+                self.sprites.append(
+                    flame(self.x, self.y, self.speed * math.cos(angle), self.speed * math.sin(angle), self.duration,
+                          self.size, self.window))
+        [e.tick() for e in self.sprites]
+        if True not in [e.exists for e in self.sprites]:
+            self.delete()
+        self.exists_time += 1
+
+    def delete(self):
+        self.window.animations.remove(self)
+        self.sprites = []
+
+
 def main():
     place = windoo(caption='test', style=pyglet.window.Window.WINDOW_STYLE_BORDERLESS, width=constants.SCREEN_WIDTH,
                    height=constants.SCREEN_HEIGHT)
 
-    animation_frost(constants.SCREEN_WIDTH / 2, constants.SCREEN_HEIGHT / 2, 500, 20, place)
+    animation_ring_of_fire(constants.SCREEN_WIDTH / 2, constants.SCREEN_HEIGHT / 2, place)
+    # animation_frost(constants.SCREEN_WIDTH / 2, constants.SCREEN_HEIGHT / 2,constants.SCREEN_HEIGHT*.9,1,place)
 
     while place.open:
         try:

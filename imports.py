@@ -172,5 +172,4 @@ def product(*a):
         p *= e
     return p
 
-
 product(1.2, 1.3, 1.2)

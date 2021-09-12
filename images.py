@@ -20,14 +20,22 @@ def centre_anchor(e):
     e.anchor_y = e.height // 2
 
 
+def load_animation(folder, num, duration):
+    images = [RI(folder + "/t" + str(i)) for i in range(num)]
+    return pyglet.image.Animation.from_image_sequence(images, duration, False)
+
+
+FlameRing = load_animation("fire_ring", 120, 1/120)
 Background = IL("Background").get_texture()
 Wall = IL("Wall").get_texture()
 WallCrack = IL("wall_crack").get_texture()
 blue_arrow = IL("blue_arrow").get_texture()
 Beam = IL("beam").get_texture()
 
-Freeze=RI("Freeze")
-UpgradeButton=RI("UpgradeButton")
+Freeze = RI("Freeze")
+UpgradeButton = RI("UpgradeButton")
+Rage = RI("Rage")
+RageIcon = RI("Rage_Icon")
 Warn = RI("Warn")
 UpgradeLine = RI("UpgradeLine")
 Egg = RI('Egg')
