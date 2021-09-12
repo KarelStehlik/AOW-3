@@ -1471,7 +1471,7 @@ class Tower2(Tower):
 
 class Tower23(Tower):
     name = "Tower23"
-    image = images.Tower
+    image = images.Tower23
 
     def __init__(self, target=None, tick=None, x=None, y=None, side=None, game=None, ID=None):
         if target is not None:
@@ -2865,7 +2865,7 @@ class animation_ring_of_fire(pyglet.sprite.Sprite):
     def __init__(self, x, y, size, game):
         super().__init__(images.FlameRing, x=x * SPRITE_SIZE_MULT - game.camx,
                          y=y * SPRITE_SIZE_MULT - game.camy,
-                         batch=game.batch, group=groups.g[3])
+                         batch=game.batch, group=groups.g[5])
         self.rotation = random.randint(0, 360)
         self.scale = size / self.width
         self.true_x, self.true_y = x, y

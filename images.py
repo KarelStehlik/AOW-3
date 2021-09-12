@@ -73,6 +73,7 @@ Tower11 = RI("Tower11")
 Tower21 = RI("Tower21")
 Townhall = RI("Townhall")
 Tower22 = RI("tower22")
+Tower23=RI("Tower23")
 
 Arrow = RI("Arrow")
 Arrow.anchor_x = Arrow.width / 2
