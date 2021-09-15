@@ -46,7 +46,7 @@ def make_image(dat1, name, index):
 
 
 class windoo(pyglet.window.Window):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, recording=True, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.folder_name = "test"
         self.batch = pyglet.graphics.Batch()
@@ -61,7 +61,7 @@ class windoo(pyglet.window.Window):
         self.ticks = 0
         self.done = False
         self.open = True
-        self.recording = True
+        self.recording = recording
 
     def on_mouse_motion(self, x, y, dx, dy):
         pass
@@ -188,7 +188,7 @@ class flame:
                                            y=y,
                                            batch=win.batch, group=groups.g[6])
         self.sprite.scale = size / images.Fire.width
-        self.sprite.rotation = random.random() * 360
+        self.sprite.rotation = (vy * 69000) % 360
         self.exists = True
 
     def tick(self):
@@ -198,6 +198,35 @@ class flame:
         self.y += self.vy
         self.sprite.update(self.x, self.y)
         self.sprite.opacity = 255 * self.remaining / self.duration
+        self.remaining -= 1
+        if self.remaining < 0:
+            self.sprite.delete()
+            self.exists = False
+
+
+class smoke:
+    def __init__(self, x, y, vx, vy, duration, size, win):
+        self.x, self.y = x, y
+        self.vx, self.vy = vx, vy
+        self.duration = duration
+        self.remaining = duration
+        self.sprite = pyglet.sprite.Sprite(images.Smoke, x=x,
+                                           y=y,
+                                           batch=win.batch, group=groups.g[5])
+        self.sprite.scale = size / images.Fire.width
+        self.sprite.rotation = (vy * 69000) % 360
+        self.exists = True
+
+    def tick(self):
+        if not self.exists:
+            return
+        self.x += self.vx
+        self.y += self.vy
+        self.sprite.update(self.x, self.y)
+        x = self.remaining / self.duration
+        flux = 255
+        turn = 0.4
+        self.sprite.opacity = int((-abs(x - turn) + x * (1 - 2 * turn) + turn) * flux / (2 * turn - 2 * turn ** 2))
         self.remaining -= 1
         if self.remaining < 0:
             self.sprite.delete()
@@ -234,11 +263,64 @@ class animation_ring_of_fire:
         self.sprites = []
 
 
+class animation_flame_breath:
+    def __init__(self, x, y, win):
+        self.sprites = []
+        self.x, self.y = x, y
+        self.window = win
+        self.exists_time = 0
+        self.speed = 10
+        self.spawns = 40
+        self.duration = 100
+        self.spawn_time = 30
+        self.size = 50
+        win.animations.append(self)
+        self.log = []
+        self.stage = 0
+        # for i in range(self.duration):
+        #    self.tick()
+
+    def tick(self):
+        if self.exists_time <= self.spawn_time + 1 + self.duration:
+            if self.stage == 0 and self.exists_time > self.spawn_time:
+                self.stage = 1
+            if self.stage == 0:
+                for e in range(self.spawns):
+                    angle = (random.random() - 0.5) * 0.5
+                    self.sprites.append(
+                        flame(self.x + math.sin(69 * angle) * self.speed, self.y, self.speed * math.cos(angle),
+                              self.speed * math.sin(angle), self.duration * .9,
+                              self.size, self.window))
+                    self.sprites.append(
+                        smoke(self.x + math.sin(69 * angle) * self.speed, self.y, self.speed * math.cos(angle),
+                              self.speed * math.sin(angle),
+                              self.duration,
+                              self.size, self.window))
+            [e.tick() for e in self.sprites]
+            if self.stage == 1:
+                for e in self.sprites:
+                    e.x -= self.speed
+            i = 0
+            while i < len(self.sprites):
+                if not self.sprites[i].exists:
+                    self.sprites.pop(i)
+                else:
+                    i += 1
+            self.exists_time += 1
+        else:
+            self.delete()
+
+    def delete(self):
+        self.window.animations.remove(self)
+        self.sprites = []
+
+
 def main():
-    place = windoo(caption='test', style=pyglet.window.Window.WINDOW_STYLE_BORDERLESS, width=constants.SCREEN_WIDTH,
+    place = windoo(recording=True, caption='test', style=pyglet.window.Window.WINDOW_STYLE_BORDERLESS,
+                   width=constants.SCREEN_WIDTH,
                    height=constants.SCREEN_HEIGHT)
 
-    animation_ring_of_fire(constants.SCREEN_WIDTH / 2, constants.SCREEN_HEIGHT / 2, place)
+    animation_flame_breath(constants.SCREEN_WIDTH * .05, constants.SCREEN_HEIGHT / 2, place)
     # animation_frost(constants.SCREEN_WIDTH / 2, constants.SCREEN_HEIGHT / 2,constants.SCREEN_HEIGHT*.9,1,place)
 
     while place.open:

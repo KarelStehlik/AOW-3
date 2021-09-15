@@ -493,13 +493,14 @@ class TownHall(Building):
 class Tower(Building):
     name = "Tower"
     entity_type = "tower"
+    upgrades = []
 
     def __init__(self, ID, x, y, side, game):
         super().__init__(ID, x, y, side, game)
         self.current_cooldown = 0
         self.target = None
         self.shooting_in_chunks = get_chunks(self.x, self.y, 2 * self.stats["reach"])
-        self.upgrades_into = [Tower1, Tower2, Tower3]
+        self.upgrades_into = [e for e in self.upgrades]
         self.turns_without_target = 0
 
     @classmethod
@@ -550,28 +551,26 @@ class Tower(Building):
 
 class Tower1(Tower):
     name = "Tower1"
+    upgrades = []
 
     def __init__(self, target):
         super().__init__(target.ID, target.x, target.y, target.side, target.game)
         self.comes_from = target
-        self.upgrades_into = [Tower11]
 
 
 class Tower11(Tower):
     name = "Tower11"
+    upgrades = []
 
     def __init__(self, target):
         super().__init__(target.ID, target.x, target.y, target.side, target.game)
         self.comes_from = target
-        self.upgrades_into = []
-        self.shots = unit_stats[self.name]["shots"]
-        self.spread = unit_stats[self.name]["spread"]
 
     def attack(self, target):
         direction = target.towards(self.x, self.y)
         rot = get_rotation_norm(*direction)
-        for i in range(int(self.shots)):
-            Bullet(self.x, self.y, rot + self.spread * math.sin(self.game.ticks + 5 * i), self.game, self.side,
+        for i in range(int(self.stats["shots"])):
+            Bullet(self.x, self.y, rot + self.stats["spread"] * math.sin(self.game.ticks + 5 * i), self.game, self.side,
                    self.stats["dmg"], self,
                    self.stats["bulletspeed"],
                    self.stats["reach"] * 1.5)
@@ -579,11 +578,11 @@ class Tower11(Tower):
 
 class Tower2(Tower):
     name = "Tower2"
+    upgrades = []
 
     def __init__(self, target):
         super().__init__(target.ID, target.x, target.y, target.side, target.game)
         self.comes_from = target
-        self.upgrades_into = [Tower21, Tower22, Tower23]
 
     def attack(self, target):
         Boulder(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"], self,
@@ -594,11 +593,11 @@ class Tower2(Tower):
 
 class Tower23(Tower):
     name = "Tower23"
+    upgrades = []
 
     def __init__(self, target):
         super().__init__(target.ID, target.x, target.y, target.side, target.game)
         self.comes_from = target
-        self.upgrades_into = []
 
     def attack(self, target):
         AOE_damage(self.x, self.y, self.stats["reach"], self.stats["dmg"], self, self.game)
@@ -606,11 +605,11 @@ class Tower23(Tower):
 
 class Tower22(Tower):
     name = "Tower22"
+    upgrades = []
 
     def __init__(self, target):
         super().__init__(target.ID, target.x, target.y, target.side, target.game)
         self.comes_from = target
-        self.upgrades_into = []
 
     def attack(self, target):
         if target is None:
@@ -661,11 +660,11 @@ class Tower22(Tower):
 
 class Tower21(Tower):
     name = "Tower21"
+    upgrades = []
 
     def __init__(self, target):
         super().__init__(target.ID, target.x, target.y, target.side, target.game)
         self.comes_from = target
-        self.upgrades_into = [Tower211]
 
     def attack(self, target):
         Meteor(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"], self,
@@ -676,11 +675,11 @@ class Tower21(Tower):
 
 class Tower211(Tower):
     name = "Tower211"
+    upgrades = []
 
     def __init__(self, target):
         super().__init__(target.ID, target.x, target.y, target.side, target.game)
         self.comes_from = target
-        self.upgrades_into = []
 
     def attack(self, target):
         Egg(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"], self,
@@ -691,11 +690,10 @@ class Tower211(Tower):
 
 class Tower3(Tower):
     name = "Tower3"
-
+    upgrades = []
     def __init__(self, target):
         super().__init__(target.ID, target.x, target.y, target.side, target.game)
         self.comes_from = target
-        self.upgrades_into = [Tower31]
 
     def attack(self, target):
         Arrow(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"], self,
@@ -706,11 +704,11 @@ class Tower3(Tower):
 
 class Tower31(Tower):
     name = "Tower31"
+    upgrades = []
 
     def __init__(self, target):
         super().__init__(target.ID, target.x, target.y, target.side, target.game)
         self.comes_from = target
-        self.upgrades_into = []
 
     def attack(self, target):
         Arrow(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"], self,
@@ -722,10 +720,11 @@ class Tower31(Tower):
 class Farm(Building):
     name = "Farm"
     entity_type = "farm"
+    upgrades = []
 
     def __init__(self, ID, x, y, side, game):
         super().__init__(ID, x, y, side, game)
-        self.upgrades_into = [Farm1, Farm2]
+        self.upgrades_into = [e for e in self.upgrades]
 
     @classmethod
     def get_cost(cls, params):
@@ -740,33 +739,45 @@ class Farm(Building):
 
 class Farm1(Farm):
     name = "Farm1"
+    upgrades = []
 
     def __init__(self, target):
         super().__init__(target.ID, target.x, target.y, target.side, target.game)
         self.comes_from = target
-        self.upgrades_into = [Farm11]
 
 
 class Farm11(Farm):
     name = "Farm11"
+    upgrades = []
 
     def __init__(self, target):
         super().__init__(target.ID, target.x, target.y, target.side, target.game)
         self.comes_from = target
-        self.upgrades_into = []
 
 
 class Farm2(Farm):
     name = "Farm2"
+    upgrades = []
 
     def __init__(self, target):
         super().__init__(target.ID, target.x, target.y, target.side, target.game)
         self.comes_from = target
-        self.upgrades_into = []
 
 
 possible_buildings = [Tower, Farm, Tower1, Tower2, Tower21, Tower11, Farm1, Farm2, Tower211, Tower3, Tower31, Tower22,
                       Farm11, Tower23]
+def get_upg_num(cls):
+    return int(cls.__name__[-1])
+
+
+for e in possible_buildings:
+    name1 = e.__name__
+    for j in possible_buildings:
+        name2 = j.__name__
+        if len(name1) == len(name2) + 1 and name1[0:-1] == name2:
+            j.upgrades.append(e)
+            j.upgrades.sort(key=get_upg_num)
+            continue
 
 
 class Wall:
@@ -1898,7 +1909,7 @@ class Freeze(Spell):
         self.duration = unit_stats[self.name]["duration"]
 
     def main(self):
-        AOE_aura(effect_freeze, (self.duration,), [self.x, self.y, self.radius], self.game, 1-self.side, 0)
+        AOE_aura(effect_freeze, (self.duration,), [self.x, self.y, self.radius], self.game, 1 - self.side, 0)
 
 
 class Rage(Spell):
@@ -1914,7 +1925,7 @@ class Rage(Spell):
         freq = 16
         AOE_aura(effect_stat_mult, ("speed", self.buff, freq), [self.x, self.y, self.radius],
                  self.game, self.side, self.duration, [e.name for e in possible_units], freq)
-        AOE_aura(effect_stat_mult, ("cd", 1/self.buff, freq), [self.x, self.y, self.radius],
+        AOE_aura(effect_stat_mult, ("cd", 1 / self.buff, freq), [self.x, self.y, self.radius],
                  self.game, self.side, self.duration, frequency=freq)
 
 

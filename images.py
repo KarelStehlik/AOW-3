@@ -25,7 +25,9 @@ def load_animation(folder, num, duration):
     return pyglet.image.Animation.from_image_sequence(images, duration, False)
 
 
-FlameRing = load_animation("fire_ring", 120, 1/120)
+Testfire = RI("Testfire")
+flame_wave = load_animation("flame_wave", 33, 1 / 200)
+FlameRing = load_animation("fire_ring", 120, 1 / 120)
 Background = IL("Background").get_texture()
 Wall = IL("Wall").get_texture()
 WallCrack = IL("wall_crack").get_texture()
@@ -51,6 +53,7 @@ Towerbutton = RI("Towerbutton")
 UnitSlot = RI("UnitSlot")
 UnitFormFrame = RI("UnitFormFrame", False)
 Fire = RI("fire")
+Smoke = RI("smoke")
 Shockwave = RI("shockwave")
 Boulder = RI("Boulder")
 Meteor = RI("Meteor")
@@ -73,7 +76,7 @@ Tower11 = RI("Tower11")
 Tower21 = RI("Tower21")
 Townhall = RI("Townhall")
 Tower22 = RI("tower22")
-Tower23=RI("Tower23")
+Tower23 = RI("Tower23")
 
 Arrow = RI("Arrow")
 Arrow.anchor_x = Arrow.width / 2

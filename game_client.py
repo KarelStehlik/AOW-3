@@ -1345,6 +1345,7 @@ class Tower(Building):
     name = "Tower"
     entity_type = "tower"
     image = images.Tower
+    upgrades = []
 
     def __init__(self, ID, x, y, tick, side, game):
         game.players[side].money -= self.get_cost([])
@@ -1357,7 +1358,7 @@ class Tower(Building):
         self.current_cooldown = 0
         self.target = None
         self.shooting_in_chunks = get_chunks(self.x, self.y, 2 * self.stats["reach"])
-        self.upgrades_into = [Tower1, Tower2, Tower3]
+        self.upgrades_into = [e for e in self.upgrades]
         self.turns_without_target = 0
 
     @classmethod
@@ -1433,32 +1434,34 @@ class Tower(Building):
         self.shown = False
 
 
-class Tower1(Tower):
+class tower_upgrade(Tower):
+    upgrades = []
+    name = "Tower"
+
+    def __init__(self, target=None, tick=None, x=None, y=None, side=None, game=None, ID=None):
+        if target is not None:
+            super().__init__(target.ID, target.x, target.y, tick, target.side, target.game)
+            self.comes_from = target
+        else:
+            super().__init__(ID, x, y, tick, side, game)
+            self.comes_from = None
+        self.upgrades_into = [e for e in self.upgrades]
+
+    @classmethod
+    def get_cost(cls, params):
+        return unit_stats[cls.name]["cost"]
+
+
+class Tower1(tower_upgrade, Tower):
     name = "Tower1"
     image = images.Tower1
-
-    def __init__(self, target=None, tick=None, x=None, y=None, side=None, game=None, ID=None):
-        if target is not None:
-            super().__init__(target.ID, target.x, target.y, tick, target.side, target.game)
-            self.comes_from = target
-        else:
-            super().__init__(ID, x, y, tick, side, game)
-            self.comes_from = None
-        self.upgrades_into = [Tower11]
+    upgrades = []
 
 
-class Tower2(Tower):
+class Tower2(tower_upgrade, Tower):
     name = "Tower2"
     image = images.Tower2
-
-    def __init__(self, target=None, tick=None, x=None, y=None, side=None, game=None, ID=None):
-        if target is not None:
-            super().__init__(target.ID, target.x, target.y, tick, target.side, target.game)
-            self.comes_from = target
-        else:
-            super().__init__(ID, x, y, tick, side, game)
-            self.comes_from = None
-        self.upgrades_into = [Tower21, Tower22, Tower23]
+    upgrades = []
 
     def attack(self, target):
         direction = target.towards(self.x, self.y)
@@ -1469,36 +1472,20 @@ class Tower2(Tower):
                 recursion=self.stats["recursion"])
 
 
-class Tower23(Tower):
+class Tower23(tower_upgrade, Tower):
     name = "Tower23"
     image = images.Tower23
-
-    def __init__(self, target=None, tick=None, x=None, y=None, side=None, game=None, ID=None):
-        if target is not None:
-            super().__init__(target.ID, target.x, target.y, tick, target.side, target.game)
-            self.comes_from = target
-        else:
-            super().__init__(ID, x, y, tick, side, game)
-            self.comes_from = None
-        self.upgrades_into = []
+    upgrades = []
 
     def attack(self, target):
         AOE_damage(self.x, self.y, self.stats["reach"], self.stats["dmg"], self, self.game)
         animation_ring_of_fire(self.x, self.y, self.stats["reach"] * 3, self.game)
 
 
-class Tower22(Tower):
+class Tower22(tower_upgrade, Tower):
     name = "Tower22"
     image = images.Tower22
-
-    def __init__(self, target=None, tick=None, x=None, y=None, side=None, game=None, ID=None):
-        if target is not None:
-            super().__init__(target.ID, target.x, target.y, tick, target.side, target.game)
-            self.comes_from = target
-        else:
-            super().__init__(ID, x, y, tick, side, game)
-            self.comes_from = None
-        self.upgrades_into = []
+    upgrades = []
 
     def attack(self, target):
         if target is None:
@@ -1548,18 +1535,10 @@ class Tower22(Tower):
         return False
 
 
-class Tower21(Tower):
+class Tower21(tower_upgrade, Tower):
     name = "Tower21"
     image = images.Tower21
-
-    def __init__(self, target=None, tick=None, x=None, y=None, side=None, game=None, ID=None):
-        if target is not None:
-            super().__init__(target.ID, target.x, target.y, tick, target.side, target.game)
-            self.comes_from = target
-        else:
-            super().__init__(ID, x, y, tick, side, game)
-            self.comes_from = None
-        self.upgrades_into = [Tower211]
+    upgrades = []
 
     def attack(self, target):
         direction = target.towards(self.x, self.y)
@@ -1570,18 +1549,10 @@ class Tower21(Tower):
                recursion=self.stats["recursion"])
 
 
-class Tower211(Tower):
+class Tower211(tower_upgrade, Tower):
     name = "Tower211"
     image = images.Tower21
-
-    def __init__(self, target=None, tick=None, x=None, y=None, side=None, game=None, ID=None):
-        if target is not None:
-            super().__init__(target.ID, target.x, target.y, tick, target.side, target.game)
-            self.comes_from = target
-        else:
-            super().__init__(ID, x, y, tick, side, game)
-            self.comes_from = None
-        self.upgrades_into = []
+    upgrades = []
 
     def attack(self, target):
         direction = target.towards(self.x, self.y)
@@ -1591,43 +1562,25 @@ class Tower211(Tower):
             pierce=self.stats["pierce"], cluster=self.stats["cluster"], recursion=self.stats["recursion"])
 
 
-class Tower11(Tower):
+class Tower11(tower_upgrade, Tower):
     name = "Tower11"
     image = images.Tower11
-
-    def __init__(self, target=None, tick=None, x=None, y=None, side=None, game=None, ID=None):
-        if target is not None:
-            super().__init__(target.ID, target.x, target.y, tick, target.side, target.game)
-            self.comes_from = target
-        else:
-            super().__init__(ID, x, y, tick, side, game)
-            self.comes_from = None
-        self.upgrades_into = []
-        self.shots = unit_stats[self.name]["shots"]
-        self.spread = unit_stats[self.name]["spread"]
+    upgrades = []
 
     def attack(self, target):
         direction = target.towards(self.x, self.y)
         rot = get_rotation_norm(*direction)
         self.sprite.rotation = 90 - rot * 180 / math.pi
-        for i in range(int(self.shots)):
-            Bullet(self.x, self.y, rot + self.spread * math.sin(self.game.ticks + 5 * i), self.game, self.side,
+        for i in range(int(self.stats["shots"])):
+            Bullet(self.x, self.y, rot + self.stats["spread"] * math.sin(self.game.ticks + 5 * i), self.game, self.side,
                    self.stats["dmg"], self, self.stats["bulletspeed"],
                    self.stats["reach"] * 1.5, scale=self.stats["bullet_scale"])
 
 
-class Tower3(Tower):
+class Tower3(tower_upgrade, Tower):
     name = "Tower3"
     image = images.Tower1
-
-    def __init__(self, target=None, tick=None, x=None, y=None, side=None, game=None, ID=None):
-        if target is not None:
-            super().__init__(target.ID, target.x, target.y, tick, target.side, target.game)
-            self.comes_from = target
-        else:
-            super().__init__(ID, x, y, tick, side, game)
-            self.comes_from = None
-        self.upgrades_into = [Tower31]
+    upgrades = []
 
     def attack(self, target):
         direction = target.towards(self.x, self.y)
@@ -1637,18 +1590,10 @@ class Tower3(Tower):
               cluster=self.stats["cluster"], recursion=self.stats["recursion"])
 
 
-class Tower31(Tower):
+class Tower31(tower_upgrade, Tower):
     name = "Tower31"
     image = images.Tower1
-
-    def __init__(self, target=None, tick=None, x=None, y=None, side=None, game=None, ID=None):
-        if target is not None:
-            super().__init__(target.ID, target.x, target.y, tick, target.side, target.game)
-            self.comes_from = target
-        else:
-            super().__init__(ID, x, y, tick, side, game)
-            self.comes_from = None
-        self.upgrades_into = []
+    upgrades = []
 
     def attack(self, target):
         direction = target.towards(self.x, self.y)
@@ -1662,11 +1607,12 @@ class Farm(Building):
     name = "Farm"
     entity_type = "farm"
     image = images.Farm
+    upgrades = []
 
     def __init__(self, ID, x, y, tick, side, game):
         game.players[side].money -= self.get_cost([])
         super().__init__(ID, x, y, tick, side, game)
-        self.upgrades_into = [Farm1, Farm2]
+        self.upgrades_into = [e for e in self.upgrades]
 
     @classmethod
     def get_cost(cls, params):
@@ -1679,50 +1625,58 @@ class Farm(Building):
             self.game.players[self.side].gain_money(self.stats["production"])
 
 
-class Farm1(Farm):
+class farm_upgrade(Farm):
+    upgrades = []
+    name = "Farm"
+
+    def __init__(self, target=None, tick=None, x=None, y=None, side=None, game=None, ID=None):
+        if target is not None:
+            super().__init__(target.ID, target.x, target.y, tick, target.side, target.game)
+            self.comes_from = target
+        else:
+            super().__init__(ID, x, y, tick, side, game)
+            self.comes_from = None
+        self.upgrades_into = [e for e in self.upgrades]
+
+    @classmethod
+    def get_cost(cls, params):
+        return unit_stats[cls.name]["cost"]
+
+
+class Farm1(farm_upgrade, Farm):
     name = "Farm1"
     image = images.Farm1
-
-    def __init__(self, target=None, tick=None, x=None, y=None, side=None, game=None, ID=None):
-        if target is not None:
-            super().__init__(target.ID, target.x, target.y, tick, target.side, target.game)
-            self.comes_from = target
-        else:
-            super().__init__(ID, x, y, tick, side, game)
-            self.comes_from = None
-        self.upgrades_into = [Farm11]
+    upgrades = []
 
 
-class Farm11(Farm):
+class Farm11(farm_upgrade, Farm):
     name = "Farm11"
     image = images.Farm11
-
-    def __init__(self, target=None, tick=None, x=None, y=None, side=None, game=None, ID=None):
-        if target is not None:
-            super().__init__(target.ID, target.x, target.y, tick, target.side, target.game)
-            self.comes_from = target
-        else:
-            super().__init__(ID, x, y, tick, side, game)
-            self.comes_from = None
-        self.upgrades_into = []
+    upgrades = []
 
 
-class Farm2(Farm):
+class Farm2(farm_upgrade, Farm):
     name = "Farm2"
     image = images.Farm2
-
-    def __init__(self, target=None, tick=None, x=None, y=None, side=None, game=None, ID=None):
-        if target is not None:
-            super().__init__(target.ID, target.x, target.y, tick, target.side, target.game)
-            self.comes_from = target
-        else:
-            super().__init__(ID, x, y, tick, side, game)
-            self.comes_from = None
-        self.upgrades_into = []
+    upgrades = []
 
 
 possible_buildings = [Tower, Farm, Tower1, Tower2, Tower21, Tower11, Farm1, Farm2, Tower211, Tower3, Tower31, Tower22,
                       Farm11, Tower23]
+
+
+def get_upg_num(cls):
+    return int(cls.__name__[-1])
+
+
+for e in possible_buildings:
+    name1 = e.__name__
+    for j in possible_buildings:
+        name2 = j.__name__
+        if len(name1) == len(name2) + 1 and name1[0:-1] == name2:
+            j.upgrades.append(e)
+            j.upgrades.sort(key=get_upg_num)
+            continue
 
 
 class Wall:
@@ -2875,6 +2829,7 @@ class animation_ring_of_fire(pyglet.sprite.Sprite):
     def tick(self, dt):
         self.update(x=self.true_x * SPRITE_SIZE_MULT - self.game.camx,
                     y=self.true_y * SPRITE_SIZE_MULT - self.game.camy)
+        self._animate(dt)
 
     def on_animation_end(self):
         self.delete()
