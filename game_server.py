@@ -186,7 +186,7 @@ class Game:
 
     def summon_ai_wave(self, side):
         self.players[side].ai_wave += 1
-        power = 1000 * self.players[side].ai_wave ** 1.8
+        power = 1000 * 2**self.players[side].ai_wave
         worth = power
         self.players[side].gain_money(worth)
         self.players[side].time_until_wave = WAVE_INTERVAL
@@ -279,7 +279,7 @@ class player:
         self.spells = []
         self.money = STARTING_MONEY
         self.mana = STARTING_MANA
-        self.max_mana=MAX_MANA
+        self.max_mana = MAX_MANA
         self.TownHall = None
         self.ai_wave = 0
         self.time_until_wave = WAVE_INTERVAL
@@ -290,12 +290,13 @@ class player:
                                Farm1, Farm2, Tower3, Tower31, Farm11, Fireball, Freeze, Rage, Tower23]
 
     def gain_mana(self, amount):
-        self.mana = min(self.mana+amount,self.max_mana)
+        self.mana = min(self.mana + amount, self.max_mana)
 
     def add_aura(self, aur):
         self.auras.append(aur)
-        [aur.apply(e) for e in self.units]
-        [aur.apply(e) for e in self.all_buildings]
+        if aur.everywhere:
+            [aur.apply(e) for e in self.units]
+            [aur.apply(e) for e in self.all_buildings]
 
     def has_upgrade(self, upg):
         for e in self.owned_upgrades:
@@ -1382,7 +1383,8 @@ class Necromancer(Unit):
         a = Zombie([self.ID, self.zombies], e.x, e.y, self.side, self.column, self.row, self.game, self.formation,
                    effects=(effect_stat_add("health", e.base_stats["health"] * self.stats["steal"]),
                             effect_stat_add("dmg", e.base_stats["dmg"] * self.stats["steal"]),
-                            effect_stat_add("size", e.base_stats["size"] * self.stats["steal"] - 19)
+                            effect_stat_add("size", e.base_stats["size"] - 19),
+                            effect_stat_add("cd", e.base_stats["cd"] / self.stats["steal"])
                             )
                    )
         a.summon_done()
@@ -1409,7 +1411,8 @@ class Zombie(Unit):
         a = Zombie([self.ID, self.zombies], e.x, e.y, self.side, self.column, self.row, self.game, self.formation,
                    effects=(effect_stat_add("health", e.base_stats["health"] * self.stats["steal"]),
                             effect_stat_add("dmg", e.base_stats["dmg"] * self.stats["steal"]),
-                            effect_stat_add("size", e.base_stats["size"] * self.stats["steal"] - 19)
+                            effect_stat_add("size", e.base_stats["size"] - 19),
+                            effect_stat_add("cd", e.base_stats["cd"] / self.stats["steal"])
                             )
                    )
         a.summon_done()
@@ -1504,18 +1507,18 @@ class Projectile_with_size(Projectile):
             if c is not None:
                 for unit in c.units[1 - self.side]:
                     if unit.exists and unit not in self.already_hit and \
-                            (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= (unit.size ** 2) / 4:
+                            (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= ((unit.size+self.size) ** 2) / 4:
                         self.collide(unit)
                         if self.pierce < 1:
                             return
                 for unit in c.buildings[1 - self.side]:
                     if unit.exists and unit not in self.already_hit and \
-                            (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= (unit.size ** 2) / 4:
+                            (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= ((unit.size+self.size) ** 2) / 4:
                         self.collide(unit)
                         if self.pierce < 1:
                             return
                 for wall in c.walls[1 - self.side]:
-                    if wall.exists and wall not in self.already_hit and wall.distance_to_point(self.x, self.y) <= 0:
+                    if wall.exists and wall not in self.already_hit and wall.distance_to_point(self.x, self.y) <= self.size:
                         self.collide(wall)
                         if self.pierce < 1:
                             return
@@ -1716,6 +1719,7 @@ class effect_regen(effect):
 
 
 class aura:
+    everywhere = True
     def __init__(self, effect, args, duration=None, targets=None):
         self.effect = effect
         self.args = args
@@ -1736,6 +1740,7 @@ class aura:
 
 
 class AOE_aura:
+    everywhere = False
     def __init__(self, effect, args, x_y_rad, game: Game, side, duration=None, targets=None, frequency=1):
         self.effect = effect
         self.args = args
@@ -1923,9 +1928,10 @@ class Upgrade_superior_pyrotechnics(Upgrade):
     def on_finish(self):
         self.player.unlock_unit(Tower231)
 
+
 possible_upgrades = [Upgrade_default, Upgrade_test_1, Upgrade_bigger_arrows, Upgrade_catapult, Upgrade_bigger_rocks,
                      Upgrade_egg, Upgrade_faster_archery, Upgrade_vigorous_farming, Upgrade_mines, Upgrade_necromancy,
-                     Upgrade_nanobots, Upgrade_walls,Upgrade_superior_pyrotechnics]
+                     Upgrade_nanobots, Upgrade_walls, Upgrade_superior_pyrotechnics]
 
 
 class Spell:

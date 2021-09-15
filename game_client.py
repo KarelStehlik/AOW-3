@@ -326,7 +326,7 @@ class player:
         self.spells = []
         self.money = STARTING_MONEY
         self.mana = STARTING_MANA
-        self.max_mana=MAX_MANA
+        self.max_mana = MAX_MANA
         self.TownHall = None
         self.auras = []
         self.pending_upgrades = []
@@ -335,12 +335,13 @@ class player:
                                Farm1, Farm2, Tower3, Tower31, Farm11, Fireball, Freeze, Rage, Tower23]
 
     def gain_mana(self, amount):
-        self.mana = min(self.mana+amount,self.max_mana)
+        self.mana = min(self.mana + amount, self.max_mana)
 
     def add_aura(self, aur):
         self.auras.append(aur)
-        [aur.apply(e) for e in self.units]
-        [aur.apply(e) for e in self.all_buildings]
+        if aur.everywhere:
+            [aur.apply(e) for e in self.units]
+            [aur.apply(e) for e in self.all_buildings]
 
     def has_upgrade(self, upg):
         for e in self.owned_upgrades:
@@ -2140,6 +2141,7 @@ class Unit:
             self.stats[e] = (self.base_stats[e] + sum(self.mods_add[e])) * product(*self.mods_multiply[e])
         self.health = self.stats["health"] * health_part
         self.size = self.stats["size"]
+        self.sprite.scale = self.stats["vwidth"] * SPRITE_SIZE_MULT / self.image.width
 
     def distance_to_point(self, x, y):
         return distance(self.x, self.y, x, y) - self.size / 2
@@ -2484,8 +2486,9 @@ class Necromancer(Unit):
         a = Zombie([self.ID, self.zombies], e.x, e.y, self.side, self.column, self.row, self.game, self.formation,
                    effects=(effect_stat_add("health", e.base_stats["health"] * self.stats["steal"]),
                             effect_stat_add("dmg", e.base_stats["dmg"] * self.stats["steal"]),
-                            effect_stat_add("size", e.base_stats["size"] * self.stats["steal"] - 19),
-                            effect_stat_add("vwidth", e.base_stats["vwidth"] * self.stats["steal"] - 20)
+                            effect_stat_add("size", e.base_stats["size"]- 19),
+                            effect_stat_add("vwidth", e.base_stats["vwidth"]- 20),
+                            effect_stat_add("cd", e.base_stats["cd"] / self.stats["steal"])
                             )
                    )
         a.summon_done()
@@ -2518,8 +2521,9 @@ class Zombie(Unit):
         a = Zombie([self.ID, self.zombies], e.x, e.y, self.side, self.column, self.row, self.game, self.formation,
                    effects=(effect_stat_add("health", e.base_stats["health"] * self.stats["steal"]),
                             effect_stat_add("dmg", e.base_stats["dmg"] * self.stats["steal"]),
-                            effect_stat_add("size", e.base_stats["size"] * self.stats["steal"] - 19),
-                            effect_stat_add("vwidth", e.base_stats["vwidth"] * self.stats["steal"] - 20)
+                            effect_stat_add("size", e.base_stats["size"] - 19),
+                            effect_stat_add("vwidth", e.base_stats["vwidth"] - 20),
+                            effect_stat_add("cd", e.base_stats["cd"] / self.stats["steal"])
                             )
                    )
         a.summon_done()
@@ -2654,18 +2658,18 @@ class Projectile_with_size(Projectile):
             if c is not None:
                 for unit in c.units[1 - self.side]:
                     if unit.exists and unit not in self.already_hit and \
-                            (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= (unit.size ** 2) / 4:
+                            (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= ((unit.size+self.size) ** 2) / 4:
                         self.collide(unit)
                         if self.pierce < 1:
                             return
                 for unit in c.buildings[1 - self.side]:
                     if unit.exists and unit not in self.already_hit and \
-                            (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= (unit.size ** 2) / 4:
+                            (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= ((unit.size+self.size) ** 2) / 4:
                         self.collide(unit)
                         if self.pierce < 1:
                             return
                 for wall in c.walls[1 - self.side]:
-                    if wall.exists and wall not in self.already_hit and wall.distance_to_point(self.x, self.y) <= 0:
+                    if wall.exists and wall not in self.already_hit and wall.distance_to_point(self.x, self.y) <= self.size:
                         self.collide(wall)
                         if self.pierce < 1:
                             return
@@ -2687,7 +2691,7 @@ class flame_wave(Projectile_with_size):
         super().__init__(*args, **kwargs)
         self.max_duration = self.reach / self.speed * INV_FPS
         self.anim_time = 0
-        self.anim_frames = len(self.sprite.image.frames)-1
+        self.anim_frames = len(self.sprite.image.frames) - 1
         self.frame_duration = self.max_duration / self.anim_frames
 
     def graphics_update(self, dt):
@@ -3055,6 +3059,7 @@ class effect_regen(effect):
 
 
 class aura:
+    everywhere=True
     def __init__(self, effect, args, duration=None, targets=None):
         self.effect = effect
         self.args = args
@@ -3075,6 +3080,7 @@ class aura:
 
 
 class AOE_aura:
+    everywhere=False
     def __init__(self, effect, args, x_y_rad, game: Game, side, duration=None, targets=None, frequency=1):
         self.effect = effect
         self.args = args
@@ -3550,7 +3556,7 @@ class Fireball(Spell):
         self.sprite = pyglet.sprite.Sprite(images.Meteor, batch=game.batch, group=groups.g[4])
         self.radius = unit_stats[self.name]["radius"]
         self.dmg = unit_stats[self.name]["dmg"]
-        self.sprite.scale = self.radius / (4 * images.Meteor.width)
+        self.sprite.scale = self.radius / (2 * images.Meteor.width)
         self.sprite.rotation = 90 - 180 / math.pi * get_rotation(self.dx, self.dy)
         self.delay *= distance(self.x1, self.y1, x, y)
         self.delay = max(self.delay, ACTION_DELAY * FPS)
@@ -3563,7 +3569,7 @@ class Fireball(Spell):
     def main(self):
         self.sprite.delete()
         AOE_damage(self.x, self.y, self.radius, self.dmg, self, self.game, "spell")
-        animation_explosion(self.x, self.y, self.radius, 100, self.game)
+        animation_explosion(self.x, self.y, self.radius*2, 100, self.game)
 
 
 class Freeze(Spell):
