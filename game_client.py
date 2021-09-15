@@ -128,9 +128,9 @@ class Game:
             self.players[0].gain_mana(PASSIVE_MANA)
             self.players[1].gain_mana(PASSIVE_MANA)
         self.update_cam(self.last_dt)
-        self.players[0].graphics_update()
-        self.players[1].graphics_update()
-        [e.graphics_update() for e in self.projectiles]
+        self.players[0].graphics_update(self.last_dt)
+        self.players[1].graphics_update(self.last_dt)
+        [e.graphics_update(self.last_dt) for e in self.projectiles]
         self.selected.tick()
         [e.tick(self.last_dt) for e in self.animations]
         [e.graphics_update(self.last_dt) for e in self.drawables]
@@ -326,6 +326,7 @@ class player:
         self.spells = []
         self.money = STARTING_MONEY
         self.mana = STARTING_MANA
+        self.max_mana=MAX_MANA
         self.TownHall = None
         self.auras = []
         self.pending_upgrades = []
@@ -334,7 +335,7 @@ class player:
                                Farm1, Farm2, Tower3, Tower31, Farm11, Fireball, Freeze, Rage, Tower23]
 
     def gain_mana(self, amount):
-        self.mana += amount
+        self.mana = min(self.mana+amount,self.max_mana)
 
     def add_aura(self, aur):
         self.auras.append(aur)
@@ -404,14 +405,14 @@ class player:
                 self.auras.remove(e)
         [e.upgrading_tick() for e in self.pending_upgrades]
 
-    def graphics_update(self):
+    def graphics_update(self, dt):
         if self.side == self.game.side:
             self.game.UI_topBar.money.text = "Gold: " + str(int(self.money))
             self.game.UI_topBar.mana.text = "Mana: " + str(int(self.mana))
-        [e.graphics_update() for e in self.units]
-        [e.graphics_update() for e in self.walls]
-        [e.graphics_update() for e in self.all_buildings]
-        [e.graphics_update() for e in self.spells]
+        [e.graphics_update(dt) for e in self.units]
+        [e.graphics_update(dt) for e in self.walls]
+        [e.graphics_update(dt) for e in self.all_buildings]
+        [e.graphics_update(dt) for e in self.spells]
 
     def update_cam(self, x, y):
         [e.update_cam(x, y) for e in self.units]
@@ -1312,7 +1313,7 @@ class Building:
                         shovage = s * dist_sq ** -.5 - 1
                         e.take_knockback(dx * shovage, dy * shovage, self)
 
-    def graphics_update(self):
+    def graphics_update(self, dt):
         if self.shown:
             self.update_hpbar()
 
@@ -1480,6 +1481,21 @@ class Tower23(tower_upgrade, Tower):
     def attack(self, target):
         AOE_damage(self.x, self.y, self.stats["reach"], self.stats["dmg"], self, self.game)
         animation_ring_of_fire(self.x, self.y, self.stats["reach"] * 3, self.game)
+
+
+class Tower231(tower_upgrade, Tower):
+    name = "Tower231"
+    image = images.Tower23
+    upgrades = []
+
+    def attack(self, target):
+        AOE_damage(self.x, self.y, self.stats["flame_radius"], self.stats["dmg2"], self, self.game)
+        animation_ring_of_fire(self.x, self.y, self.stats["flame_radius"] * 3, self.game)
+        direction = target.towards(self.x, self.y)
+        self.sprite.rotation = 90 - get_rotation_norm(*direction) * 180 / math.pi
+        flame_wave(self.x, self.y, *direction, self.game, self.side, self.stats["dmg"], self, self.stats["bulletspeed"],
+                   self.stats["reach"] * 1.2, self.stats["bullet_size"], scale=self.stats["bullet_scale"],
+                   pierce=self.stats["pierce"], cluster=self.stats["cluster"], recursion=self.stats["recursion"])
 
 
 class Tower22(tower_upgrade, Tower):
@@ -1662,7 +1678,7 @@ class Farm2(farm_upgrade, Farm):
 
 
 possible_buildings = [Tower, Farm, Tower1, Tower2, Tower21, Tower11, Farm1, Farm2, Tower211, Tower3, Tower31, Tower22,
-                      Farm11, Tower23]
+                      Farm11, Tower23, Tower231]
 
 
 def get_upg_num(cls):
@@ -1820,7 +1836,7 @@ class Wall:
         self.shove()
         [e.tick() for e in self.effects]
 
-    def graphics_update(self):
+    def graphics_update(self, dt):
         self.crack_sprite.colors[3::4] = [int((255 * (self.max_health - self.health)) // self.max_health)] * 4
 
 
@@ -2336,7 +2352,7 @@ class Unit:
                                     dy * shovage * (mass_ratio - 1),
                                     other)
 
-    def graphics_update(self):
+    def graphics_update(self, dt):
         if not self.exists:
             return
         x, y = self.x * SPRITE_SIZE_MULT - self.game.camx, self.y * SPRITE_SIZE_MULT - self.game.camy
@@ -2579,16 +2595,19 @@ class Projectile:
                 if unit.exists and unit not in self.already_hit and \
                         (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= (unit.size ** 2) / 4:
                     self.collide(unit)
-                    return
+                    if self.pierce < 1:
+                        return
             for unit in c.buildings[1 - self.side]:
                 if unit.exists and unit not in self.already_hit and \
                         (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= (unit.size ** 2) / 4:
                     self.collide(unit)
-                    return
+                    if self.pierce < 1:
+                        return
             for wall in c.walls[1 - self.side]:
                 if wall.exists and wall not in self.already_hit and wall.distance_to_point(self.x, self.y) <= 0:
                     self.collide(wall)
-                    return
+                    if self.pierce < 1:
+                        return
         self.reach -= self.speed
         if self.reach <= 0:
             self.delete()
@@ -2606,7 +2625,7 @@ class Projectile:
         self.sprite.delete()
         self.already_hit = []
 
-    def graphics_update(self):
+    def graphics_update(self, dt):
         self.sprite.update(x=self.x * SPRITE_SIZE_MULT - self.game.camx, y=self.y * SPRITE_SIZE_MULT - self.game.camy)
 
     def split(self):
@@ -2619,9 +2638,64 @@ class Projectile:
                                recursion=self.recursion - 1)
 
 
+class Projectile_with_size(Projectile):
+    def __init__(self, x, y, dx, dy, game, side, damage, source, speed, reach, size, scale=None, pierce=2, cluster=5,
+                 rotation=None, recursion=2):
+        super().__init__(x, y, dx, dy, game, side, damage, source, speed, reach, scale=scale, pierce=pierce,
+                         cluster=cluster, rotation=rotation, recursion=2)
+        self.size = size
+
+    def tick(self):
+        self.x += self.vx
+        self.y += self.vy
+        chonkers = get_chunks(self.x, self.y, self.size)
+        for chonker in chonkers:
+            c = self.game.find_chunk(chonker)
+            if c is not None:
+                for unit in c.units[1 - self.side]:
+                    if unit.exists and unit not in self.already_hit and \
+                            (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= (unit.size ** 2) / 4:
+                        self.collide(unit)
+                        if self.pierce < 1:
+                            return
+                for unit in c.buildings[1 - self.side]:
+                    if unit.exists and unit not in self.already_hit and \
+                            (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= (unit.size ** 2) / 4:
+                        self.collide(unit)
+                        if self.pierce < 1:
+                            return
+                for wall in c.walls[1 - self.side]:
+                    if wall.exists and wall not in self.already_hit and wall.distance_to_point(self.x, self.y) <= 0:
+                        self.collide(wall)
+                        if self.pierce < 1:
+                            return
+        self.reach -= self.speed
+        if self.reach <= 0:
+            self.delete()
+
+
 class Arrow(Projectile):
     image = images.Arrow
     scale = .1
+
+
+class flame_wave(Projectile_with_size):
+    image = images.flame_wave
+    scale = .1
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.max_duration = self.reach / self.speed * INV_FPS
+        self.anim_time = 0
+        self.anim_frames = len(self.sprite.image.frames)-1
+        self.frame_duration = self.max_duration / self.anim_frames
+
+    def graphics_update(self, dt):
+        self.anim_time += dt
+        while self.anim_time > self.frame_duration:
+            self.sprite._animate(0)
+            self.anim_time -= self.frame_duration
+        self.sprite.update(x=self.x * SPRITE_SIZE_MULT - self.game.camx, y=self.y * SPRITE_SIZE_MULT - self.game.camy)
 
 
 class Boulder(Projectile):
@@ -2647,8 +2721,8 @@ class Boulder(Projectile):
         animation_explosion(self.x, self.y, self.radius, 100, self.game)
         self.delete()
 
-    def graphics_update(self):
-        super().graphics_update()
+    def graphics_update(self, dt):
+        super().graphics_update(dt)
         self.sprite.rotation += self.rotation_speed
 
     def split(self):
@@ -2727,8 +2801,8 @@ class Meteor(Projectile):
         animation_explosion(self.x, self.y, self.radius, 100, self.game)
         self.delete()
 
-    def graphics_update(self):
-        super().graphics_update()
+    def graphics_update(self, dt):
+        super().graphics_update(dt)
 
     def split(self):
         if self.recursion > 0:
@@ -3420,9 +3494,20 @@ class Upgrade_necromancy(Upgrade):
         self.player.unlock_unit(Necromancer)
 
 
+class Upgrade_superior_pyrotechnics(Upgrade):
+    name = "Superior Pyrotechnics"
+    previous = [Upgrade_mines]
+    x = 1310
+    y = 1290
+    image = images.Beam
+
+    def on_finish(self):
+        self.player.unlock_unit(Tower231)
+
+
 possible_upgrades = [Upgrade_default, Upgrade_test_1, Upgrade_bigger_arrows, Upgrade_catapult, Upgrade_bigger_rocks,
                      Upgrade_egg, Upgrade_faster_archery, Upgrade_vigorous_farming, Upgrade_mines, Upgrade_necromancy,
-                     Upgrade_nanobots, Upgrade_walls]
+                     Upgrade_nanobots, Upgrade_walls, Upgrade_superior_pyrotechnics]
 
 
 class Spell:
@@ -3444,7 +3529,7 @@ class Spell:
             self.main()
             self.game.players[self.side].spells.remove(self)
 
-    def graphics_update(self):
+    def graphics_update(self, dt):
         pass
 
     def main(self):
@@ -3470,7 +3555,7 @@ class Fireball(Spell):
         self.delay *= distance(self.x1, self.y1, x, y)
         self.delay = max(self.delay, ACTION_DELAY * FPS)
 
-    def graphics_update(self):
+    def graphics_update(self, dt):
         progress = self.spawning / self.delay
         self.sprite.update(x=(self.x1 + self.dx * progress - self.game.camx) * SPRITE_SIZE_MULT,
                            y=(self.y1 + self.dy * progress - self.game.camy) * SPRITE_SIZE_MULT)

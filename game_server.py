@@ -279,6 +279,7 @@ class player:
         self.spells = []
         self.money = STARTING_MONEY
         self.mana = STARTING_MANA
+        self.max_mana=MAX_MANA
         self.TownHall = None
         self.ai_wave = 0
         self.time_until_wave = WAVE_INTERVAL
@@ -289,7 +290,7 @@ class player:
                                Farm1, Farm2, Tower3, Tower31, Farm11, Fireball, Freeze, Rage, Tower23]
 
     def gain_mana(self, amount):
-        self.mana += amount
+        self.mana = min(self.mana+amount,self.max_mana)
 
     def add_aura(self, aur):
         self.auras.append(aur)
@@ -603,6 +604,22 @@ class Tower23(Tower):
         AOE_damage(self.x, self.y, self.stats["reach"], self.stats["dmg"], self, self.game)
 
 
+class Tower231(Tower):
+    name = "Tower231"
+    upgrades = []
+
+    def __init__(self, target):
+        super().__init__(target.ID, target.x, target.y, target.side, target.game)
+        self.comes_from = target
+
+    def attack(self, target):
+        AOE_damage(self.x, self.y, self.stats["flame_radius"], self.stats["dmg2"], self, self.game)
+        direction = target.towards(self.x, self.y)
+        flame_wave(self.x, self.y, *direction, self.game, self.side, self.stats["dmg"], self, self.stats["bulletspeed"],
+                   self.stats["reach"] * 1.2, self.stats["bullet_size"],
+                   pierce=self.stats["pierce"], cluster=self.stats["cluster"], recursion=self.stats["recursion"])
+
+
 class Tower22(Tower):
     name = "Tower22"
     upgrades = []
@@ -691,6 +708,7 @@ class Tower211(Tower):
 class Tower3(Tower):
     name = "Tower3"
     upgrades = []
+
     def __init__(self, target):
         super().__init__(target.ID, target.x, target.y, target.side, target.game)
         self.comes_from = target
@@ -765,7 +783,9 @@ class Farm2(Farm):
 
 
 possible_buildings = [Tower, Farm, Tower1, Tower2, Tower21, Tower11, Farm1, Farm2, Tower211, Tower3, Tower31, Tower22,
-                      Farm11, Tower23]
+                      Farm11, Tower23, Tower231]
+
+
 def get_upg_num(cls):
     return int(cls.__name__[-1])
 
@@ -1431,16 +1451,19 @@ class Projectile:
                 if unit.exists and unit not in self.already_hit and \
                         (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= (unit.size ** 2) / 4:
                     self.collide(unit)
-                    return
+                    if self.pierce < 1:
+                        return
             for unit in c.buildings[1 - self.side]:
                 if unit.exists and unit not in self.already_hit and \
                         (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= (unit.size ** 2) / 4:
                     self.collide(unit)
-                    return
+                    if self.pierce < 1:
+                        return
             for wall in c.walls[1 - self.side]:
                 if wall.exists and wall not in self.already_hit and wall.distance_to_point(self.x, self.y) <= 0:
                     self.collide(wall)
-                    return
+                    if self.pierce < 1:
+                        return
         self.reach -= self.speed
         if self.reach <= 0:
             self.delete()
@@ -1463,6 +1486,46 @@ class Projectile:
                                self.max_reach * .7,
                                pierce=self.max_pierce, cluster=self.cluster,
                                rotation=self.game.ticks + 2 * math.pi * i / self.cluster, recursion=self.recursion - 1)
+
+
+class Projectile_with_size(Projectile):
+    def __init__(self, x, y, dx, dy, game, side, damage, source, speed, reach, size, pierce=2, cluster=5, rotation=None,
+                 recursion=2):
+        super().__init__(x, y, dx, dy, game, side, damage, source, speed, reach, pierce, cluster, rotation,
+                         recursion)
+        self.size = size
+
+    def tick(self):
+        self.x += self.vx
+        self.y += self.vy
+        chonkers = get_chunks(self.x, self.y, self.size)
+        for chonker in chonkers:
+            c = self.game.find_chunk(chonker)
+            if c is not None:
+                for unit in c.units[1 - self.side]:
+                    if unit.exists and unit not in self.already_hit and \
+                            (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= (unit.size ** 2) / 4:
+                        self.collide(unit)
+                        if self.pierce < 1:
+                            return
+                for unit in c.buildings[1 - self.side]:
+                    if unit.exists and unit not in self.already_hit and \
+                            (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= (unit.size ** 2) / 4:
+                        self.collide(unit)
+                        if self.pierce < 1:
+                            return
+                for wall in c.walls[1 - self.side]:
+                    if wall.exists and wall not in self.already_hit and wall.distance_to_point(self.x, self.y) <= 0:
+                        self.collide(wall)
+                        if self.pierce < 1:
+                            return
+        self.reach -= self.speed
+        if self.reach <= 0:
+            self.delete()
+
+
+class flame_wave(Projectile_with_size):
+    pass
 
 
 class Bullet(Projectile):
@@ -1853,9 +1916,16 @@ class Upgrade_necromancy(Upgrade):
         self.player.unlock_unit(Necromancer)
 
 
+class Upgrade_superior_pyrotechnics(Upgrade):
+    name = "Superior Pyrotechnics"
+    previous = [Upgrade_mines]
+
+    def on_finish(self):
+        self.player.unlock_unit(Tower231)
+
 possible_upgrades = [Upgrade_default, Upgrade_test_1, Upgrade_bigger_arrows, Upgrade_catapult, Upgrade_bigger_rocks,
                      Upgrade_egg, Upgrade_faster_archery, Upgrade_vigorous_farming, Upgrade_mines, Upgrade_necromancy,
-                     Upgrade_nanobots, Upgrade_walls]
+                     Upgrade_nanobots, Upgrade_walls,Upgrade_superior_pyrotechnics]
 
 
 class Spell:

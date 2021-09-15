@@ -26,8 +26,8 @@ def load_animation(folder, num, duration):
 
 
 Testfire = RI("Testfire")
-flame_wave = load_animation("flame_wave", 33, 1 / 200)
-FlameRing = load_animation("fire_ring", 120, 1 / 120)
+flame_wave = load_animation("flame_wave", 17, 1)
+FlameRing = load_animation("fire_ring", 40, 1 / 40)
 Background = IL("Background").get_texture()
 Wall = IL("Wall").get_texture()
 WallCrack = IL("wall_crack").get_texture()
