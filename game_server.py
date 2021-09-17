@@ -12,9 +12,11 @@ def generate_units(money):
     # money-=possible_units[1].get_cost([])
     # return units, original_money / (original_money - money)
 
-    big, medium, small = [], [], []
+    big, medium, small, huge = [], [], [], []
     for e in possible_units:
-        if e.get_cost([]) >= 2000:
+        if e.get_cost([])>50000:
+            huge.append(e)
+        elif e.get_cost([]) >= 2000:
             big.append(e)
         elif e.get_cost([]) <= 100:
             small.append(e)
@@ -22,7 +24,9 @@ def generate_units(money):
             medium.append(e)
     for x in range(UNIT_FORMATION_COLUMNS):
         for y in range(UNIT_FORMATION_ROWS):
-            if money > 10000:
+            if money>1000000:
+                choice = random.choice(huge)
+            elif money > 10000:
                 choice = random.choice(big)
             elif money > 1000:
                 choice = random.choice(medium)

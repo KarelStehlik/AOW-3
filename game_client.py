@@ -2550,6 +2550,10 @@ class Golem(Unit):
         if self.tower_sprite is not None and self.shown:
             self.tower_sprite.update(x=self.sprite.x, y=self.sprite.y, rotation=self.sprite.rotation)
 
+    def die(self):
+        self.tower_sprite.delete()
+        super().die()
+
 
 class selection_trebuchet(selection_unit):
     img = images.Trebuchet
