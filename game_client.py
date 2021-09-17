@@ -225,7 +225,7 @@ class Game:
             elif symbol in [key.E, key.R, key.T]:
                 x, y = (self.mousex + self.camx) / SPRITE_SIZE_MULT, (self.mousey + self.camy) / SPRITE_SIZE_MULT
                 for e in self.players[self.side].all_buildings:
-                    if e.entity_type != "wall" and e.distance_to_point(x, y) <= 0:
+                    if e.distance_to_point(x, y) <= 0:
                         i = [key.E, key.R, key.T].index(symbol)
                         index = i
                         total_index = 0
@@ -261,7 +261,7 @@ class Game:
             return
         self.selected.mouse_click(x, y)
         for e in self.players[self.side].all_buildings:
-            if e.entity_type != "wall" and self.selected.__class__ is not selection_wall and \
+            if self.selected.__class__ is not selection_wall and \
                     e.distance_to_point((x + self.camx) / SPRITE_SIZE_MULT,
                                         (y + self.camy) / SPRITE_SIZE_MULT) < 0:
                 building_upgrade_menu(e.ID, self)
@@ -275,6 +275,8 @@ class Game:
         pass
 
     def update_cam(self, dt):
+        if self.upgrade_menu is not None and self.upgrade_menu.opened:
+            return
         dt = min(dt, 2)
         self.camx += self.camx_moving * dt
         self.camy += self.camy_moving * dt
@@ -342,6 +344,7 @@ class player:
         if aur.everywhere:
             [aur.apply(e) for e in self.units]
             [aur.apply(e) for e in self.all_buildings]
+            [aur.apply(e) for e in self.walls]
 
     def has_upgrade(self, upg):
         for e in self.owned_upgrades:
@@ -419,6 +422,7 @@ class player:
         [e.update_cam(x, y) for e in self.units]
         [e.update_cam(x, y) for e in self.all_buildings]
         [e.update_cam(x, y) for e in self.formations]
+        [e.update_cam(x, y) for e in self.walls]
 
 
 class chunk:
@@ -646,7 +650,7 @@ class minimap(client_utility.toolbar):
             ("c4B", (255, 255, 255, 0) * self.max_entities * 4)
         )
         self.last_mouse_pos = (0, 0)
-        self.cam_move_speed = 50
+        self.cam_move_speed = 30
         self.lastupdate = 0
 
     def graphics_update(self, dt):
@@ -657,20 +661,10 @@ class minimap(client_utility.toolbar):
         self.sprite2.vertices = [-1, 0] * self.max_entities * 4
         self.current_entity = 0
         self.already_checked = []
-        chunks = get_chunks((self.game.camx + SCREEN_WIDTH / 2) / SPRITE_SIZE_MULT,
-                            (self.game.camy + SCREEN_HEIGHT / 2) / SPRITE_SIZE_MULT,
-                            self.view_range)
-        for chonk in chunks:
-            c = self.game.find_chunk(chonk)
-            if c is not None:
-                for e in c.units[self.game.side]:
-                    self.mark(e, (0, 255, 0, 255))
-                for e in c.units[1 - self.game.side]:
-                    self.mark(e, (255, 0, 0, 255))
-                for e in c.buildings[self.game.side]:
-                    self.mark(e, (0, 255, 0, 255))
-                for e in c.buildings[1 - self.game.side]:
-                    self.mark(e, (255, 0, 0, 255))
+        [self.mark(e, (0, 255, 0, 255)) for e in self.game.players[self.game.side].units]
+        [self.mark(e, (0, 255, 0, 255)) for e in self.game.players[self.game.side].all_buildings]
+        [self.mark(e, (255, 0, 0, 255)) for e in self.game.players[1 - self.game.side].units]
+        [self.mark(e, (255, 0, 0, 255)) for e in self.game.players[1 - self.game.side].all_buildings]
 
     def mark(self, e, color):
         if self.current_entity >= self.max_entities:
@@ -961,15 +955,14 @@ class selection_unit_formation(selection):
 
     def mouse_click(self, x, y):
         for e in self.game.players[1 - self.game.side].all_buildings:
-            if not e.entity_type == "wall":
-                if e.distance_to_point((x + self.camx) / SPRITE_SIZE_MULT, (y + self.camy) / SPRITE_SIZE_MULT) <= 0:
-                    self.instructions.append(["attack", e.ID])
-                    visx, visy = e.x * SPRITE_SIZE_MULT, e.y * SPRITE_SIZE_MULT
-                    self.update_moving_indicator_pos(visx, visy)
-                    self.actual_indicator_points += [0 for _ in range(8)]
-                    self.current_pos = [visx, visy]
-                    self.add_indicator_point(visx, visy)
-                    return
+            if e.distance_to_point((x + self.camx) / SPRITE_SIZE_MULT, (y + self.camy) / SPRITE_SIZE_MULT) <= 0:
+                self.instructions.append(["attack", e.ID])
+                visx, visy = e.x * SPRITE_SIZE_MULT, e.y * SPRITE_SIZE_MULT
+                self.update_moving_indicator_pos(visx, visy)
+                self.actual_indicator_points += [0 for _ in range(8)]
+                self.current_pos = [visx, visy]
+                self.add_indicator_point(visx, visy)
+                return
         for e in self.game.players[1 - self.game.side].walls:
             if e.distance_to_point((x + self.camx) / SPRITE_SIZE_MULT, (y + self.camy) / SPRITE_SIZE_MULT) <= 0:
                 self.instructions.append(["attack", e.ID])
@@ -1698,10 +1691,10 @@ for e in possible_buildings:
 
 class Wall:
     name = "Wall"
+    entity_type = "wall"
 
     def __init__(self, ID, t1, t2, tick, side, game):
         game.players[side].money -= self.get_cost([])
-        self.entity_type = "wall"
         self.exists = False
         self.spawning = game.ticks - tick
         self.ID = ID
@@ -1716,7 +1709,6 @@ class Wall:
         self.health = self.max_health = unit_stats[self.name]["health"]
         self.game = game
         game.players[side].walls.append(self)
-        game.players[side].all_buildings.append(self)
 
         self.chunks = get_wall_chunks(self.x1, self.y1, self.x2, self.y2, self.norm_vector, self.line_c, self.width)
         for e in self.chunks:
@@ -1791,7 +1783,6 @@ class Wall:
         self.sprite.delete()
         self.crack_sprite.delete()
         self.game.players[self.side].walls.remove(self)
-        self.game.players[self.side].all_buildings.remove(self)
         [self.game.remove_wall_from_chunk(self, e) for e in self.chunks]
         self.exists = False
 
@@ -2088,7 +2079,7 @@ class Unit:
         hpbar_x_centre = self.sprite.x
         hpbar_x_range = self.size * SPRITE_SIZE_MULT / 2
         self.hpbar = game.batch.add(
-            8, pyglet.gl.GL_QUADS, groups.g[6],
+            8, pyglet.gl.GL_QUADS, groups.g[7],
             ("v2f", (hpbar_x_centre - hpbar_x_range, hpbar_y_centre - hpbar_y_range,
                      hpbar_x_centre - hpbar_x_range, hpbar_y_centre + hpbar_y_range,
                      hpbar_x_centre + hpbar_x_range, hpbar_y_centre + hpbar_y_range,
@@ -2212,7 +2203,7 @@ class Unit:
                 self.vy = -self.stats["speed"] * direction[1] / 2
                 self.x += self.vx
                 self.y += self.vy
-            return d <= self.stats["reach"]
+            return d <= self.stats["reach"]+self.size
         else:
             dist_sq = (other.x - self.x) ** 2 + (other.y - self.y) ** 2
             if dist_sq < ((other.size + self.size) * .5 + self.stats["reach"] * .8) ** 2:
@@ -2486,8 +2477,8 @@ class Necromancer(Unit):
         a = Zombie([self.ID, self.zombies], e.x, e.y, self.side, self.column, self.row, self.game, self.formation,
                    effects=(effect_stat_add("health", e.base_stats["health"] * self.stats["steal"]),
                             effect_stat_add("dmg", e.base_stats["dmg"] * self.stats["steal"]),
-                            effect_stat_add("size", e.base_stats["size"]- 19),
-                            effect_stat_add("vwidth", e.base_stats["vwidth"]- 20),
+                            effect_stat_add("size", e.base_stats["size"] - 19),
+                            effect_stat_add("vwidth", e.base_stats["vwidth"] - 20),
                             effect_stat_add("cd", e.base_stats["cd"] / self.stats["steal"])
                             )
                    )
@@ -2531,6 +2522,35 @@ class Zombie(Unit):
         self.zombies += 1
 
 
+class Golem(Unit):
+    image = images.Golem
+    name = "Golem"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.eaten_tower = 0
+        self.tower_sprite = None
+
+    def attack(self, target):
+        if target.entity_type == "tower" and target.health > self.eaten_tower:
+            self.eaten_tower = target.health
+            self.tower_sprite=pyglet.sprite.Sprite(target.image,self.sprite.x,self.sprite.y,
+                                                   batch=self.game.batch,group=groups.g[6])
+            self.tower_sprite.rotation=self.sprite.rotation
+            self.tower_sprite.scale=target.size/self.tower_sprite.width
+            target.die()
+            return
+        elif target.entity_type == "wall":
+            target.take_damage(self.stats["wall_mult"]*(self.stats["dmg"] + self.eaten_tower), self)
+        else:
+            target.take_damage(self.stats["dmg"] + self.eaten_tower, self)
+
+    def graphics_update(self, dt):
+        super().graphics_update(dt)
+        if self.tower_sprite is not None and self.shown:
+            self.tower_sprite.update(x=self.sprite.x, y=self.sprite.y, rotation=self.sprite.rotation)
+
+
 class selection_trebuchet(selection_unit):
     img = images.Trebuchet
     unit_num = 2
@@ -2551,10 +2571,15 @@ class selection_necromancer(selection_unit):
     unit_num = 5
 
 
-possible_units = [Swordsman, Archer, Trebuchet, Defender, Bear, Necromancer, Zombie]
+class selection_golem(selection_unit):
+    img = images.Golem
+    unit_num = 7
+
+
+possible_units = [Swordsman, Archer, Trebuchet, Defender, Bear, Necromancer, Zombie, Golem]
 selects_p1 = [selection_tower, selection_wall, selection_farm]
 selects_p2 = [selection_swordsman, selection_archer, selection_trebuchet, selection_defender, selection_bear,
-              selection_necromancer]
+              selection_necromancer, selection_golem]
 selects_p3 = [selection_fireball, selection_freeze, selection_rage]
 selects_all = [selects_p1, selects_p2, selects_p3]
 
@@ -2658,18 +2683,19 @@ class Projectile_with_size(Projectile):
             if c is not None:
                 for unit in c.units[1 - self.side]:
                     if unit.exists and unit not in self.already_hit and \
-                            (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= ((unit.size+self.size) ** 2) / 4:
+                            (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= ((unit.size + self.size) ** 2) / 4:
                         self.collide(unit)
                         if self.pierce < 1:
                             return
                 for unit in c.buildings[1 - self.side]:
                     if unit.exists and unit not in self.already_hit and \
-                            (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= ((unit.size+self.size) ** 2) / 4:
+                            (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= ((unit.size + self.size) ** 2) / 4:
                         self.collide(unit)
                         if self.pierce < 1:
                             return
                 for wall in c.walls[1 - self.side]:
-                    if wall.exists and wall not in self.already_hit and wall.distance_to_point(self.x, self.y) <= self.size:
+                    if wall.exists and wall not in self.already_hit and wall.distance_to_point(self.x,
+                                                                                               self.y) <= self.size:
                         self.collide(wall)
                         if self.pierce < 1:
                             return
@@ -2833,6 +2859,8 @@ class Egg(Meteor):
 
 class animation_explosion:
     def __init__(self, x, y, size, speed, game):
+        if len(game.animations) > MAX_ANIMATIONS:
+            return
         self.sprite = pyglet.sprite.Sprite(images.Fire, x=x * SPRITE_SIZE_MULT - game.camx,
                                            y=y * SPRITE_SIZE_MULT - game.camy,
                                            batch=game.batch, group=groups.g[6])
@@ -2848,6 +2876,9 @@ class animation_explosion:
         game.animations.append(self)
 
     def tick(self, dt):
+        if dt > .5:
+            self.delete()
+            return
         self.exists_time += self.speed * dt
         if self.exists_time > 128:
             self.delete()
@@ -2867,6 +2898,8 @@ class animation_explosion:
 
 class animation_freeze:
     def __init__(self, x, y, size, duration, game):
+        if len(game.animations) > MAX_ANIMATIONS:
+            return
         self.sprite = pyglet.sprite.Sprite(images.Freeze, x=x * SPRITE_SIZE_MULT - game.camx,
                                            y=y * SPRITE_SIZE_MULT - game.camy,
                                            batch=game.batch, group=groups.g[2])
@@ -2895,6 +2928,8 @@ class animation_freeze:
 
 class animation_ring_of_fire(pyglet.sprite.Sprite):
     def __init__(self, x, y, size, game):
+        if len(game.animations) > MAX_ANIMATIONS:
+            return
         super().__init__(images.FlameRing, x=x * SPRITE_SIZE_MULT - game.camx,
                          y=y * SPRITE_SIZE_MULT - game.camy,
                          batch=game.batch, group=groups.g[5])
@@ -2903,22 +2938,40 @@ class animation_ring_of_fire(pyglet.sprite.Sprite):
         self.true_x, self.true_y = x, y
         self.game = game
         game.animations.append(self)
+        self.anim_time = 0
+        self.max_duration = 1
+        self.anim_frames = len(self.image.frames) - 1
+        self.frame_duration = self.max_duration / self.anim_frames
+        self.exists = True
 
     def tick(self, dt):
+        if dt > .5:
+            self.delete()
+            return
         self.update(x=self.true_x * SPRITE_SIZE_MULT - self.game.camx,
                     y=self.true_y * SPRITE_SIZE_MULT - self.game.camy)
-        self._animate(dt)
+        self.anim_time += dt
+        while self.anim_time > self.frame_duration:
+            if not self.exists:
+                return
+            self._animate(0)
+            self.anim_time -= self.frame_duration
 
     def on_animation_end(self):
+        if not self.exists:
+            return
         self.delete()
 
     def delete(self):
+        self.exists = False
         self.game.animations.remove(self)
         super().delete()
 
 
 class animation_rage:
     def __init__(self, x, y, size, duration, game):
+        if len(game.animations) > MAX_ANIMATIONS:
+            return
         self.sprite = pyglet.sprite.Sprite(images.Rage, x=x * SPRITE_SIZE_MULT - game.camx,
                                            y=y * SPRITE_SIZE_MULT - game.camy,
                                            batch=game.batch, group=groups.g[2])
@@ -3059,7 +3112,8 @@ class effect_regen(effect):
 
 
 class aura:
-    everywhere=True
+    everywhere = True
+
     def __init__(self, effect, args, duration=None, targets=None):
         self.effect = effect
         self.args = args
@@ -3080,7 +3134,8 @@ class aura:
 
 
 class AOE_aura:
-    everywhere=False
+    everywhere = False
+
     def __init__(self, effect, args, x_y_rad, game: Game, side, duration=None, targets=None, frequency=1):
         self.effect = effect
         self.args = args
@@ -3511,9 +3566,20 @@ class Upgrade_superior_pyrotechnics(Upgrade):
         self.player.unlock_unit(Tower231)
 
 
+class Upgrade_golem(Upgrade):
+    image = images.Boulder
+    previous = [Upgrade_test_1]
+    x = 1360
+    y = 540
+    name = "Golem"
+
+    def on_finish(self):
+        self.player.unlock_unit(Golem)
+
+
 possible_upgrades = [Upgrade_default, Upgrade_test_1, Upgrade_bigger_arrows, Upgrade_catapult, Upgrade_bigger_rocks,
                      Upgrade_egg, Upgrade_faster_archery, Upgrade_vigorous_farming, Upgrade_mines, Upgrade_necromancy,
-                     Upgrade_nanobots, Upgrade_walls, Upgrade_superior_pyrotechnics]
+                     Upgrade_nanobots, Upgrade_walls, Upgrade_superior_pyrotechnics, Upgrade_golem]
 
 
 class Spell:
@@ -3569,7 +3635,7 @@ class Fireball(Spell):
     def main(self):
         self.sprite.delete()
         AOE_damage(self.x, self.y, self.radius, self.dmg, self, self.game, "spell")
-        animation_explosion(self.x, self.y, self.radius*2, 100, self.game)
+        animation_explosion(self.x, self.y, self.radius * 2, 100, self.game)
 
 
 class Freeze(Spell):

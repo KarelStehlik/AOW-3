@@ -95,6 +95,7 @@ Defender = RI("Defender")
 Bear = RI("Bear")
 Necromancer = RI("Necromancer")
 Zombie = RI("Zombie")
+Golem=RI("Golem")
 
 # #######################  CLONE  ############################
 gunmanR = pyglet.resource.image("imagefolder/BGunman.png")

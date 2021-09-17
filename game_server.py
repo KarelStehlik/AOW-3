@@ -297,6 +297,7 @@ class player:
         if aur.everywhere:
             [aur.apply(e) for e in self.units]
             [aur.apply(e) for e in self.all_buildings]
+            [aur.apply(e) for e in self.walls]
 
     def has_upgrade(self, upg):
         for e in self.owned_upgrades:
@@ -803,9 +804,9 @@ for e in possible_buildings:
 
 class Wall:
     name = "Wall"
+    entity_type = "wall"
 
     def __init__(self, ID, t1, t2, side, game):
-        self.entity_type = "wall"
         self.exists = False
         self.spawning = 0
         self.health = unit_stats[self.name]["health"]
@@ -820,7 +821,6 @@ class Wall:
         self.side = side
         self.game = game
         game.players[side].walls.append(self)
-        game.players[side].all_buildings.append(self)
 
         self.chunks = get_wall_chunks(self.x1, self.y1, self.x2, self.y2, self.norm_vector, self.line_c, self.width)
         for e in self.chunks:
@@ -839,7 +839,6 @@ class Wall:
         if not self.exists:
             return
         self.game.players[self.side].walls.remove(self)
-        self.game.players[self.side].all_buildings.remove(self)
         [self.game.remove_wall_from_chunk(self, e) for e in self.chunks]
         self.exists = False
 
@@ -1187,7 +1186,7 @@ class Unit:
                 self.vy = -self.stats["speed"] * direction[1] / 2
                 self.x += self.vx
                 self.y += self.vy
-            return d <= self.stats["reach"]
+            return d <= self.stats["reach"]+self.size
         else:
             dist_sq = (other.x - self.x) ** 2 + (other.y - self.y) ** 2
             if dist_sq < ((other.size + self.size) * .5 + self.stats["reach"] * .8) ** 2:
@@ -1420,7 +1419,25 @@ class Zombie(Unit):
         self.zombies += 1
 
 
-possible_units = [Swordsman, Archer, Trebuchet, Defender, Bear, Necromancer, Zombie]
+class Golem(Unit):
+    name = "Golem"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.eaten_tower = 0
+
+    def attack(self, target):
+        if target.entity_type == "tower" and target.health > self.eaten_tower:
+            self.eaten_tower = target.health
+            target.die()
+            return
+        elif target.entity_type == "wall":
+            target.take_damage(self.stats["wall_mult"] * (self.stats["dmg"] + self.eaten_tower), self)
+        else:
+            target.take_damage(self.stats["dmg"] + self.eaten_tower, self)
+
+
+possible_units = [Swordsman, Archer, Trebuchet, Defender, Bear, Necromancer, Zombie, Golem]
 
 
 class Projectile:
@@ -1929,9 +1946,18 @@ class Upgrade_superior_pyrotechnics(Upgrade):
         self.player.unlock_unit(Tower231)
 
 
+class Upgrade_golem(Upgrade):
+    previous = [Upgrade_test_1]
+    name = "Golem"
+
+    def on_finish(self):
+        self.player.unlock_unit(Golem)
+
+
 possible_upgrades = [Upgrade_default, Upgrade_test_1, Upgrade_bigger_arrows, Upgrade_catapult, Upgrade_bigger_rocks,
                      Upgrade_egg, Upgrade_faster_archery, Upgrade_vigorous_farming, Upgrade_mines, Upgrade_necromancy,
-                     Upgrade_nanobots, Upgrade_walls, Upgrade_superior_pyrotechnics]
+                     Upgrade_nanobots, Upgrade_walls, Upgrade_superior_pyrotechnics, Upgrade_golem]
+
 
 
 class Spell:

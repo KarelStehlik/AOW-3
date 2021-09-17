@@ -5,8 +5,8 @@ Tower2:size=50,health=20000,cost=1500,dmg=50,cd=1.2,reach=300,bulletspeed=8,expl
 Tower11:size=50,health=15000,cost=3500,dmg=45,cd=0.02,reach=300,bulletspeed=15,spread=0.2,shots=2,bullet_scale=.05,pierce=1,cluster=0,recursion=0,resistance=1
 Tower21:size=50,health=30000,cost=6000,dmg=300,cd=2,reach=800,bulletspeed=20,explosion_radius=100,bullet_scale=.15,pierce=1,cluster=0,recursion=0,resistance=1
 Tower22:size=50,health=30000,cost=25000,dmg=2000,cd=8,reach=250,bulletspeed=20,explosion_radius=200,bullet_scale=.07,pierce=1,cluster=0,recursion=0,duration=5000,resistance=1
-Tower23:size=75,health=69000,cost=35000,dmg=200,cd=.1,reach=150,resistance=1
-Tower231:size=100,health=200000,cost=150000,dmg=150,cd=.1,reach=400,resistance=1,bulletspeed=10,bullet_size=250,bullet_scale=2,pierce=1000,cluster=0,recursion=0,flame_radius=200,dmg2=300
+Tower23:size=75,health=69000,cost=35000,dmg=600,cd=.3,reach=150,resistance=1
+Tower231:size=100,health=200000,cost=150000,dmg=500,cd=.3,reach=400,resistance=1,bulletspeed=10,bullet_size=250,bullet_scale=2,pierce=1000,cluster=0,recursion=0,flame_radius=200,dmg2=900
 Tower211:size=70,health=50000,cost=500000,dmg=1000,cd=0.1,reach=900,bulletspeed=40,explosion_radius=80,bullet_scale=.15,pierce=1,cluster=5,recursion=1,resistance=1
 Tower3:size=50,health=9000,cost=5000,dmg=50,cd=0.2,reach=400,bulletspeed=10,proximity=500,bullet_scale=.15,pierce=2,cluster=10,recursion=1,resistance=1
 Tower31:size=50,health=15000,cost=10000,dmg=50,cd=0.35,reach=400,bulletspeed=20,proximity=500,bullet_scale=.15,pierce=2,cluster=6,recursion=2,resistance=1
@@ -25,3 +25,4 @@ Zombie:vwidth=20,vheight=22,speed=400,size=19,health=100,dmg=1,cd=0,reach=8,cost
 Fireball:cost=500,radius=150,dmg=20000,delay=.02
 Freeze:cost=300,radius=150,duration=200,delay=60
 Rage:cost=500,radius=350,duration=500,buff=2,delay=60
+Golem:vwidth=220,vheight=150,speed=75,size=200,health=666420,dmg=3000,cd=1,reach=30,cost=100000,mass=400,resistance=1,wall_mult=10
