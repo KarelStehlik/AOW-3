@@ -2551,7 +2551,8 @@ class Golem(Unit):
             self.tower_sprite.update(x=self.sprite.x, y=self.sprite.y, rotation=self.sprite.rotation)
 
     def die(self):
-        self.tower_sprite.delete()
+        if self.tower_sprite is not None:
+            self.tower_sprite.delete()
         super().die()
 
 
