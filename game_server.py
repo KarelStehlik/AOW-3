@@ -416,6 +416,8 @@ class Building:
         self.game.players[side].on_building_summon(self)
 
     def update_stats(self, stats=None):
+        if not self.exists:
+            return
         health_part = self.health / self.stats["health"]
         if stats is None:
             stats = self.stats.keys()
@@ -455,6 +457,7 @@ class Building:
         if self.spawning >= FPS * ACTION_DELAY:
             self.exists = True
             self.tick = self.tick2
+            self.update_stats()
             if self.comes_from is not None:
                 self.comes_from.die()
 
@@ -847,6 +850,8 @@ class Wall:
         self.exists = False
 
     def update_stats(self, stats=None):
+        if not self.exists:
+            return
         health_part = self.health / self.stats["health"]
         if stats is None:
             stats = self.stats.keys()
@@ -911,6 +916,7 @@ class Wall:
         if self.spawning >= FPS * ACTION_DELAY:
             self.exists = True
             self.tick = self.tick2
+            self.update_stats()
 
     def tick2(self):
         self.shove()
@@ -1130,6 +1136,8 @@ class Unit:
             e.apply(self)
 
     def update_stats(self, stats=None):
+        if not self.exists:
+            return
         health_part = self.health / self.stats["health"]
         if stats is None:
             stats = self.stats.keys()
@@ -1278,6 +1286,7 @@ class Unit:
         self.exists = True
         self.tick = self.tick2
         self.game.players[self.side].on_unit_summon(self)
+        self.update_stats()
 
     def take_knockback(self, x, y, source):
         if not self.exists:

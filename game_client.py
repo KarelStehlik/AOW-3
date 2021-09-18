@@ -1215,6 +1215,8 @@ class Building:
         self.shown = False
 
     def update_stats(self, stats=None):
+        if not self.exists:
+            return
         health_part = self.health / self.stats["health"]
         if stats is None:
             stats = self.stats.keys()
@@ -1285,6 +1287,7 @@ class Building:
             self.exists = True
             self.sprite.opacity = 255
             self.tick = self.tick2
+            self.update_stats()
             if self.comes_from is not None:
                 self.comes_from.die()
 
@@ -1749,6 +1752,8 @@ class Wall:
         return unit_stats[cls.name]["cost"]
 
     def update_stats(self, stats=None):
+        if not self.exists:
+            return
         health_part = self.health / self.stats["health"]
         if stats is None:
             stats = self.stats.keys()
@@ -1823,6 +1828,7 @@ class Wall:
             self.exists = True
             self.sprite.colors = (255,) * 16
             self.tick = self.tick2
+            self.update_stats()
 
     def tick2(self):
         self.shove()
@@ -2125,6 +2131,8 @@ class Unit:
         self.shown = False
 
     def update_stats(self, stats=None):
+        if not self.exists:
+            return
         health_part = self.health / self.stats["health"]
         if stats is None:
             stats = self.stats.keys()
@@ -2308,6 +2316,7 @@ class Unit:
         self.sprite.opacity = 255
         self.tick = self.tick2
         self.game.players[self.side].on_unit_summon(self)
+        self.update_stats()
 
     def update_cam(self, x, y):
         return
