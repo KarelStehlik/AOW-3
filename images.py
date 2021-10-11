@@ -33,6 +33,7 @@ Wall = IL("Wall").get_texture()
 WallCrack = IL("wall_crack").get_texture()
 blue_arrow = IL("blue_arrow").get_texture()
 Beam = IL("beam").get_texture()
+Crater=RI("crater")
 
 Freeze = RI("Freeze")
 UpgradeButton = RI("UpgradeButton")

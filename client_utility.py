@@ -2,7 +2,9 @@ from pyglet.gl import *
 
 import groups
 import images
+import random
 from constants import *
+import math
 
 
 def sprite_with_scale(img, scale, scale_x, scale_y, *args, **kwargs) -> pyglet.sprite.Sprite:
@@ -199,3 +201,59 @@ class toolbar:
 
     def mouse_release(self, x, y, button=0, modifiers=0):
         [e.mouse_release(x, y) for e in self.buttons]
+
+
+class animation(pyglet.sprite.Sprite):
+    img = images.FlameRing
+    standalone = False
+
+    def __init__(self, x, y, size, game):
+        if len(game.animations) > MAX_ANIMATIONS:
+            return
+        super().__init__(self.img, x=x * SPRITE_SIZE_MULT - game.camx,
+                         y=y * SPRITE_SIZE_MULT - game.camy,
+                         batch=game.batch, group=groups.g[5])
+        self.rotation = random.randint(0, 360)
+        self.scale = size / self.width
+        self.true_x, self.true_y = x, y
+        self.game = game
+        if self.standalone:
+            game.animations.append(self)
+        self.exists = True
+        self.anim_time = 0
+        self.max_duration = 1
+        self.anim_frames = len(self.image.frames) - 1
+        self.frame_duration = self.max_duration / self.anim_frames
+
+    def tick(self, dt):
+        if dt > .5:
+            self.delete()
+            return
+        self.update(x=self.true_x * SPRITE_SIZE_MULT - self.game.camx,
+                    y=self.true_y * SPRITE_SIZE_MULT - self.game.camy)
+        self.anim_time += dt
+        frames = math.floor(self.anim_time / self.frame_duration)
+        self.anim_time-=frames*self.frame_duration
+        if frames==0:
+            return
+        self._frame_index += frames
+        if self._frame_index >= len(self._animation.frames):
+            self._frame_index = 0
+            self.dispatch_event('on_animation_end')
+            if self._vertex_list is None:
+                return  # Deleted in event handler.
+        frame = self._animation.frames[self._frame_index]
+        self._set_texture(frame.image.get_texture())
+        if frame.duration is None:
+            self.dispatch_event('on_animation_end')
+
+    def on_animation_end(self):
+        if not self.exists:
+            return
+        self.delete()
+
+    def delete(self):
+        self.exists = False
+        if self.standalone:
+            self.game.animations.remove(self)
+        super().delete()

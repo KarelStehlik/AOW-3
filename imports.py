@@ -8,6 +8,9 @@ import os
 import math
 from numba import njit, float64
 import constants
+import cProfile
+import pstats
+import tensorflow
 
 pyglet.gl.glEnable(pyglet.gl.GL_BLEND)
 
@@ -24,7 +27,6 @@ def load_stats():
                 stats[k[0]] = float(k[1])
                 if k[0] == "speed":
                     stats[k[0]] /= constants.FPS
-            del e
             unit_statst[name_stats[0]] = stats
     return unit_statst
 
@@ -81,13 +83,13 @@ point_line_dist(1.1, 1.1, (1.1, 1.1), 1.1)
 
 @njit
 def get_chunks(x, y, size):
-    # return [[int(x // constants.CHUNK_SIZE), int(y // constants.CHUNK_SIZE)]]
+    # return [[int(x * constants.INV_CHUNK_SIZE), int(y * constants.INV_CHUNK_SIZE)]]
     size /= 2
-    minx = int((x - size) // constants.CHUNK_SIZE)
-    miny = int((y - size) // constants.CHUNK_SIZE)
-    maxx = int((x + size) // constants.CHUNK_SIZE)
-    maxy = int((y + size) // constants.CHUNK_SIZE)
-    chunks = [str(a) + " " + str(b) for a in range(minx, maxx + 1) for b in range(miny, maxy + 1)]
+    minx = int((x - size) * constants.INV_CHUNK_SIZE)
+    miny = int((y - size) * constants.INV_CHUNK_SIZE)
+    maxx = int((x + size) * constants.INV_CHUNK_SIZE)
+    maxy = int((y + size) * constants.INV_CHUNK_SIZE)
+    chunks = [(a, b) for a in range(minx, maxx + 1) for b in range(miny, maxy + 1)]
     return chunks
 
 
@@ -95,10 +97,32 @@ get_chunks(1.1, 1.1, 1.1)
 
 
 @njit
+def get_chunks_force_circle(x, y, size):
+    # return [[int(x * constants.INV_CHUNK_SIZE), int(y * constants.INV_CHUNK_SIZE)]]
+    size /= 2
+    minx = int((x - size) * constants.INV_CHUNK_SIZE)
+    miny = int((y - size) * constants.INV_CHUNK_SIZE)
+    maxx = int((x + size) * constants.INV_CHUNK_SIZE)
+    maxy = int((y + size) * constants.INV_CHUNK_SIZE)
+    chunks = [(a, b) for a in range(minx, maxx + 1) for b in range(miny, maxy + 1)]
+    i = 0
+    while i < len(chunks):
+        if (x - (chunks[i][0] + .5) * constants.CHUNK_SIZE) ** 2 + (
+                y - (chunks[i][1] + .5) * constants.CHUNK_SIZE) ** 2 > (size + constants.CHUNK_SIZE * .7) ** 2:
+            chunks.pop(i)
+            i -= 1
+        i += 1
+    return chunks
+
+
+get_chunks_force_circle(1.1, 1.1, 1.1)
+
+
+@njit
 def get_chunk(x, y):
-    x = int(x // constants.CHUNK_SIZE)
-    y = int(y // constants.CHUNK_SIZE)
-    return str(x) + " " + str(y)
+    x = int(x * constants.INV_CHUNK_SIZE)
+    y = int(y * constants.INV_CHUNK_SIZE)
+    return (x, y)
 
 
 get_chunk(1.1, 1.1)
@@ -108,10 +132,10 @@ get_chunk(1.1, 1.1)
 def get_wall_chunks(x1, y1, x2, y2, norm, c, size):
     re = []
     size /= 2
-    max_x = (max(x1, x2) // constants.CHUNK_SIZE + 1) * constants.CHUNK_SIZE
-    min_x = (min(x1, x2) // constants.CHUNK_SIZE) * constants.CHUNK_SIZE
-    max_y = (max(y1, y2) // constants.CHUNK_SIZE + 1) * constants.CHUNK_SIZE
-    min_y = (min(y1, y2) // constants.CHUNK_SIZE) * constants.CHUNK_SIZE
+    max_x = (max(x1, x2) * constants.INV_CHUNK_SIZE + 1) * constants.CHUNK_SIZE
+    min_x = (min(x1, x2) * constants.INV_CHUNK_SIZE) * constants.CHUNK_SIZE
+    max_y = (max(y1, y2) * constants.INV_CHUNK_SIZE + 1) * constants.CHUNK_SIZE
+    min_y = (min(y1, y2) * constants.INV_CHUNK_SIZE) * constants.CHUNK_SIZE
     n1 = max(abs(norm[0]), abs(norm[1]))
     n0 = min(abs(norm[0]), abs(norm[1]))
     rotation_factor = .5 / n1 + n0 * (.5 - n0 / n1 / 2)
@@ -171,5 +195,6 @@ def product(*a):
     for e in a:
         p *= e
     return p
+
 
 product(1.2, 1.3, 1.2)

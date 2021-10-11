@@ -1,3 +1,5 @@
+import cProfile
+
 from PodSixNet.Connection import connection, ConnectionListener
 
 import game_client as game_stuff
@@ -6,10 +8,7 @@ import images
 import client_utility
 from imports import *
 
-pyglet.options['debug_gl'] = False
-pyglet.gl.glEnable(pyglet.gl.GL_BLEND)
 
-connection.DoConnect(('192.168.1.166', 5071))
 
 # connection.DoConnect(('127.0.0.1', 5071))
 
@@ -28,7 +27,6 @@ class MyNetworkListener(ConnectionListener):
         self.mode.network(data)
 
 
-nwl = MyNetworkListener()
 
 
 class mode:
@@ -151,7 +149,7 @@ class mode_main(mode):
 class windoo(pyglet.window.Window):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.nwl = nwl
+        self.nwl = MyNetworkListener()
         self.batch = pyglet.graphics.Batch()
         self.sec = time.time()
         self.frames = 0
@@ -218,17 +216,33 @@ class windoo(pyglet.window.Window):
             self.frames = 0
 
 
-# place = windoo(caption='test', fullscreen=True)
-place = windoo(caption='test', style=pyglet.window.Window.WINDOW_STYLE_BORDERLESS, width=constants.SCREEN_WIDTH,
-               height=constants.SCREEN_HEIGHT)
-place.set_location(0, 0)
+def main():
+    pyglet.options['debug_gl'] = False
+    pyglet.gl.glEnable(pyglet.gl.GL_BLEND)
 
-while True:
-    try:
-        connection.Pump()
-        place.nwl.Pump()
-        place.tick()
-        #pyglet.clock.tick()
-    except Exception as e:
-        place.error_close()
-        raise e
+    connection.DoConnect(('192.168.1.166', 5071))
+    # place = windoo(caption='test', fullscreen=True)
+    place = windoo(caption='test', style=pyglet.window.Window.WINDOW_STYLE_BORDERLESS, width=constants.SCREEN_WIDTH,
+                   height=constants.SCREEN_HEIGHT)
+    place.set_location(0, 0)
+    t=0
+    while True:
+        t += 1
+        try:
+            connection.Pump()
+            place.nwl.Pump()
+            place.tick()
+            '''if t % 1000 == 0:
+                with cProfile.Profile() as pr:
+                    place.tick()
+                stats = pstats.Stats(pr).sort_stats(pstats.SortKey.TIME)
+                stats.print_stats()
+            else:
+                place.tick()
+            # pyglet.clock.tick()'''
+        except Exception as e:
+            place.error_close()
+            raise e
+
+if __name__=="__main__":
+    main()

@@ -14,7 +14,7 @@ def generate_units(money):
 
     big, medium, small, huge = [], [], [], []
     for e in possible_units:
-        if e.get_cost([])>50000:
+        if e.get_cost([]) > 50000:
             huge.append(e)
         elif e.get_cost([]) >= 2000:
             big.append(e)
@@ -24,7 +24,7 @@ def generate_units(money):
             medium.append(e)
     for x in range(UNIT_FORMATION_COLUMNS):
         for y in range(UNIT_FORMATION_ROWS):
-            if money>1000000:
+            if money > 1000000:
                 choice = random.choice(huge)
             elif money > 10000:
                 choice = random.choice(big)
@@ -89,6 +89,9 @@ class Game:
                 entity_type = possible_buildings[data["entity_type"]]
                 if not self.players[side].has_unit(entity_type):
                     print("cheating detected! (B)")
+                    return
+                if self.players[side].TownHall.distance_to_point(*data["xy"]) > self.players[
+                    1 - side].TownHall.distance_to_point(*data["xy"]):
                     return
                 close_to_friendly = False
                 proximity = unit_stats[entity_type.name]["proximity"]
@@ -190,7 +193,7 @@ class Game:
 
     def summon_ai_wave(self, side):
         self.players[side].ai_wave += 1
-        power = 1000 * 2**self.players[side].ai_wave
+        power = 1000 * 2 ** self.players[side].ai_wave
         worth = power
         self.players[side].gain_money(worth)
         self.players[side].time_until_wave = WAVE_INTERVAL
@@ -291,7 +294,8 @@ class player:
         self.pending_upgrades = []
         self.owned_upgrades = [Upgrade_default(self)]
         self.unlocked_units = [Swordsman, Archer, Defender, Tower, Wall, Farm, Tower1, Tower2, Tower11, Tower21,
-                               Farm1, Farm2, Tower3, Tower31, Farm11, Fireball, Freeze, Rage, Tower23]
+                               Farm1, Farm2, Tower3, Tower31, Farm11, Fireball, Freeze, Rage, Tower23, TownHall1,
+                               TownHall2]
 
     def gain_mana(self, amount):
         self.mana = min(self.mana + amount, self.max_mana)
@@ -391,7 +395,7 @@ class Building:
     name = "TownHall"
     entity_type = "townhall"
 
-    def __init__(self, ID, x, y, side, game):
+    def __init__(self, ID, x, y, side, game, instant=False):
         self.spawning = 0
         self.ID = ID
         self.x, self.y = x, y
@@ -399,8 +403,8 @@ class Building:
         self.size = unit_stats[self.name]["size"]
         self.health = self.max_health = unit_stats[self.name]["health"]
         self.game = game
-        self.chunks = get_chunks(x, y, self.size)
-        self.exists = False
+        self.chunks = get_chunks_force_circle(x, y, self.size)
+        self.exists = instant
         self.game.players[side].all_buildings.append(self)
         for e in self.chunks:
             game.add_building_to_chunk(self, e)
@@ -414,6 +418,13 @@ class Building:
                       self.base_stats.keys()}
         self.frozen = 0
         self.game.players[side].on_building_summon(self)
+        self.summoned = instant
+        if instant:
+            self.tick = self.tick2
+            self.update_stats()
+            self.on_summon()
+            if self.comes_from is not None:
+                self.comes_from.delete()
 
     def update_stats(self, stats=None):
         if not self.exists:
@@ -438,10 +449,23 @@ class Building:
     def die(self):
         if not self.exists:
             return
+        self.on_die()
+        self.delete()
+
+    def on_die(self):
+        pass
+
+    def on_delete(self):
+        pass
+
+    def delete(self):
+        if not self.exists:
+            return
         self.game.players[self.side].all_buildings.remove(self)
         for e in self.chunks:
             self.game.remove_building_from_chunk(self, e)
         self.exists = False
+        self.on_delete()
 
     def distance_to_point(self, x, y):
         return distance(self.x, self.y, x, y) - self.size / 2
@@ -458,8 +482,13 @@ class Building:
             self.exists = True
             self.tick = self.tick2
             self.update_stats()
+            self.summoned = True
+            self.on_summon()
             if self.comes_from is not None:
-                self.comes_from.die()
+                self.comes_from.delete()
+
+    def on_summon(self):
+        pass
 
     def tick2(self):
         if self.exists:
@@ -484,20 +513,110 @@ class Building:
 class TownHall(Building):
     name = "TownHall"
     entity_type = "townhall"
+    upgrades = []
 
     def __init__(self, x, y, side, game):
         super().__init__(None, x, y, side, game)
         self.exists = True
+        self.tick = self.tick2
+        self.upgrades_into = [TownHall1, TownHall2]
 
-    def die(self):
-        if not self.exists:
-            return
-        super().die()
+    def on_die(self):
         print("game over", self.game.ticks)
         # self.game.end(1 - self.side)
 
-    def tick(self):
+
+class TownHall_upgrade(Building):
+    name = "TownHall"
+    upgrades = []
+
+    def __init__(self, target):
+        super().__init__(None, target.x, target.y, target.side, target.game)
+        self.game.players[self.side].TownHall = self
+        self.upgrades_into = [e for e in self.upgrades]
+        self.comes_from = target
+
+    def on_die(self):
+        print("game over", self.game.ticks)
+
+    @classmethod
+    def get_cost(cls, params):
+        return unit_stats[cls.name]["cost"]
+
+
+class TownHall1(TownHall_upgrade):
+    name = "TownHall1"
+    upgrades = []
+
+    def __init__(self, *a, **k):
+        super().__init__(*a, **k)
+        self.additionals = []
+
+    def on_summon(self):
+        freq = 16
+        self.additionals.append(AOE_aura(effect_stat_mult, ("speed", self.stats["slow"], freq),
+                                         [self.x, self.y, self.stats["radius"]],
+                                         self.game, 1 - self.side, None, [e.name for e in possible_units], freq))
+        self.additionals.append(AOE_aura(effect_stat_mult, ("cd", 1 / self.stats["slow"], freq),
+                                         [self.x, self.y, self.stats["radius"]],
+                                         self.game, 1 - self.side, None, frequency=freq))
+
+    def on_delete(self):
+        [e.delete() for e in self.additionals]
+
+
+class TownHall2(TownHall_upgrade):
+    name = "TownHall2"
+    upgrades = []
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.current_cooldown = 0
+        self.target = None
+        self.shooting_in_chunks = get_chunks_force_circle(self.x, self.y, 2 * self.stats["reach"])
+        self.turns_without_target = 0
+
+    def tick2(self):
         super().tick2()
+        assert self.frozen >= 0
+        if self.frozen == 0:
+            if self.current_cooldown > 0:
+                self.current_cooldown -= 1 * INV_FPS
+            if self.current_cooldown <= 0:
+                if self.acquire_target():
+                    self.current_cooldown += self.stats["cd"]
+                    self.attack(self.target)
+                else:
+                    self.turns_without_target += 1
+
+    def attack(self, target):
+        flame_wave(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"], self,
+                   self.stats["bulletspeed"],
+                   self.stats["reach"] * 1.5, self.stats["bullet_size"], pierce=self.stats["pierce"],
+                   cluster=self.stats["cluster"],
+                   recursion=self.stats["recursion"])
+
+    def acquire_target(self):
+        if self.target is not None and \
+                self.target.exists and self.target.distance_to_point(self.x, self.y) < self.stats["reach"]:
+            return True
+        if self.turns_without_target == 60 or self.turns_without_target == 0:
+            self.turns_without_target = 0
+            for c in self.shooting_in_chunks:
+                chonker = self.game.find_chunk(c)
+                if chonker is not None:
+                    for unit in chonker.units[1 - self.side]:
+                        if unit.exists and unit.distance_to_point(self.x, self.y) < self.stats["reach"]:
+                            self.target = unit
+                            self.turns_without_target = 0
+                            return True
+                    for unit in chonker.buildings[1 - self.side]:
+                        if unit.exists and unit.distance_to_point(self.x, self.y) < self.stats["reach"]:
+                            self.target = unit
+                            self.turns_without_target = 0
+                            return True
+            return False
+        return False
 
 
 class Tower(Building):
@@ -509,7 +628,7 @@ class Tower(Building):
         super().__init__(ID, x, y, side, game)
         self.current_cooldown = 0
         self.target = None
-        self.shooting_in_chunks = get_chunks(self.x, self.y, 2 * self.stats["reach"])
+        self.shooting_in_chunks = get_chunks_force_circle(self.x, self.y, 2 * self.stats["reach"])
         self.upgrades_into = [e for e in self.upgrades]
         self.turns_without_target = 0
 
@@ -792,7 +911,7 @@ class Farm2(Farm):
 
 
 possible_buildings = [Tower, Farm, Tower1, Tower2, Tower21, Tower11, Farm1, Farm2, Tower211, Tower3, Tower31, Tower22,
-                      Farm11, Tower23, Tower231]
+                      Farm11, Tower23, Tower231, TownHall, TownHall1, TownHall2]
 
 
 def get_upg_num(cls):
@@ -1198,7 +1317,7 @@ class Unit:
                 self.vy = -self.stats["speed"] * direction[1] / 2
                 self.x += self.vx
                 self.y += self.vy
-            return d <= self.stats["reach"]+self.size
+            return d <= self.stats["reach"] + self.size
         else:
             dist_sq = (other.x - self.x) ** 2 + (other.y - self.y) ** 2
             if dist_sq < ((other.size + self.size) * .5 + self.stats["reach"] * .8) ** 2:
@@ -1234,18 +1353,12 @@ class Unit:
         self.formation = None
 
     def tick(self):
-        pass
-
-    def tick2(self):
         if not self.exists:
             return
-        assert self.frozen >= 0
         if self.frozen == 0:
             if not self.formation.all_targets:
                 x, y = self.x, self.y
-                if self.reached_goal:
-                    pass
-                else:
+                if not self.reached_goal:
                     self.rotate(self.desired_x - self.x, self.desired_y - self.y)
                     if self.x <= self.desired_x:
                         self.x += min(self.vx, self.desired_x - self.x)
@@ -1284,7 +1397,6 @@ class Unit:
 
     def summon_done(self):
         self.exists = True
-        self.tick = self.tick2
         self.game.players[self.side].on_unit_summon(self)
         self.update_stats()
 
@@ -1311,9 +1423,10 @@ class Unit:
         if not self.exists:
             return
         for c in self.chunks:
-            for e in self.game.chunks[c].units[self.side]:
+            units = self.game.chunks[c].units
+            for e in units[self.side]:
                 self.check_collision(e)
-            for e in self.game.chunks[c].units[self.side - 1]:
+            for e in units[self.side - 1]:
                 self.check_collision(e)
 
     def check_collision(self, other):
@@ -1322,11 +1435,11 @@ class Unit:
         dx = other.x - self.x
         dy = other.y - self.y
         size = (self.size + other.size) / 2
-        if max(abs(dx), abs(dy)) < size:
-            dist_sq = dx ** 2 + dy ** 2
+        if abs(dx) < size > abs(dy):
+            dist_sq = dx * dx + dy * dy
             if dist_sq == 0:
                 dist_sq = .01
-            if dist_sq < size ** 2:
+            if dist_sq < size * size:
                 shovage = size * dist_sq ** -.5 - 1  # desired dist / current dist -1
                 mass_ratio = self.stats["mass"] / (self.stats["mass"] + other.stats["mass"])
                 other.take_knockback(dx * shovage * mass_ratio, dy * shovage * mass_ratio,
@@ -1537,18 +1650,19 @@ class Projectile_with_size(Projectile):
             if c is not None:
                 for unit in c.units[1 - self.side]:
                     if unit.exists and unit not in self.already_hit and \
-                            (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= ((unit.size+self.size) ** 2) / 4:
+                            (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= ((unit.size + self.size) ** 2) / 4:
                         self.collide(unit)
                         if self.pierce < 1:
                             return
                 for unit in c.buildings[1 - self.side]:
                     if unit.exists and unit not in self.already_hit and \
-                            (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= ((unit.size+self.size) ** 2) / 4:
+                            (unit.x - self.x) ** 2 + (unit.y - self.y) ** 2 <= ((unit.size + self.size) ** 2) / 4:
                         self.collide(unit)
                         if self.pierce < 1:
                             return
                 for wall in c.walls[1 - self.side]:
-                    if wall.exists and wall not in self.already_hit and wall.distance_to_point(self.x, self.y) <= self.size:
+                    if wall.exists and wall not in self.already_hit and wall.distance_to_point(self.x,
+                                                                                               self.y) <= self.size:
                         self.collide(wall)
                         if self.pierce < 1:
                             return
@@ -1750,6 +1864,7 @@ class effect_regen(effect):
 
 class aura:
     everywhere = True
+
     def __init__(self, effect, args, duration=None, targets=None):
         self.effect = effect
         self.args = args
@@ -1768,24 +1883,30 @@ class aura:
         if self.targets is None or target.name in self.targets:
             self.effect(*self.args).apply(target)
 
+    def delete(self):
+        self.exists = False
+
 
 class AOE_aura:
     everywhere = False
+
     def __init__(self, effect, args, x_y_rad, game: Game, side, duration=None, targets=None, frequency=1):
         self.effect = effect
         self.args = args
         self.remaining_duration = duration
+        self.apply_counter = 0
         self.exists = True
         self.targets = targets
         self.x_y_rad = x_y_rad
-        self.chunks = get_chunks(*x_y_rad)
+        self.chunks = get_chunks_force_circle(*x_y_rad)
         self.game = game
         self.side = side
         self.game.players[side].auras.append(self)
         self.frequency = frequency
 
     def tick(self):
-        if self.remaining_duration % self.frequency == 0:
+        if self.apply_counter % self.frequency == 0:
+            self.apply_counter = 0
             affected = []
             for c in self.chunks:
                 ch = self.game.find_chunk(c)
@@ -1804,6 +1925,7 @@ class AOE_aura:
                                 affected.append(e)
             for e in affected:
                 self.apply(e)
+        self.apply_counter += 1
         if self.remaining_duration is None:
             return
         self.remaining_duration -= 1
@@ -1813,6 +1935,9 @@ class AOE_aura:
     def apply(self, target):
         if self.targets is None or target.name in self.targets:
             self.effect(*self.args).apply(target)
+
+    def delete(self):
+        self.exists = False
 
 
 ##################  ---/units---  #################
@@ -1970,7 +2095,6 @@ class Upgrade_golem(Upgrade):
 possible_upgrades = [Upgrade_default, Upgrade_test_1, Upgrade_bigger_arrows, Upgrade_catapult, Upgrade_bigger_rocks,
                      Upgrade_egg, Upgrade_faster_archery, Upgrade_vigorous_farming, Upgrade_mines, Upgrade_necromancy,
                      Upgrade_nanobots, Upgrade_walls, Upgrade_superior_pyrotechnics, Upgrade_golem]
-
 
 
 class Spell:
