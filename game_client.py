@@ -1404,21 +1404,20 @@ class TownHall1(TownHall_upgrade):
     upgrades = []
     name = "TownHall1"
     image = images.Meteor
-    freq = 16
 
     def __init__(self, *a, **k):
         super().__init__(*a, **k)
         self.additionals = []
 
     def on_summon(self):
-        freq = 16
+        freq = 8
         self.additionals.append(
             AOE_aura(effect_stat_mult, ("speed", self.stats["slow"], freq), [self.x, self.y, self.stats["radius"]],
                      self.game, 1 - self.side, None, [e.name for e in possible_units], freq))
         self.additionals.append(
             AOE_aura(effect_stat_mult, ("cd", 1 / self.stats["slow"], freq), [self.x, self.y, self.stats["radius"]],
                      self.game, 1 - self.side, None, frequency=freq))
-        self.additionals.append(animation_frost(self.x, self.y, self.stats["radius"] * 2, None, self.game))
+        self.additionals.append(animation_frost(self.x, self.y, self.stats["radius"], None, self.game))
 
     def on_delete(self):
         [e.delete() for e in self.additionals]
@@ -3022,14 +3021,15 @@ class animation_explosion:
     def __init__(self, x, y, size, speed, game):
         if len(game.animations) > MAX_ANIMATIONS:
             return
-        self.sprite = pyglet.sprite.Sprite(images.Fire, x=x * SPRITE_SIZE_MULT - game.camx,
-                                           y=y * SPRITE_SIZE_MULT - game.camy,
-                                           batch=game.batch, group=groups.g[6])
+        # self.sprite = pyglet.sprite.Sprite(images.Fire, x=x * SPRITE_SIZE_MULT - game.camx,
+        #                                   y=y * SPRITE_SIZE_MULT - game.camy,
+        #                                   batch=game.batch, group=groups.g[6])
+        self.sprite = client_utility.animation(x, y, size, game, images.FlameRing)
         self.sprite2 = pyglet.sprite.Sprite(images.Shockwave, x=x * SPRITE_SIZE_MULT - game.camx,
                                             y=y * SPRITE_SIZE_MULT - game.camy,
                                             batch=game.batch, group=groups.g[5])
         self.sprite.rotation = random.randint(0, 360)
-        self.sprite.scale = 0
+        #self.sprite.scale = 0
         self.x, self.y = x, y
         self.game = game
         self.size, self.speed = size, speed
@@ -3045,11 +3045,12 @@ class animation_explosion:
         if self.exists_time > 128:
             self.delete()
             return
-        self.sprite.update(x=self.x * SPRITE_SIZE_MULT - self.game.camx, y=self.y * SPRITE_SIZE_MULT - self.game.camy,
-                           scale=self.exists_time / 128 * self.size / images.Fire.width)
+        #self.sprite.update(x=self.x * SPRITE_SIZE_MULT - self.game.camx, y=self.y * SPRITE_SIZE_MULT - self.game.camy,
+        #                   scale=self.exists_time / 128 * self.size / images.Fire.width)
+        self.sprite.tick(dt)
         self.sprite2.update(x=self.x * SPRITE_SIZE_MULT - self.game.camx, y=self.y * SPRITE_SIZE_MULT - self.game.camy,
                             scale=self.exists_time * 3 / 256 * self.size / images.Shockwave.width)
-        self.sprite.opacity = (256 - 2 * self.exists_time)
+        #self.sprite.opacity = (256 - 2 * self.exists_time)
         self.sprite2.opacity = (256 - 2 * self.exists_time) * 0.6
 
     def delete(self):
@@ -3321,7 +3322,7 @@ class aura:
             self.effect(*self.args).apply(target)
 
     def delete(self):
-        self.exists=False
+        self.exists = False
 
 
 class AOE_aura:
@@ -3370,7 +3371,7 @@ class AOE_aura:
             self.exists = False
 
     def delete(self):
-        self.exists=False
+        self.exists = False
 
     def apply(self, target):
         if self.targets is None or target.name in self.targets:

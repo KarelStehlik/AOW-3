@@ -207,10 +207,10 @@ class animation(pyglet.sprite.Sprite):
     img = images.FlameRing
     standalone = False
 
-    def __init__(self, x, y, size, game):
+    def __init__(self, x, y, size, game, img=None):
         if len(game.animations) > MAX_ANIMATIONS:
             return
-        super().__init__(self.img, x=x * SPRITE_SIZE_MULT - game.camx,
+        super().__init__(self.img if img is None else img, x=x * SPRITE_SIZE_MULT - game.camx,
                          y=y * SPRITE_SIZE_MULT - game.camy,
                          batch=game.batch, group=groups.g[5])
         self.rotation = random.randint(0, 360)
@@ -226,6 +226,8 @@ class animation(pyglet.sprite.Sprite):
         self.frame_duration = self.max_duration / self.anim_frames
 
     def tick(self, dt):
+        if not self.exists:
+            return
         if dt > .5:
             self.delete()
             return
@@ -253,6 +255,8 @@ class animation(pyglet.sprite.Sprite):
         self.delete()
 
     def delete(self):
+        if not self.exists:
+            return
         self.exists = False
         if self.standalone:
             self.game.animations.remove(self)

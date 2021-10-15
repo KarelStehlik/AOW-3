@@ -553,7 +553,7 @@ class TownHall1(TownHall_upgrade):
         self.additionals = []
 
     def on_summon(self):
-        freq = 16
+        freq = 8
         self.additionals.append(AOE_aura(effect_stat_mult, ("speed", self.stats["slow"], freq),
                                          [self.x, self.y, self.stats["radius"]],
                                          self.game, 1 - self.side, None, [e.name for e in possible_units], freq))
