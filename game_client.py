@@ -154,17 +154,17 @@ class Game:
                     self.time_difference = average(*self.time_diffs)
                     print(self.time_difference)
             elif action == "place_building":
-                possible_buildings[data["entity_type"]](data["ID"], data["xy"][0], data["xy"][1], data["tick"],
+                possible_buildings[data["entity_type"]](data["xy"][0], data["xy"][1], data["tick"],
                                                         data["side"], self)
                 return
             elif action == "place_wall":
                 t1, t2 = self.find_building(data["ID1"], data["side"], "tower"), self.find_building(data["ID2"],
                                                                                                     data["side"],
                                                                                                     "tower")
-                Wall(data["ID"], t1, t2, data["tick"], data["side"], self)
+                Wall(t1, t2, data["tick"], data["side"], self)
                 return
             elif action == "summon_formation":
-                Formation(data["ID"], data["instructions"], data["troops"], data["tick"], data["side"], self)
+                Formation(data["instructions"], data["troops"], data["tick"], data["side"], self)
                 return
             elif action == "upgrade":
                 tar = self.find_building(data["ID"], data["side"])
@@ -184,8 +184,8 @@ class Game:
                 self.players[data["side"]].mana -= possible_spells[data["num"]].get_cost()
                 possible_spells[data["num"]](self, data["side"], data["tick"], data["x"], data["y"])
 
-    def summon_ai_wave(self, ID, side, x, y, units, tick, worth, amplifier):
-        wave = Formation(ID, [], units, tick, 1 - side, self, x=x, y=y, AI=True, amplifier=float(amplifier))
+    def summon_ai_wave(self, side, x, y, units, tick, worth, amplifier):
+        wave = Formation([], units, tick, 1 - side, self, x=x, y=y, AI=True, amplifier=float(amplifier))
         wave.attack(self.players[side].TownHall)
         self.players[side].gain_money(worth)
         if side == self.side:
@@ -336,6 +336,7 @@ class player:
         self.unlocked_units = [Swordsman, Archer, Defender, Tower, Wall, Farm, Tower1, Tower2, Tower11, Tower21,
                                Farm1, Farm2, Tower3, Tower31, Farm11, Fireball, Freeze, Rage, Tower23, TownHall1,
                                TownHall2]
+        self.farm_value = 0
 
     def gain_mana(self, amount):
         self.mana = min(self.mana + amount, self.max_mana)
@@ -1159,13 +1160,13 @@ class Building:
     entity_type = "townhall"
     image = images.Tower
 
-    def __init__(self, ID, x, y, tick, side, game, instant=False):
+    def __init__(self, x, y, tick, side, game, instant=False, size_override=None):
         self.spawning = game.ticks - tick
-        self.ID = ID
+        self.ID = (x, y, self.name, game.ticks - self.spawning)
         self.shown = True
         self.x, self.y = x, y
         self.side = side
-        self.size = unit_stats[self.name]["size"]
+        self.size = unit_stats[self.name]["size"] if size_override is None else size_override
         self.health = unit_stats[self.name]["health"]
         self.sprite = pyglet.sprite.Sprite(self.image, x=x * SPRITE_SIZE_MULT - game.camx,
                                            y=y * SPRITE_SIZE_MULT - game.camy, batch=game.batch,
@@ -1348,7 +1349,7 @@ class TownHall(Building):
     upgrades = []
 
     def __init__(self, x, y, side, game):
-        super().__init__(None, x, y, 0, side, game)
+        super().__init__(x, y, 0, side, game)
         self.exists = True
         self.sprite.opacity = 255
         self.tick = self.tick2
@@ -1380,10 +1381,10 @@ class TownHall_upgrade(Building):
 
     def __init__(self, target=None, tick=None, x=None, y=None, side=None, game=None, ID=None):
         if target is not None:
-            super().__init__(None, target.x, target.y, tick, target.side, target.game)
+            super().__init__(target.x, target.y, tick, target.side, target.game)
             self.comes_from = target
         else:
-            super().__init__(ID, x, y, tick, side, game)
+            super().__init__(x, y, tick, side, game)
             self.comes_from = None
         self.game.players[self.side].TownHall = self
         self.upgrades_into = [e for e in self.upgrades]
@@ -1417,7 +1418,9 @@ class TownHall1(TownHall_upgrade):
         self.additionals.append(
             AOE_aura(effect_stat_mult, ("cd", 1 / self.stats["slow"], freq), [self.x, self.y, self.stats["radius"]],
                      self.game, 1 - self.side, None, frequency=freq))
-        self.additionals.append(animation_frost(self.x, self.y, self.stats["radius"], None, self.game))
+        a=animation_frost(self.x, self.y, self.stats["radius"], None, self.game)
+        if hasattr(a,"sprite"):
+            self.additionals.append(a)
 
     def on_delete(self):
         [e.delete() for e in self.additionals]
@@ -1478,15 +1481,41 @@ class TownHall2(TownHall_upgrade):
         return False
 
 
+class Tree(Building):
+    name = "Tree"
+    entity_type = "tree"
+    image = images.Farm
+    upgrades = []
+
+    def __init__(self, x, y, side, game, size):
+        super().__init__(x, y, game.ticks, side, game, size_override=unit_stats[self.name]["size"] * size)
+        self.additionals = []
+        self.bigness = size
+        effect_stat_mult("health", size ** 2).apply(self)
+
+    def on_summon(self):
+        freq = 32
+        self.additionals.append(
+            AOE_aura(effect_instant_health, (self.bigness * self.stats["heal"],),
+                     [self.x, self.y, self.bigness * self.stats["diameter"]],
+                     self.game, self.side, None, None, freq))
+        a=animation_frost(self.x, self.y, self.bigness * self.stats["diameter"], None, self.game,opacity=50)
+        if hasattr(a,"sprite"):
+            self.additionals.append(a)
+
+    def on_delete(self):
+        [e.delete() for e in self.additionals]
+
+
 class Tower(Building):
     name = "Tower"
     entity_type = "tower"
     image = images.Tower
     upgrades = []
 
-    def __init__(self, ID, x, y, tick, side, game):
+    def __init__(self, x, y, tick, side, game):
         game.players[side].money -= self.get_cost([])
-        super().__init__(ID, x, y, tick, side, game)
+        super().__init__(x, y, tick, side, game)
         self.sprite2 = pyglet.sprite.Sprite(images.TowerCrack, x=x * SPRITE_SIZE_MULT,
                                             y=y * SPRITE_SIZE_MULT, batch=game.batch,
                                             group=groups.g[4])
@@ -1574,10 +1603,12 @@ class tower_upgrade(Tower):
 
     def __init__(self, target=None, tick=None, x=None, y=None, side=None, game=None, ID=None):
         if target is not None:
-            super().__init__(target.ID, target.x, target.y, tick, target.side, target.game)
+            super().__init__(target.x, target.y, tick, target.side, target.game)
             self.comes_from = target
+            self.ID = target.ID
         else:
-            super().__init__(ID, x, y, tick, side, game)
+            super().__init__(x, y, tick, side, game)
+            self.ID = ID
             self.comes_from = None
         self.upgrades_into = [e for e in self.upgrades]
 
@@ -1758,9 +1789,9 @@ class Farm(Building):
     image = images.Farm
     upgrades = []
 
-    def __init__(self, ID, x, y, tick, side, game):
+    def __init__(self, x, y, tick, side, game):
         game.players[side].money -= self.get_cost([])
-        super().__init__(ID, x, y, tick, side, game)
+        super().__init__(x, y, tick, side, game)
         self.upgrades_into = [e for e in self.upgrades]
 
     @classmethod
@@ -1780,11 +1811,13 @@ class farm_upgrade(Farm):
 
     def __init__(self, target=None, tick=None, x=None, y=None, side=None, game=None, ID=None):
         if target is not None:
-            super().__init__(target.ID, target.x, target.y, tick, target.side, target.game)
+            super().__init__(target.x, target.y, tick, target.side, target.game)
             self.comes_from = target
+            self.ID = target.ID
         else:
-            super().__init__(ID, x, y, tick, side, game)
+            super().__init__(x, y, tick, side, game)
             self.comes_from = None
+            self.ID = ID
         self.upgrades_into = [e for e in self.upgrades]
 
     @classmethod
@@ -1832,11 +1865,11 @@ class Wall:
     name = "Wall"
     entity_type = "wall"
 
-    def __init__(self, ID, t1, t2, tick, side, game):
+    def __init__(self, t1, t2, tick, side, game):
         game.players[side].money -= self.get_cost([])
         self.exists = False
         self.spawning = game.ticks - tick
-        self.ID = ID
+        self.ID = (t1.x, t1.y, game.ticks - self.spawning)
         self.x1, self.y1, self.x2, self.y2 = t1.x, t1.y, t2.x, t2.y
         self.length = ((self.x1 - self.x2) ** 2 + (self.y1 - self.y2) ** 2) ** .5
         self.norm_vector = ((self.y2 - self.y1) / self.length, (self.x1 - self.x2) / self.length)
@@ -1975,8 +2008,10 @@ class Wall:
 
 
 class Formation:
-    def __init__(self, ID, instructions, troops, tick, side, game, x=None, y=None, AI=False, amplifier=1.0):
+    def __init__(self, instructions, troops, tick, side, game, x=None, y=None, AI=False, amplifier=1.0):
         self.game = game
+        self.spawning = game.ticks - tick
+        self.ID = (game.ticks - self.spawning,)
         if x is None:
             self.x, self.y = game.players[side].TownHall.x, game.players[side].TownHall.y
         else:
@@ -2000,19 +2035,16 @@ class Formation:
         self.AI = AI
         self.entity_type = "formation"
         self.exists = False
-        self.spawning = game.ticks - tick
-        self.ID = ID
         self.instructions = instructions
         self.side = side
         self.troops = []
         self.game.players[self.side].formations.append(self)
-        i = 0
         for column in range(UNIT_FORMATION_COLUMNS):
             for row in range(UNIT_FORMATION_ROWS):
                 if troops[column][row] != -1:
                     self.troops.append(
                         possible_units[troops[column][row]](
-                            i + self.ID + 1,
+                            self.ID + (column, row),
                             (column - self.game.unit_formation_columns / 2) * UNIT_SIZE + self.x,
                             (row - self.game.unit_formation_rows / 2) * UNIT_SIZE + self.y,
                             side,
@@ -2023,7 +2055,6 @@ class Formation:
                                      effect_stat_mult("dmg", amplifier))
                         )
                     )
-                    i += 1
         self.instr_object = instruction_moving(self, self.x, self.y)
         self.all_targets = []
 
@@ -2446,7 +2477,7 @@ class Unit:
             if source.entity_type == "unit" and source not in self.formation.all_targets:
                 self.formation.attack(source.formation)
             elif source.entity_type in ["tower", "townhall", "wall",
-                                        "farm"] and source not in self.formation.all_targets:
+                                        "farm", "tree"] and source not in self.formation.all_targets:
                 self.formation.attack(source)
 
     def rotate(self, x, y):
@@ -3029,7 +3060,7 @@ class animation_explosion:
                                             y=y * SPRITE_SIZE_MULT - game.camy,
                                             batch=game.batch, group=groups.g[5])
         self.sprite.rotation = random.randint(0, 360)
-        #self.sprite.scale = 0
+        # self.sprite.scale = 0
         self.x, self.y = x, y
         self.game = game
         self.size, self.speed = size, speed
@@ -3045,12 +3076,12 @@ class animation_explosion:
         if self.exists_time > 128:
             self.delete()
             return
-        #self.sprite.update(x=self.x * SPRITE_SIZE_MULT - self.game.camx, y=self.y * SPRITE_SIZE_MULT - self.game.camy,
+        # self.sprite.update(x=self.x * SPRITE_SIZE_MULT - self.game.camx, y=self.y * SPRITE_SIZE_MULT - self.game.camy,
         #                   scale=self.exists_time / 128 * self.size / images.Fire.width)
         self.sprite.tick(dt)
         self.sprite2.update(x=self.x * SPRITE_SIZE_MULT - self.game.camx, y=self.y * SPRITE_SIZE_MULT - self.game.camy,
                             scale=self.exists_time * 3 / 256 * self.size / images.Shockwave.width)
-        #self.sprite.opacity = (256 - 2 * self.exists_time)
+        # self.sprite.opacity = (256 - 2 * self.exists_time)
         self.sprite2.opacity = (256 - 2 * self.exists_time) * 0.6
 
     def delete(self):
@@ -3111,7 +3142,7 @@ class animation_freeze:
             self.delete()
             return
         else:
-            self.sprite.opacity = 255 * (self.duration - self.exists_time) / self.duration
+            self.sprite.opacity = 255* (self.duration - self.exists_time) / self.duration
             self.sprite.update(x=self.x * SPRITE_SIZE_MULT - self.game.camx,
                                y=self.y * SPRITE_SIZE_MULT - self.game.camy)
             self.exists_time += dt
@@ -3159,12 +3190,13 @@ class animation_rage:
 
 
 class animation_frost:
-    def __init__(self, x, y, size, duration, game):
+    def __init__(self, x, y, size, duration, game, opacity=255):
         if len(game.animations) > MAX_ANIMATIONS:
             return
+        self.max_opacity = opacity
         self.sprite = pyglet.sprite.Sprite(images.Freeze, x=x * SPRITE_SIZE_MULT - game.camx,
                                            y=y * SPRITE_SIZE_MULT - game.camy,
-                                           batch=game.batch, group=groups.g[2])
+                                           batch=game.batch, group=groups.g[3])
         self.sprite.rotation = random.randint(0, 360)
         self.sprite.scale = size / self.sprite.width
         self.x, self.y = x, y
@@ -3179,7 +3211,7 @@ class animation_frost:
             self.delete()
             return
         else:
-            self.sprite.opacity = 255 * (.65 + .35 * math.sin(self.exists_time * self.flicker))
+            self.sprite.opacity = self.max_opacity * (.65 + .35 * math.sin(self.exists_time * self.flicker))
             self.sprite.update(x=self.x * SPRITE_SIZE_MULT - self.game.camx,
                                y=self.y * SPRITE_SIZE_MULT - self.game.camy)
             self.exists_time += dt
@@ -3248,6 +3280,15 @@ class effect:
 
     def on_tick(self):
         pass
+
+
+class effect_instant_health(effect):
+    def __init__(self, amount):
+        super().__init__(0)
+        self.amount = amount
+
+    def apply(self, target):
+        target.health = min(target.health + self.amount, target.stats["health"])
 
 
 class effect_stat_mult(effect):
@@ -3836,6 +3877,7 @@ class Fireball(Spell):
         self.sprite.delete()
         AOE_damage(self.x, self.y, self.radius, self.dmg, self, self.game, "spell")
         animation_explosion(self.x, self.y, self.radius * 2, 100, self.game)
+        Tree(self.x, self.y, self.side, self.game, 2)
 
 
 class Freeze(Spell):

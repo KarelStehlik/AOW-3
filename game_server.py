@@ -42,6 +42,7 @@ def generate_units(money):
 class Game:
     def __init__(self, channel1, channel2, server):
         self.chunks = {}
+        self.ticks = 0
         channel1.start(self, 0)
         channel2.start(self, 1)
         self.time_start = time.time()
@@ -50,8 +51,6 @@ class Game:
         for e in self.players:
             e.summon_townhall()
         self.server = server
-        self.object_ID = 0
-        self.ticks = 0
         self.unit_formation_columns = UNIT_FORMATION_COLUMNS
         self.unit_formation_rows = UNIT_FORMATION_ROWS
         self.debug_secs, self.debug_ticks = time.time(), 0
@@ -107,12 +106,11 @@ class Game:
                     if e.distance_to_point(*data["xy"]) < unit_stats[entity_type.name]["size"] / 2:
                         return
                 if self.players[side].attempt_purchase(entity_type.get_cost([])):
-                    entity_type(self.object_ID, data["xy"][0], data["xy"][1], side, self)
+                    entity_type(data["xy"][0], data["xy"][1], side, self)
                     self.send_both({"action": "place_building", "xy": data["xy"], "tick": self.ticks, "side": side,
-                                    "ID": self.object_ID, "entity_type": data["entity_type"]})
+                                    "entity_type": data["entity_type"]})
                     # print({"action": "place_building", "xy": data["xy"], "tick": self.ticks, "side": side,
                     #       "ID": self.object_ID, "entity_type": data["entity_type"]})
-                    self.object_ID += 1
             elif action == "place_wall":
                 if self.players[side].attempt_purchase(Wall.get_cost([])):
                     t1, t2 = self.find_building(data["ID1"], side, "tower"), self.find_building(data["ID2"], side,
@@ -125,11 +123,9 @@ class Game:
                     for e in self.players[1].walls:
                         if e.tower_1.ID in [data["ID1"], data["ID2"]] and e.tower_2.ID in [data["ID1"], data["ID2"]]:
                             return
-                    Wall(self.object_ID, t1, t2, side, self)
+                    Wall(t1, t2, side, self)
                     self.send_both({"action": "place_wall", "ID1": data["ID1"],
-                                    "ID2": data["ID2"], "tick": self.ticks, "side": side,
-                                    "ID": self.object_ID})
-                    self.object_ID += 1
+                                    "ID2": data["ID2"], "tick": self.ticks, "side": side})
             elif action == "summon_formation":
                 confirmed_units = []
                 for e in data["troops"]:
@@ -143,12 +139,9 @@ class Game:
                 if self.players[side].attempt_purchase(Formation.get_cost([data["troops"], ])):
                     if is_empty_2d(data["troops"]):
                         return
-                    oid = self.object_ID
-                    Formation(oid, data["instructions"], data["troops"], side, self)
+                    Formation(data["instructions"], data["troops"], side, self)
                     self.send_both({"action": "summon_formation", "tick": self.ticks, "side": side,
-                                    "instructions": data["instructions"], "troops": data["troops"],
-                                    "ID": oid})
-                    self.object_ID += 1
+                                    "instructions": data["instructions"], "troops": data["troops"]})
             elif action == "buy upgrade":
                 target = self.find_building(data["building ID"], side)
                 if target is None or len(target.upgrades_into) <= data["upgrade num"]:
@@ -202,9 +195,8 @@ class Game:
         distance = 1000 * self.players[side].ai_wave ** .2
         x = int(self.players[side].TownHall.x + distance * math.cos(angle))
         y = int(self.players[side].TownHall.y + distance * math.sin(angle))
-        args = [self.object_ID, side, x, y, units[0], self.ticks, worth, str(units[1])]
-        wave = Formation(self.object_ID, [], units[0], 1 - side, self, x=x, y=y, amplifier=units[1], AI=True)
-        self.object_ID += 1
+        args = [side, x, y, units[0], self.ticks, worth, str(units[1])]
+        wave = Formation([], units[0], 1 - side, self, x=x, y=y, amplifier=units[1], AI=True)
         wave.attack(self.players[side].TownHall)
         self.send_both({"action": "summon_wave", "args": args})
 
@@ -296,6 +288,7 @@ class player:
         self.unlocked_units = [Swordsman, Archer, Defender, Tower, Wall, Farm, Tower1, Tower2, Tower11, Tower21,
                                Farm1, Farm2, Tower3, Tower31, Farm11, Fireball, Freeze, Rage, Tower23, TownHall1,
                                TownHall2]
+        self.farm_value = 1000
 
     def gain_mana(self, amount):
         self.mana = min(self.mana + amount, self.max_mana)
@@ -395,12 +388,12 @@ class Building:
     name = "TownHall"
     entity_type = "townhall"
 
-    def __init__(self, ID, x, y, side, game, instant=False):
+    def __init__(self, x, y, side, game, instant=False, size_override=None):
         self.spawning = 0
-        self.ID = ID
+        self.ID = (x, y, self.name, game.ticks - self.spawning)
         self.x, self.y = x, y
         self.side = side
-        self.size = unit_stats[self.name]["size"]
+        self.size = unit_stats[self.name]["size"] if size_override is None else size_override
         self.health = self.max_health = unit_stats[self.name]["health"]
         self.game = game
         self.chunks = get_chunks_force_circle(x, y, self.size)
@@ -510,13 +503,35 @@ class Building:
                         e.take_knockback(dx * shovage, dy * shovage, self)
 
 
+class Tree(Building):
+    name = "Tree"
+    entity_type = "tree"
+    upgrades = []
+
+    def __init__(self, x, y, side, game, size):
+        super().__init__(x, y, side, game, size_override=unit_stats[self.name]["size"] * size)
+        self.additionals = []
+        self.bigness = size
+        effect_stat_mult("health", size**2).apply(self)
+
+    def on_summon(self):
+        freq = 32
+        self.additionals.append(
+            AOE_aura(effect_instant_health, (self.bigness * self.stats["heal"],),
+                     [self.x, self.y, self.bigness * self.stats["diameter"]],
+                     self.game, self.side, None, None, freq))
+
+    def on_delete(self):
+        [e.delete() for e in self.additionals]
+
+
 class TownHall(Building):
     name = "TownHall"
     entity_type = "townhall"
     upgrades = []
 
     def __init__(self, x, y, side, game):
-        super().__init__(None, x, y, side, game)
+        super().__init__(x, y, side, game)
         self.exists = True
         self.tick = self.tick2
         self.upgrades_into = [TownHall1, TownHall2]
@@ -531,7 +546,7 @@ class TownHall_upgrade(Building):
     upgrades = []
 
     def __init__(self, target):
-        super().__init__(None, target.x, target.y, target.side, target.game)
+        super().__init__(target.x, target.y, target.side, target.game)
         self.game.players[self.side].TownHall = self
         self.upgrades_into = [e for e in self.upgrades]
         self.comes_from = target
@@ -624,8 +639,8 @@ class Tower(Building):
     entity_type = "tower"
     upgrades = []
 
-    def __init__(self, ID, x, y, side, game):
-        super().__init__(ID, x, y, side, game)
+    def __init__(self, x, y, side, game):
+        super().__init__(x, y, side, game)
         self.current_cooldown = 0
         self.target = None
         self.shooting_in_chunks = get_chunks_force_circle(self.x, self.y, 2 * self.stats["reach"])
@@ -678,22 +693,24 @@ class Tower(Building):
         return False
 
 
-class Tower1(Tower):
+class Tower_upgrade(Tower):
     name = "Tower1"
     upgrades = []
 
     def __init__(self, target):
-        super().__init__(target.ID, target.x, target.y, target.side, target.game)
+        super().__init__(target.x, target.y, target.side, target.game)
         self.comes_from = target
+        self.ID = target.ID
 
 
-class Tower11(Tower):
-    name = "Tower11"
+class Tower1(Tower_upgrade):
+    name = "Tower1"
     upgrades = []
 
-    def __init__(self, target):
-        super().__init__(target.ID, target.x, target.y, target.side, target.game)
-        self.comes_from = target
+
+class Tower11(Tower_upgrade):
+    name = "Tower11"
+    upgrades = []
 
     def attack(self, target):
         direction = target.towards(self.x, self.y)
@@ -705,13 +722,9 @@ class Tower11(Tower):
                    self.stats["reach"] * 1.5)
 
 
-class Tower2(Tower):
+class Tower2(Tower_upgrade):
     name = "Tower2"
     upgrades = []
-
-    def __init__(self, target):
-        super().__init__(target.ID, target.x, target.y, target.side, target.game)
-        self.comes_from = target
 
     def attack(self, target):
         Boulder(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"], self,
@@ -720,25 +733,17 @@ class Tower2(Tower):
                 cluster=self.stats["cluster"], recursion=self.stats["recursion"])
 
 
-class Tower23(Tower):
+class Tower23(Tower_upgrade):
     name = "Tower23"
     upgrades = []
-
-    def __init__(self, target):
-        super().__init__(target.ID, target.x, target.y, target.side, target.game)
-        self.comes_from = target
 
     def attack(self, target):
         AOE_damage(self.x, self.y, self.stats["reach"], self.stats["dmg"], self, self.game)
 
 
-class Tower231(Tower):
+class Tower231(Tower_upgrade):
     name = "Tower231"
     upgrades = []
-
-    def __init__(self, target):
-        super().__init__(target.ID, target.x, target.y, target.side, target.game)
-        self.comes_from = target
 
     def attack(self, target):
         AOE_damage(self.x, self.y, self.stats["flame_radius"], self.stats["dmg2"], self, self.game)
@@ -748,13 +753,9 @@ class Tower231(Tower):
                    pierce=self.stats["pierce"], cluster=self.stats["cluster"], recursion=self.stats["recursion"])
 
 
-class Tower22(Tower):
+class Tower22(Tower_upgrade):
     name = "Tower22"
     upgrades = []
-
-    def __init__(self, target):
-        super().__init__(target.ID, target.x, target.y, target.side, target.game)
-        self.comes_from = target
 
     def attack(self, target):
         if target is None:
@@ -803,13 +804,9 @@ class Tower22(Tower):
         return False
 
 
-class Tower21(Tower):
+class Tower21(Tower_upgrade):
     name = "Tower21"
     upgrades = []
-
-    def __init__(self, target):
-        super().__init__(target.ID, target.x, target.y, target.side, target.game)
-        self.comes_from = target
 
     def attack(self, target):
         Meteor(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"], self,
@@ -818,13 +815,9 @@ class Tower21(Tower):
                cluster=self.stats["cluster"], recursion=self.stats["recursion"])
 
 
-class Tower211(Tower):
+class Tower211(Tower_upgrade):
     name = "Tower211"
     upgrades = []
-
-    def __init__(self, target):
-        super().__init__(target.ID, target.x, target.y, target.side, target.game)
-        self.comes_from = target
 
     def attack(self, target):
         Egg(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"], self,
@@ -833,13 +826,9 @@ class Tower211(Tower):
             cluster=self.stats["cluster"], recursion=self.stats["recursion"])
 
 
-class Tower3(Tower):
+class Tower3(Tower_upgrade):
     name = "Tower3"
     upgrades = []
-
-    def __init__(self, target):
-        super().__init__(target.ID, target.x, target.y, target.side, target.game)
-        self.comes_from = target
 
     def attack(self, target):
         Arrow(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"], self,
@@ -848,13 +837,9 @@ class Tower3(Tower):
               recursion=self.stats["recursion"])
 
 
-class Tower31(Tower):
+class Tower31(Tower_upgrade):
     name = "Tower31"
     upgrades = []
-
-    def __init__(self, target):
-        super().__init__(target.ID, target.x, target.y, target.side, target.game)
-        self.comes_from = target
 
     def attack(self, target):
         Arrow(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"], self,
@@ -868,8 +853,8 @@ class Farm(Building):
     entity_type = "farm"
     upgrades = []
 
-    def __init__(self, ID, x, y, side, game):
-        super().__init__(ID, x, y, side, game)
+    def __init__(self, x, y, side, game):
+        super().__init__(x, y, side, game)
         self.upgrades_into = [e for e in self.upgrades]
 
     @classmethod
@@ -883,31 +868,29 @@ class Farm(Building):
             self.game.players[self.side].gain_money(self.stats["production"])
 
 
-class Farm1(Farm):
+class Farm_upgrade(Farm):
+    name = "Tower1"
+    upgrades = []
+
+    def __init__(self, target):
+        super().__init__(target.x, target.y, target.side, target.game)
+        self.comes_from = target
+        self.ID = target.ID
+
+
+class Farm1(Farm_upgrade):
     name = "Farm1"
     upgrades = []
 
-    def __init__(self, target):
-        super().__init__(target.ID, target.x, target.y, target.side, target.game)
-        self.comes_from = target
 
-
-class Farm11(Farm):
+class Farm11(Farm_upgrade):
     name = "Farm11"
     upgrades = []
 
-    def __init__(self, target):
-        super().__init__(target.ID, target.x, target.y, target.side, target.game)
-        self.comes_from = target
 
-
-class Farm2(Farm):
+class Farm2(Farm_upgrade):
     name = "Farm2"
     upgrades = []
-
-    def __init__(self, target):
-        super().__init__(target.ID, target.x, target.y, target.side, target.game)
-        self.comes_from = target
 
 
 possible_buildings = [Tower, Farm, Tower1, Tower2, Tower21, Tower11, Farm1, Farm2, Tower211, Tower3, Tower31, Tower22,
@@ -932,12 +915,12 @@ class Wall:
     name = "Wall"
     entity_type = "wall"
 
-    def __init__(self, ID, t1, t2, side, game):
+    def __init__(self, t1, t2, side, game):
         self.exists = False
         self.spawning = 0
         self.health = unit_stats[self.name]["health"]
         self.width = unit_stats[self.name]["size"]
-        self.ID = ID
+        self.ID = (t1.x, t1.y, game.ticks - self.spawning)
         self.x1, self.y1, self.x2, self.y2 = t1.x, t1.y, t2.x, t2.y
         self.length = ((self.x1 - self.x2) ** 2 + (self.y1 - self.y2) ** 2) ** .5
         self.norm_vector = ((self.y2 - self.y1) / self.length, (self.x1 - self.x2) / self.length)
@@ -1043,18 +1026,17 @@ class Wall:
 
 
 class Formation:
-    def __init__(self, ID, instructions, troops, side, game, x=None, y=None, amplifier=1.0, AI=False):
+    def __init__(self, instructions, troops, side, game, x=None, y=None, amplifier=1.0, AI=False):
         self.AI = AI
+        self.spawning = 0
+        self.ID = (game.ticks - self.spawning,)
         self.entity_type = "formation"
         self.exists = False
-        self.spawning = 0
-        self.ID = ID
         self.instructions = instructions
         self.side = side
         self.game = game
         self.troops = []
         self.game.players[self.side].formations.append(self)
-        i = 0
         if x is None:
             self.x, self.y = self.game.players[self.side].TownHall.x, self.game.players[self.side].TownHall.y
         else:
@@ -1062,10 +1044,9 @@ class Formation:
         for column in range(UNIT_FORMATION_COLUMNS):
             for row in range(UNIT_FORMATION_ROWS):
                 if troops[column][row] != -1:
-                    self.game.object_ID += 1
                     self.troops.append(
                         possible_units[troops[column][row]](
-                            self.game.object_ID,
+                            self.ID + (column, row),
                             (column - self.game.unit_formation_columns / 2) * UNIT_SIZE + self.x,
                             (row - self.game.unit_formation_rows / 2) * UNIT_SIZE + self.y,
                             side,
@@ -1076,7 +1057,6 @@ class Formation:
                                      effect_stat_mult("dmg", amplifier))
                         )
                     )
-                    i += 1
         self.instr_object = instruction_moving(self, self.x, self.y)
         self.all_targets = []
 
@@ -1409,7 +1389,7 @@ class Unit:
             if source.entity_type == "unit" and source not in self.formation.all_targets:
                 self.formation.attack(source.formation)
             elif source.entity_type in ["tower", "townhall", "wall",
-                                        "farm"] and source not in self.formation.all_targets:
+                                        "farm", "tree"] and source not in self.formation.all_targets:
                 self.formation.attack(source)
 
     def try_move(self, x, y):
@@ -1812,6 +1792,15 @@ class effect:
         pass
 
 
+class effect_instant_health(effect):
+    def __init__(self, amount):
+        super().__init__(0)
+        self.amount = amount
+
+    def apply(self, target):
+        target.health = min(target.health+self.amount,target.stats["health"])
+
+
 class effect_stat_mult(effect):
     def __init__(self, stat, amount, duration=None):
         super().__init__(duration)
@@ -2137,6 +2126,7 @@ class Fireball(Spell):
 
     def main(self):
         AOE_damage(self.x, self.y, self.radius, self.dmg, self, self.game, "spell")
+        Tree(self.x, self.y, self.side, self.game, 2)
 
 
 class Freeze(Spell):
