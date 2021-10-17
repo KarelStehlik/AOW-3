@@ -132,7 +132,9 @@ class Game:
         self.players[1].graphics_update(self.last_dt)
         [e.graphics_update(self.last_dt) for e in self.projectiles]
         self.selected.tick()
-        [e.tick(self.last_dt) for e in self.animations]
+        anim = [e for e in self.animations]
+        while anim:
+            anim.pop(0).tick(self.last_dt)
         [e.graphics_update(self.last_dt) for e in self.drawables]
         self.batch.draw()
         self.UI_topBar.update()
@@ -152,7 +154,6 @@ class Game:
                     self.connection.Send({"action": "ping"})
                 else:
                     self.time_difference = average(*self.time_diffs)
-                    print(self.time_difference)
             elif action == "place_building":
                 possible_buildings[data["entity_type"]](data["xy"][0], data["xy"][1], data["tick"],
                                                         data["side"], self)
@@ -335,7 +336,7 @@ class player:
         self.owned_upgrades = [Upgrade_default(self, 0)]
         self.unlocked_units = [Swordsman, Archer, Defender, Tower, Wall, Farm, Tower1, Tower2, Tower11, Tower21,
                                Farm1, Farm2, Tower3, Tower31, Farm11, Fireball, Freeze, Rage, Tower23, TownHall1,
-                               TownHall2]
+                               TownHall2, TownHall3, Tree_spell]
         self.farm_value = 0
 
     def gain_mana(self, amount):
@@ -378,7 +379,8 @@ class player:
 
     def on_unit_summon(self, unit):
         for e in self.auras:
-            e.apply(unit)
+            if e.everywhere:
+                e.apply(unit)
 
     def on_building_summon(self, unit):
         for e in self.auras:
@@ -596,7 +598,7 @@ class UI_top_bar(client_utility.toolbar):
                                        color=(255, 240, 0, 255),
                                        group=groups.g[9], batch=self.batch, anchor_y="top", anchor_x="right",
                                        font_size=0.01 * SCREEN_WIDTH)
-        self.mana = pyglet.text.Label(x=SCREEN_WIDTH * 0.9, y=SCREEN_HEIGHT * 0.995, text="Mana:0",
+        self.mana = pyglet.text.Label(x=SCREEN_WIDTH * 0.85, y=SCREEN_HEIGHT * 0.995, text="Mana:0",
                                       color=(0, 150, 255, 255),
                                       group=groups.g[9], batch=self.batch, anchor_y="top", anchor_x="right",
                                       font_size=0.01 * SCREEN_WIDTH)
@@ -1098,6 +1100,11 @@ class selection_rage(selection_spell):
     img = images.RageIcon
 
 
+class selection_tree(selection_spell):
+    index = 3
+    img = images.Farm
+
+
 class building_upgrade_menu(client_utility.toolbar):
     def __init__(self, building_ID, game: Game):
         self.target = game.find_building(building_ID, game.side)
@@ -1161,6 +1168,7 @@ class Building:
     image = images.Tower
 
     def __init__(self, x, y, tick, side, game, instant=False, size_override=None):
+        x,y=int(x),int(y)
         self.spawning = game.ticks - tick
         self.ID = (x, y, self.name, game.ticks - self.spawning)
         self.shown = True
@@ -1200,7 +1208,9 @@ class Building:
         self.upgrades_into = []
         self.comes_from = None
         self.effects = []
-        self.base_stats = unit_stats[self.name]
+        self.base_stats = {e: unit_stats[self.name][e] for e in unit_stats[self.name].keys()}
+        if size_override is not None:
+            self.base_stats["size"] = size_override
         self.mods_add = {e: [] for e in unit_stats[self.name].keys()}
         self.mods_multiply = {e: [] for e in unit_stats[self.name].keys()}
         self.stats = {e: (self.base_stats[e] + sum(self.mods_add[e])) * product(*self.mods_multiply[e]) for e in
@@ -1232,6 +1242,7 @@ class Building:
         for e in stats:
             self.stats[e] = (self.base_stats[e] + sum(self.mods_add[e])) * product(*self.mods_multiply[e])
         self.health = self.stats["health"] * health_part
+        self.sprite.scale *= self.stats["size"] / self.size
         self.size = self.stats["size"]
 
     def towards(self, x, y):
@@ -1353,7 +1364,7 @@ class TownHall(Building):
         self.exists = True
         self.sprite.opacity = 255
         self.tick = self.tick2
-        self.upgrades_into = [TownHall1, TownHall2]
+        self.upgrades_into = [TownHall1, TownHall2, TownHall3]
 
     def on_die(self):
         animation_explosion(self.x, self.y, 1000, 25, self.game)
@@ -1418,8 +1429,8 @@ class TownHall1(TownHall_upgrade):
         self.additionals.append(
             AOE_aura(effect_stat_mult, ("cd", 1 / self.stats["slow"], freq), [self.x, self.y, self.stats["radius"]],
                      self.game, 1 - self.side, None, frequency=freq))
-        a=animation_frost(self.x, self.y, self.stats["radius"], None, self.game)
-        if hasattr(a,"sprite"):
+        a = animation_frost(self.x, self.y, self.stats["radius"], None, self.game)
+        if hasattr(a, "sprite"):
             self.additionals.append(a)
 
     def on_delete(self):
@@ -1481,31 +1492,70 @@ class TownHall2(TownHall_upgrade):
         return False
 
 
+class TownHall3(TownHall_upgrade):
+    upgrades = []
+    name = "TownHall3"
+    image = images.blue_arrow
+
+    def on_summon(self):
+        for i in range(int(self.stats["trees"])):
+            size = self.stats["tree_size"] * (math.sin(self.game.ticks ** i) + 1)
+            dist = self.stats["spread"] * abs(math.sin(self.game.ticks * 2 ** i))
+            Tree(self.x + math.cos(self.game.ticks * 3 ** i) * dist, self.y + math.sin(self.game.ticks * 3 ** i) * dist,
+                 self.side, self.game, size)
+
+
 class Tree(Building):
     name = "Tree"
     entity_type = "tree"
     image = images.Farm
     upgrades = []
 
-    def __init__(self, x, y, side, game, size):
-        super().__init__(x, y, game.ticks, side, game, size_override=unit_stats[self.name]["size"] * size)
+    def __init__(self, x, y, side, game, size,health=None):
+        size = max(.1, size)
+        super().__init__(x, y, game.ticks, side, game, size_override=size * unit_stats[self.name]["size"])
         self.additionals = []
         self.bigness = size
         effect_stat_mult("health", size ** 2).apply(self)
+        self.health_set=health
 
     def on_summon(self):
+        if self.health_set is not None:
+            self.health=self.health_set
+        self.check_overlap()
+        if not self.exists:
+            return
         freq = 32
         self.additionals.append(
-            AOE_aura(effect_instant_health, (self.bigness * self.stats["heal"],),
+            AOE_aura(effect_instant_health, ((self.bigness ** 1.7) * self.stats["heal"],),
                      [self.x, self.y, self.bigness * self.stats["diameter"]],
                      self.game, self.side, None, None, freq))
-        a=animation_frost(self.x, self.y, self.bigness * self.stats["diameter"], None, self.game,opacity=50)
-        if hasattr(a,"sprite"):
+        a = animation_frost(self.x, self.y, self.bigness * self.stats["diameter"], None, self.game, opacity=50)
+        if hasattr(a, "sprite"):
             self.additionals.append(a)
 
     def on_delete(self):
         [e.delete() for e in self.additionals]
 
+    def check_overlap(self):
+        for c in self.chunks:
+            Chunk = self.game.find_chunk(c)
+            if Chunk is not None:
+                for building in Chunk.buildings[self.side]:
+                    if building.exists and building != self and building.entity_type == "tree" and \
+                            building.distance_to_point(self.x, self.y) < self.size:
+                        self.merge(building)
+                        return
+
+    def merge(self, other):
+        new_x = (self.x * self.size ** 2 + other.x * other.size ** 2) / (self.size ** 2 + other.size ** 2)
+        new_y = (self.y * self.size ** 2 + other.y * other.size ** 2) / (self.size ** 2 + other.size ** 2)
+        new_size = distance(self.size, other.size, 0, 0)
+        new_health=self.health+other.health
+        self.delete()
+        other.delete()
+        a = Tree(new_x, new_y, self.side, self.game, new_size / unit_stats[self.name]["size"], health=new_health)
+        a.spawning = 50
 
 class Tower(Building):
     name = "Tower"
@@ -1844,7 +1894,7 @@ class Farm2(farm_upgrade, Farm):
 
 
 possible_buildings = [Tower, Farm, Tower1, Tower2, Tower21, Tower11, Farm1, Farm2, Tower211, Tower3, Tower31, Tower22,
-                      Farm11, Tower23, Tower231, TownHall, TownHall1, TownHall2]
+                      Farm11, Tower23, Tower231, TownHall, TownHall1, TownHall2, TownHall3]
 
 
 def get_upg_num(cls):
@@ -2450,7 +2500,6 @@ class Unit:
         if (not self.formation.all_targets) and (
                 not self.reached_goal) and self.x == self.last_x and self.y == self.last_y:
             self.reached_goal = True
-            print("xdff")
         self.last_x, self.last_y = self.x, self.y
         [e.tick() for e in self.effects]
 
@@ -2466,7 +2515,6 @@ class Unit:
             self.formation.delete()
         self.formation = None
         self.exists = False
-        # print(self.TESTING_t1,self.TESTING_t2,self.TESTING_t3)
 
     def take_knockback(self, x, y, source):
         if not self.exists:
@@ -2771,7 +2819,7 @@ possible_units = [Swordsman, Archer, Trebuchet, Defender, Bear, Necromancer, Zom
 selects_p1 = [selection_tower, selection_wall, selection_farm]
 selects_p2 = [selection_swordsman, selection_archer, selection_trebuchet, selection_defender, selection_bear,
               selection_necromancer, selection_golem]
-selects_p3 = [selection_fireball, selection_freeze, selection_rage]
+selects_p3 = [selection_fireball, selection_freeze, selection_rage, selection_tree]
 selects_all = [selects_p1, selects_p2, selects_p3]
 
 
@@ -3052,21 +3100,18 @@ class animation_explosion:
     def __init__(self, x, y, size, speed, game):
         if len(game.animations) > MAX_ANIMATIONS:
             return
-        # self.sprite = pyglet.sprite.Sprite(images.Fire, x=x * SPRITE_SIZE_MULT - game.camx,
-        #                                   y=y * SPRITE_SIZE_MULT - game.camy,
-        #                                   batch=game.batch, group=groups.g[6])
         self.sprite = client_utility.animation(x, y, size, game, images.FlameRing)
         self.sprite2 = pyglet.sprite.Sprite(images.Shockwave, x=x * SPRITE_SIZE_MULT - game.camx,
                                             y=y * SPRITE_SIZE_MULT - game.camy,
                                             batch=game.batch, group=groups.g[5])
         self.sprite.rotation = random.randint(0, 360)
-        # self.sprite.scale = 0
         self.x, self.y = x, y
         self.game = game
         self.size, self.speed = size, speed
         self.exists_time = 0
         game.animations.append(self)
         animation_crater(x, y, size / 2, size / 3, game)
+        self.exists = False
 
     def tick(self, dt):
         if dt > .5:
@@ -3083,8 +3128,12 @@ class animation_explosion:
                             scale=self.exists_time * 3 / 256 * self.size / images.Shockwave.width)
         # self.sprite.opacity = (256 - 2 * self.exists_time)
         self.sprite2.opacity = (256 - 2 * self.exists_time) * 0.6
+        self.exists = True
 
     def delete(self):
+        if not self.exists:
+            return
+        self.exists = False
         self.game.animations.remove(self)
         self.sprite.delete()
         self.sprite2.delete()
@@ -3104,9 +3153,10 @@ class animation_crater:
         self.size, self.duration = size, duration
         self.exists_time = 0
         game.animations.append(self)
+        self.exists = True
 
     def tick(self, dt):
-        if dt > .5:
+        if dt > .1:
             self.delete()
             return
         self.exists_time += dt
@@ -3118,6 +3168,9 @@ class animation_crater:
             self.sprite.opacity = 255 * (self.duration - self.exists_time) // 3
 
     def delete(self):
+        if not self.exists:
+            return
+        self.exists = False
         self.game.animations.remove(self)
         self.sprite.delete()
 
@@ -3136,18 +3189,25 @@ class animation_freeze:
         self.size, self.duration = size, duration
         self.exists_time = 0
         game.animations.append(self)
+        self.exists = True
 
     def tick(self, dt):
+        if dt > .2:
+            self.delete()
+            return
         if self.exists_time >= self.duration:
             self.delete()
             return
         else:
-            self.sprite.opacity = 255* (self.duration - self.exists_time) / self.duration
+            self.sprite.opacity = 255 * (self.duration - self.exists_time) / self.duration
             self.sprite.update(x=self.x * SPRITE_SIZE_MULT - self.game.camx,
                                y=self.y * SPRITE_SIZE_MULT - self.game.camy)
             self.exists_time += dt
 
     def delete(self):
+        if not self.exists:
+            return
+        self.exists = False
         self.game.animations.remove(self)
         self.sprite.delete()
 
@@ -3172,6 +3232,7 @@ class animation_rage:
         self.exists_time = 0
         game.animations.append(self)
         self.flicker = 100
+        self.exists = True
 
     def tick(self, dt):
         if self.exists_time >= self.duration:
@@ -3185,6 +3246,9 @@ class animation_rage:
             self.exists_time += dt
 
     def delete(self):
+        if not self.exists:
+            return
+        self.exists = False
         self.game.animations.remove(self)
         self.sprite.delete()
 
@@ -3205,8 +3269,12 @@ class animation_frost:
         self.exists_time = 0
         game.animations.append(self)
         self.flicker = .5
+        self.exists = True
 
     def tick(self, dt):
+        if dt > .5:
+            self.delete()
+            return
         if self.duration is not None and self.exists_time >= self.duration:
             self.delete()
             return
@@ -3217,6 +3285,9 @@ class animation_frost:
             self.exists_time += dt
 
     def delete(self):
+        if not self.exists:
+            return
+        self.exists = False
         self.game.animations.remove(self)
         self.sprite.delete()
 
@@ -3877,7 +3948,6 @@ class Fireball(Spell):
         self.sprite.delete()
         AOE_damage(self.x, self.y, self.radius, self.dmg, self, self.game, "spell")
         animation_explosion(self.x, self.y, self.radius * 2, 100, self.game)
-        Tree(self.x, self.y, self.side, self.game, 2)
 
 
 class Freeze(Spell):
@@ -3891,6 +3961,23 @@ class Freeze(Spell):
     def main(self):
         AOE_aura(effect_freeze, (self.duration,), [self.x, self.y, self.radius], self.game, 1 - self.side, 0)
         animation_freeze(self.x, self.y, self.radius * 2, self.duration * INV_FPS, self.game)
+
+
+class Tree_spell(Spell):
+    name = "Tree_spell"
+
+    def __init__(self, game, side, tick, x, y):
+        super().__init__(game, side, tick, x, y)
+        self.radius = unit_stats[self.name]["radius"]
+        self.trees = unit_stats[self.name]["trees"]
+        self.tree_size = unit_stats[self.name]["tree_size"]
+
+    def main(self):
+        for i in range(int(self.trees)):
+            size = self.tree_size * (math.sin(self.game.ticks ** i) + 1)
+            dist = self.radius * abs(math.sin(self.game.ticks * 2 ** i))
+            Tree(self.x + math.cos(self.game.ticks * 3 ** i) * dist, self.y + math.sin(self.game.ticks * 3 ** i) * dist,
+                 self.side, self.game, size)
 
 
 class Rage(Spell):
@@ -3911,4 +3998,4 @@ class Rage(Spell):
         animation_rage(self.x, self.y, self.radius * 2, self.duration * INV_FPS, self.game)
 
 
-possible_spells = [Fireball, Freeze, Rage]
+possible_spells = [Fireball, Freeze, Rage, Tree_spell]

@@ -85,10 +85,10 @@ point_line_dist(1.1, 1.1, (1.1, 1.1), 1.1)
 def get_chunks(x, y, size):
     # return [[int(x * constants.INV_CHUNK_SIZE), int(y * constants.INV_CHUNK_SIZE)]]
     size /= 2
-    minx = int((x - size) * constants.INV_CHUNK_SIZE)
-    miny = int((y - size) * constants.INV_CHUNK_SIZE)
-    maxx = int((x + size) * constants.INV_CHUNK_SIZE)
-    maxy = int((y + size) * constants.INV_CHUNK_SIZE)
+    minx = math.floor((x - size) * constants.INV_CHUNK_SIZE)
+    miny = math.floor((y - size) * constants.INV_CHUNK_SIZE)
+    maxx = math.floor((x + size) * constants.INV_CHUNK_SIZE)
+    maxy = math.floor((y + size) * constants.INV_CHUNK_SIZE)
     chunks = [(a, b) for a in range(minx, maxx + 1) for b in range(miny, maxy + 1)]
     return chunks
 
@@ -100,28 +100,27 @@ get_chunks(1.1, 1.1, 1.1)
 def get_chunks_force_circle(x, y, size):
     # return [[int(x * constants.INV_CHUNK_SIZE), int(y * constants.INV_CHUNK_SIZE)]]
     size /= 2
-    minx = int((x - size) * constants.INV_CHUNK_SIZE)
-    miny = int((y - size) * constants.INV_CHUNK_SIZE)
-    maxx = int((x + size) * constants.INV_CHUNK_SIZE)
-    maxy = int((y + size) * constants.INV_CHUNK_SIZE)
+    minx = math.floor((x - size) * constants.INV_CHUNK_SIZE)
+    miny = math.floor((y - size) * constants.INV_CHUNK_SIZE)
+    maxx = math.floor((x + size) * constants.INV_CHUNK_SIZE)
+    maxy = math.floor((y + size) * constants.INV_CHUNK_SIZE)
     chunks = [(a, b) for a in range(minx, maxx + 1) for b in range(miny, maxy + 1)]
     i = 0
     while i < len(chunks):
         if (x - (chunks[i][0] + .5) * constants.CHUNK_SIZE) ** 2 + (
-                y - (chunks[i][1] + .5) * constants.CHUNK_SIZE) ** 2 > (size + constants.CHUNK_SIZE * .7) ** 2:
+                y - (chunks[i][1] + .5) * constants.CHUNK_SIZE) ** 2 > (size + constants.CHUNK_SIZE * .8) ** 2:
             chunks.pop(i)
             i -= 1
         i += 1
     return chunks
-
 
 get_chunks_force_circle(1.1, 1.1, 1.1)
 
 
 @njit
 def get_chunk(x, y):
-    x = int(x * constants.INV_CHUNK_SIZE)
-    y = int(y * constants.INV_CHUNK_SIZE)
+    x = math.floor(x * constants.INV_CHUNK_SIZE)
+    y = math.floor(y * constants.INV_CHUNK_SIZE)
     return (x, y)
 
 

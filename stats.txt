@@ -1,6 +1,7 @@
 TownHall:size=200,health=1500,resistance=1,spell_resistance=0
 TownHall1:cost=666420,size=200,health=15000,resistance=.1,spell_resistance=0,radius=2000,slow=.4
-Tree:cost=666420,size=50,health=15000,resistance=1,spell_resistance=.5,diameter=500,heal=100
+TownHall3:cost=555555,size=200,health=15000,resistance=.1,spell_resistance=0,trees=20,tree_size=2,spread=500
+Tree:cost=666420,size=50,health=4000,resistance=1,spell_resistance=.5,diameter=500,heal=100
 TownHall2:cost=500555,size=200,health=6000,resistance=1,spell_resistance=0,dmg=60,cd=0.1,reach=850,bulletspeed=20,bullet_scale=3,pierce=1000,cluster=0,recursion=0,bullet_size=200
 Tower:size=50,health=900,cost=1500,dmg=5,cd=0.2,reach=400,bulletspeed=6,proximity=500,bullet_scale=.15,pierce=1,cluster=0,recursion=0,resistance=1
 Tower1:size=50,health=900,cost=1500,dmg=3.5,cd=0.05,reach=400,bulletspeed=14,bullet_scale=.15,pierce=1,cluster=0,recursion=0,resistance=1
@@ -26,6 +27,7 @@ Bear:vwidth=80,vheight=150,speed=350,size=60,health=1000,dmg=200,cd=0.2,reach=30
 Necromancer:vwidth=40,vheight=40,speed=150,size=40,health=100,dmg=.8,cd=.01,reach=350,cost=2500,mass=2,resistance=1,steal=2
 Zombie:vwidth=20,vheight=22,speed=400,size=19,health=10,dmg=1,cd=0,reach=8,cost=30,mass=.2,resistance=1,steal=1
 Fireball:cost=500,radius=150,dmg=2000,delay=.02
+Tree_spell:cost=700,radius=300,delay=60,trees=10,tree_size=1
 Freeze:cost=300,radius=150,duration=200,delay=60
 Rage:cost=500,radius=350,duration=500,buff=2,delay=60
-Golem:vwidth=220,vheight=150,speed=75,size=200,health=66642,dmg=300,cd=1,reach=30,cost=100000,mass=400,resistance=1,wall_mult=10
+Golem:vwidth=220,vheight=150,speed=75,size=200,health=200000,dmg=300,cd=1,reach=30,cost=100000,mass=400,resistance=1,wall_mult=10
