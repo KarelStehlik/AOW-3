@@ -3126,7 +3126,7 @@ class animation_explosion:
         self.duration = 128 / speed
         self.explosion_speed=2/self.duration
         if size > 500:
-            animation_screen_shake(size / 100, self.duration * 1.1, self.game)
+            animation_screen_shake(size / 70, self.duration * 1.1, self.game)
 
     def tick(self, dt):
         if dt > .5:
