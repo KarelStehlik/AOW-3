@@ -526,7 +526,7 @@ class Tree(Building):
             return
         freq = 32
         self.additionals.append(
-            AOE_aura(effect_instant_health, ((self.bigness ** 1.7) * self.stats["heal"],),
+            AOE_aura(effect_instant_health, ((self.bigness ** 2) * self.stats["heal"],),
                      [self.x, self.y, self.bigness * self.stats["diameter"]],
                      self.game, self.side, None, None, freq))
 

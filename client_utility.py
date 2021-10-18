@@ -207,12 +207,12 @@ class animation(pyglet.sprite.Sprite):
     img = images.FlameRing
     standalone = False
 
-    def __init__(self, x, y, size, game, img=None):
+    def __init__(self, x, y, size, game, img=None, group=5):
         if len(game.animations) > MAX_ANIMATIONS:
             return
         super().__init__(self.img if img is None else img, x=x * SPRITE_SIZE_MULT - game.camx,
                          y=y * SPRITE_SIZE_MULT - game.camy,
-                         batch=game.batch, group=groups.g[5])
+                         batch=game.batch, group=groups.g[group])
         self.rotation = random.randint(0, 360)
         self.scale = size / self.width
         self.true_x, self.true_y = x, y

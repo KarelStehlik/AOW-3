@@ -20,20 +20,24 @@ def centre_anchor(e):
     e.anchor_y = e.height // 2
 
 
-def load_animation(folder, num, duration):
-    images = [RI(folder + "/t" + str(i)) for i in range(num)]
+def load_animation(folder, num, duration, name="/t"):
+    images = [RI(folder + name + str(i)) for i in range(num)]
     return pyglet.image.Animation.from_image_sequence(images, duration, False)
 
 
 Testfire = RI("Testfire")
 flame_wave = load_animation("flame_wave", 17, 1)
 FlameRing = load_animation("fire_ring", 40, 1 / 40)
+Explosion = load_animation("explosion", 108, 1 / 15,name="/tt")
 Background = IL("Background").get_texture()
 Wall = IL("Wall").get_texture()
 WallCrack = IL("wall_crack").get_texture()
 blue_arrow = IL("blue_arrow").get_texture()
 Beam = IL("beam").get_texture()
-Crater=RI("crater")
+Crater = RI("crater")
+Tree = RI("tree")
+MagicTree = RI("magic_tree")
+Nature = RI("nature")
 
 Freeze = RI("Freeze")
 UpgradeButton = RI("UpgradeButton")
@@ -96,7 +100,7 @@ Defender = RI("Defender")
 Bear = RI("Bear")
 Necromancer = RI("Necromancer")
 Zombie = RI("Zombie")
-Golem=RI("Golem")
+Golem = RI("Golem")
 
 # #######################  CLONE  ############################
 gunmanR = pyglet.resource.image("imagefolder/BGunman.png")

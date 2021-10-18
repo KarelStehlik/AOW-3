@@ -154,7 +154,7 @@ class windoo(pyglet.window.Window):
         self.sec = time.time()
         self.frames = 0
         self.fpscount = pyglet.text.Label(x=5, y=5, text="0", color=(255, 255, 255, 255),
-                                          group=groups.g[9], batch=self.batch)
+                                          group=groups.g[11], batch=self.batch)
         self.mouseheld = False
         self.current_mode = mode_intro(self, self.batch, self.nwl)
         self.keys = key.KeyStateHandler()

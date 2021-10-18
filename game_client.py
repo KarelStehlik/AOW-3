@@ -445,7 +445,7 @@ class chunk:
 
 class UI_bottom_bar(client_utility.toolbar):
     def __init__(self, game):
-        super().__init__(-2, 0, SCREEN_WIDTH + 2, SCREEN_HEIGHT / 5, game.batch)
+        super().__init__(-2, 0, SCREEN_WIDTH + 2, SCREEN_HEIGHT / 5, game.batch, layer=9)
         self.game = game
         self.page = 0
         self.loaded = []
@@ -477,21 +477,21 @@ class UI_formation(client_utility.toolbar):
         self.dot_scale = self.dot_size / images.UnitSlot.width
         super().__init__(SCREEN_WIDTH - self.dot_size * (self.columns + 4), 0, self.dot_size * (self.columns + 4),
                          self.dot_size * (self.rows + 4) + SCREEN_HEIGHT * 0.1, game.batch,
-                         image=images.UnitFormFrame, layer=7)
+                         image=images.UnitFormFrame, layer=10)
 
         self.units = [[-1 for _ in range(self.rows)] for _ in range(self.columns)]
 
         self.sprites = [[client_utility.sprite_with_scale(images.UnitSlot, self.dot_scale, 1, 1,
                                                           self.x + self.dot_size * (j + 2.5),
                                                           self.y + self.dot_size * (i + 2.5),
-                                                          batch=game.batch, group=groups.g[8])
+                                                          batch=game.batch, group=groups.g[self.layer + 1])
                          for i in range(self.rows)] for j in range(self.columns)]
         self.add(self.send, self.x + SCREEN_HEIGHT * 0.1, self.height - SCREEN_HEIGHT * 0.1,
                  self.width - SCREEN_HEIGHT * 0.1, SCREEN_HEIGHT * 0.1, image=images.Sendbutton)
         self.add(self.fill, self.x, self.height - SCREEN_HEIGHT * 0.1, SCREEN_HEIGHT * 0.1, SCREEN_HEIGHT * 0.1)
         self.cost_count = pyglet.text.Label(x=self.x + self.width / 2, y=5, text="Cost: 0", color=(255, 240, 0, 255),
-                                            group=groups.g[9], batch=self.batch, anchor_x="center", anchor_y="bottom",
-                                            font_size=0.01 * SCREEN_WIDTH)
+                                            group=groups.g[self.layer + 2], batch=self.batch, anchor_x="center",
+                                            anchor_y="bottom", font_size=0.01 * SCREEN_WIDTH)
         self.cost = 0
 
     def fill(self):
@@ -536,7 +536,8 @@ class UI_formation(client_utility.toolbar):
                 self.sprites[x][y] = client_utility.sprite_with_scale(*a,
                                                                       self.x + self.dot_size * (x + 2.5),
                                                                       self.y + self.dot_size * (y + 2.5),
-                                                                      batch=self.game.batch, group=groups.g[9])
+                                                                      batch=self.game.batch,
+                                                                      group=groups.g[self.layer + 2])
         else:
             obstruct = self.detect_obstruction(0, x, y)
             if obstruct:
@@ -546,14 +547,16 @@ class UI_formation(client_utility.toolbar):
                 self.sprites[x][y] = client_utility.sprite_with_scale(images.UnitSlot, self.dot_scale, 1, 1,
                                                                       self.x + self.dot_size * (x + 2.5),
                                                                       self.y + self.dot_size * (y + 2.5),
-                                                                      batch=self.game.batch, group=groups.g[8])
+                                                                      batch=self.game.batch,
+                                                                      group=groups.g[self.layer + 1])
             else:
                 self.units[x][y] = num
                 self.sprites[x][y].delete()
                 self.sprites[x][y] = client_utility.sprite_with_scale(images.UnitSlot, self.dot_scale, 1, 1,
                                                                       self.x + self.dot_size * (x + 2.5),
                                                                       self.y + self.dot_size * (y + 2.5),
-                                                                      batch=self.game.batch, group=groups.g[8])
+                                                                      batch=self.game.batch,
+                                                                      group=groups.g[self.layer + 1])
         if update_cost:
             self.update_cost()
 
@@ -579,7 +582,7 @@ class UI_formation(client_utility.toolbar):
 
 class UI_categories(client_utility.toolbar):
     def __init__(self, game, bottombar):
-        super().__init__(0, bottombar.height, SCREEN_WIDTH, SCREEN_HEIGHT * 0.05, game.batch)
+        super().__init__(0, bottombar.height, SCREEN_WIDTH, SCREEN_HEIGHT * 0.05, game.batch, layer=9)
         i = 0
         for _ in selects_all:
             self.add(bottombar.load_page, SCREEN_WIDTH * (0.01 + 0.1 * i), bottombar.height + SCREEN_HEIGHT * 0.005,
@@ -591,16 +594,18 @@ class UI_top_bar(client_utility.toolbar):
     def __init__(self, game: Game):
         self.height = SCREEN_HEIGHT * .05
         self.game = game
-        super().__init__(0, SCREEN_HEIGHT - self.height, SCREEN_WIDTH, self.height, game.batch)
+        super().__init__(0, SCREEN_HEIGHT - self.height, SCREEN_WIDTH, self.height, game.batch, layer=9)
         self.add(game.send_wave, self.height * 4, self.y, self.height * 3, self.height, text="send")
         self.add(game.centre_cam, self.height * 7, self.y, self.height, self.height, image=images.TargetButton)
         self.money = pyglet.text.Label(x=SCREEN_WIDTH * 0.995, y=SCREEN_HEIGHT * 0.995, text="Gold:0",
                                        color=(255, 240, 0, 255),
-                                       group=groups.g[9], batch=self.batch, anchor_y="top", anchor_x="right",
+                                       group=groups.g[self.layer + 1], batch=self.batch, anchor_y="top",
+                                       anchor_x="right",
                                        font_size=0.01 * SCREEN_WIDTH)
         self.mana = pyglet.text.Label(x=SCREEN_WIDTH * 0.85, y=SCREEN_HEIGHT * 0.995, text="Mana:0",
                                       color=(0, 150, 255, 255),
-                                      group=groups.g[9], batch=self.batch, anchor_y="top", anchor_x="right",
+                                      group=groups.g[self.layer + 1], batch=self.batch, anchor_y="top",
+                                      anchor_x="right",
                                       font_size=0.01 * SCREEN_WIDTH)
         timer_x_centre = self.height * 2
         timer_x_range = self.height * 2
@@ -622,7 +627,8 @@ class UI_top_bar(client_utility.toolbar):
         self.last_wave_tick = 0
         self.timer_text = pyglet.text.Label(x=self.height * 2, y=self.y + self.height * .1, text="next wave in: 10",
                                             color=(255, 100, 0, 255),
-                                            group=groups.g[9], batch=self.batch, anchor_y="bottom", anchor_x="center",
+                                            group=groups.g[self.layer + 1], batch=self.batch, anchor_y="bottom",
+                                            anchor_x="center",
                                             font_size=0.01 * SCREEN_WIDTH)
         self.add(self.game.open_upgrade_menu, self.height * 8, self.y, self.height, self.height,
                  image=images.UpgradeButton)
@@ -637,7 +643,7 @@ class UI_top_bar(client_utility.toolbar):
 class minimap(client_utility.toolbar):
     def __init__(self, game: Game):
         super().__init__(0, int(SCREEN_HEIGHT * .25), int(SCREEN_HEIGHT * .25), int(SCREEN_HEIGHT * .25), game.batch,
-                         image=images.UpgradeScreen)
+                         image=images.UpgradeScreen, layer=9)
         self.game = game
         self.batch = game.batch
         self.view_range = 6000
@@ -649,7 +655,7 @@ class minimap(client_utility.toolbar):
         self.current_entity = 0
         self.already_checked = []
         self.sprite2 = game.batch.add(
-            self.max_entities * 4, pyglet.gl.GL_QUADS, groups.g[7],
+            self.max_entities * 4, pyglet.gl.GL_QUADS, groups.g[self.layer + 1],
             ("v2i", (0,) * self.max_entities * 8),
             ("c4B", (255, 255, 255, 0) * self.max_entities * 4)
         )
@@ -1102,7 +1108,7 @@ class selection_rage(selection_spell):
 
 class selection_tree(selection_spell):
     index = 3
-    img = images.Farm
+    img = images.MagicTree
 
 
 class building_upgrade_menu(client_utility.toolbar):
@@ -1167,8 +1173,8 @@ class Building:
     entity_type = "townhall"
     image = images.Tower
 
-    def __init__(self, x, y, tick, side, game, instant=False, size_override=None):
-        x,y=int(x),int(y)
+    def __init__(self, x, y, tick, side, game, instant=False, size_override=None, group_override=2):
+        x, y = int(x), int(y)
         self.spawning = game.ticks - tick
         self.ID = (x, y, self.name, game.ticks - self.spawning)
         self.shown = True
@@ -1178,7 +1184,7 @@ class Building:
         self.health = unit_stats[self.name]["health"]
         self.sprite = pyglet.sprite.Sprite(self.image, x=x * SPRITE_SIZE_MULT - game.camx,
                                            y=y * SPRITE_SIZE_MULT - game.camy, batch=game.batch,
-                                           group=groups.g[2])
+                                           group=groups.g[group_override])
         self.sprite.scale = self.size * SPRITE_SIZE_MULT / self.sprite.width
         self.game = game
         self.chunks = get_chunks_force_circle(x, y, self.size)
@@ -1191,7 +1197,7 @@ class Building:
         hpbar_x_centre = self.sprite.x
         hpbar_x_range = self.size * SPRITE_SIZE_MULT / 2
         self.hpbar = game.batch.add(
-            8, pyglet.gl.GL_QUADS, groups.g[6],
+            8, pyglet.gl.GL_QUADS, groups.g[7],
             ("v2f", (hpbar_x_centre - hpbar_x_range, hpbar_y_centre - hpbar_y_range,
                      hpbar_x_centre - hpbar_x_range, hpbar_y_centre + hpbar_y_range,
                      hpbar_x_centre + hpbar_x_range, hpbar_y_centre + hpbar_y_range,
@@ -1508,29 +1514,31 @@ class TownHall3(TownHall_upgrade):
 class Tree(Building):
     name = "Tree"
     entity_type = "tree"
-    image = images.Farm
+    image = images.Tree
     upgrades = []
 
-    def __init__(self, x, y, side, game, size,health=None):
+    def __init__(self, x, y, side, game, size, health=None):
         size = max(.1, size)
-        super().__init__(x, y, game.ticks, side, game, size_override=size * unit_stats[self.name]["size"])
+        super().__init__(x, y, game.ticks, side, game, size_override=size * unit_stats[self.name]["size"],
+                         group_override=6)
         self.additionals = []
         self.bigness = size
         effect_stat_mult("health", size ** 2).apply(self)
-        self.health_set=health
+        self.health_set = health
 
     def on_summon(self):
         if self.health_set is not None:
-            self.health=self.health_set
+            self.health = self.health_set
         self.check_overlap()
         if not self.exists:
             return
         freq = 32
         self.additionals.append(
-            AOE_aura(effect_instant_health, ((self.bigness ** 1.7) * self.stats["heal"],),
+            AOE_aura(effect_instant_health, ((self.bigness ** 2) * self.stats["heal"],),
                      [self.x, self.y, self.bigness * self.stats["diameter"]],
                      self.game, self.side, None, None, freq))
-        a = animation_frost(self.x, self.y, self.bigness * self.stats["diameter"], None, self.game, opacity=50)
+        a = animation_frost(self.x, self.y, self.bigness * self.stats["diameter"], None, self.game, opacity=50,
+                            image=images.Nature)
         if hasattr(a, "sprite"):
             self.additionals.append(a)
 
@@ -1551,11 +1559,12 @@ class Tree(Building):
         new_x = (self.x * self.size ** 2 + other.x * other.size ** 2) / (self.size ** 2 + other.size ** 2)
         new_y = (self.y * self.size ** 2 + other.y * other.size ** 2) / (self.size ** 2 + other.size ** 2)
         new_size = distance(self.size, other.size, 0, 0)
-        new_health=self.health+other.health
+        new_health = self.health + other.health
         self.delete()
         other.delete()
         a = Tree(new_x, new_y, self.side, self.game, new_size / unit_stats[self.name]["size"], health=new_health)
         a.spawning = 50
+
 
 class Tower(Building):
     name = "Tower"
@@ -3100,10 +3109,11 @@ class animation_explosion:
     def __init__(self, x, y, size, speed, game):
         if len(game.animations) > MAX_ANIMATIONS:
             return
-        self.sprite = client_utility.animation(x, y, size, game, images.FlameRing)
+        self.sprite = client_utility.animation(x, y, size, game, images.Explosion, group=7)
         self.sprite2 = pyglet.sprite.Sprite(images.Shockwave, x=x * SPRITE_SIZE_MULT - game.camx,
                                             y=y * SPRITE_SIZE_MULT - game.camy,
-                                            batch=game.batch, group=groups.g[5])
+                                            batch=game.batch, group=groups.g[6])
+        self.sprite_duration = images.Explosion.get_duration()
         self.sprite.rotation = random.randint(0, 360)
         self.x, self.y = x, y
         self.game = game
@@ -3112,22 +3122,27 @@ class animation_explosion:
         game.animations.append(self)
         animation_crater(x, y, size / 2, size / 3, game)
         self.exists = False
+        self.duration = 128 / speed
+        if size > 500:
+            animation_screen_shake(size / 100, self.duration * 1.1, self.game)
 
     def tick(self, dt):
         if dt > .5:
             self.delete()
             return
-        self.exists_time += self.speed * dt
-        if self.exists_time > 128:
+        self.exists_time += dt
+        if self.exists_time > self.duration:
             self.delete()
             return
-        # self.sprite.update(x=self.x * SPRITE_SIZE_MULT - self.game.camx, y=self.y * SPRITE_SIZE_MULT - self.game.camy,
-        #                   scale=self.exists_time / 128 * self.size / images.Fire.width)
-        self.sprite.tick(dt)
+        if self.sprite._vertex_list is not None:
+            self.sprite.update(x=self.x * SPRITE_SIZE_MULT - self.game.camx,
+                               y=self.y * SPRITE_SIZE_MULT - self.game.camy,
+                               scale=min(.004, self.exists_time * 20 / images.Fire.width) * self.size)
+            self.sprite.tick(dt)
         self.sprite2.update(x=self.x * SPRITE_SIZE_MULT - self.game.camx, y=self.y * SPRITE_SIZE_MULT - self.game.camy,
-                            scale=self.exists_time * 3 / 256 * self.size / images.Shockwave.width)
+                            scale=self.exists_time * self.size / images.Shockwave.width * 4)
         # self.sprite.opacity = (256 - 2 * self.exists_time)
-        self.sprite2.opacity = (256 - 2 * self.exists_time) * 0.6
+        self.sprite2.opacity = 150 * (self.duration - self.exists_time) / self.duration
         self.exists = True
 
     def delete(self):
@@ -3137,6 +3152,30 @@ class animation_explosion:
         self.game.animations.remove(self)
         self.sprite.delete()
         self.sprite2.delete()
+
+
+class animation_screen_shake:
+    def __init__(self, size, duration, game):
+        self.size = size
+        self.duration = duration
+        self.exists_time = 0
+        self.exists = True
+        self.game = game
+        self.game.animations.append(self)
+
+    def tick(self, dt):
+        self.exists_time += dt
+        if self.exists_time > self.duration:
+            self.delete()
+            return
+        self.game.camx += self.size * math.sin(self.game.ticks * dt * 100)
+        self.game.camy += self.size * math.sin(self.game.ticks * dt * 112)
+
+    def delete(self):
+        if not self.exists:
+            return
+        self.exists = False
+        self.game.animations.remove(self)
 
 
 class animation_crater:
@@ -3254,11 +3293,12 @@ class animation_rage:
 
 
 class animation_frost:
-    def __init__(self, x, y, size, duration, game, opacity=255):
+    def __init__(self, x, y, size, duration, game, opacity=255, image=None):
         if len(game.animations) > MAX_ANIMATIONS:
             return
         self.max_opacity = opacity
-        self.sprite = pyglet.sprite.Sprite(images.Freeze, x=x * SPRITE_SIZE_MULT - game.camx,
+        self.sprite = pyglet.sprite.Sprite(images.Freeze if image is None else image,
+                                           x=x * SPRITE_SIZE_MULT - game.camx,
                                            y=y * SPRITE_SIZE_MULT - game.camy,
                                            batch=game.batch, group=groups.g[3])
         self.sprite.rotation = random.randint(0, 360)
@@ -3534,7 +3574,7 @@ class Upgrade:
 class Upgrade_Menu(client_utility.toolbar):
     def __init__(self, game):
         self.batch = game.batch
-        super().__init__(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, self.batch, image=images.UpgradeScreen, layer=10)
+        super().__init__(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, self.batch, image=images.UpgradeScreen, layer=12)
         self.buttons = []
         game.key_press_detectors.append(self)
         game.mouse_click_detectors.append(self)
@@ -3559,7 +3599,7 @@ class Upgrade_Menu(client_utility.toolbar):
                                             x=SPRITE_SIZE_MULT * (e.x + prev.x) * 100 + SCREEN_HEIGHT * .8,
                                             y=SPRITE_SIZE_MULT * (e.y + prev.y) * 100 + SCREEN_HEIGHT * .5,
                                             batch=self.batch,
-                                            group=groups.g[11])
+                                            group=groups.g[self.layer + 1])
                 line.rotation = 90 - get_rotation(e.x - prev.x, e.y - prev.y) * 180 / math.pi
                 line.scale_x = SCREEN_WIDTH * .05 / line.width
                 line.scale_y = distance(e.x, e.y, prev.x, prev.y) * 200 * SPRITE_SIZE_MULT / line.height
@@ -3567,7 +3607,7 @@ class Upgrade_Menu(client_utility.toolbar):
                 self.movables.append(line)
             bg = pyglet.sprite.Sprite(images.UpgradeCircle, x=e.x * 200 * SPRITE_SIZE_MULT + SCREEN_HEIGHT * .8,
                                       y=e.y * 200 * SPRITE_SIZE_MULT + SCREEN_HEIGHT * .5,
-                                      batch=self.batch, group=groups.g[12])
+                                      batch=self.batch, group=groups.g[self.layer + 2])
             bg.scale = SCREEN_HEIGHT * .12 / bg.height
             bg.opacity = 0
             self.sprites.append(bg)
