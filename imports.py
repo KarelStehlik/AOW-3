@@ -10,7 +10,7 @@ from numba import njit, float64
 import constants
 import cProfile
 import pstats
-import tensorflow
+#import tensorflow
 
 pyglet.gl.glEnable(pyglet.gl.GL_BLEND)
 
