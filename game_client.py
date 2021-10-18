@@ -1373,10 +1373,10 @@ class TownHall(Building):
         self.upgrades_into = [TownHall1, TownHall2, TownHall3]
 
     def on_die(self):
-        animation_explosion(self.x, self.y, 1000, 25, self.game)
+        animation_explosion(self.x, self.y, 1000, 30, self.game)
         for i in range(10):
             animation_explosion(self.x + random.randint(-150, 150), self.y + random.randint(-150, 150),
-                                random.randint(100, 500), random.randint(10, 40), self.game)
+                                random.randint(100, 500), random.randint(10, 30), self.game)
         print("game over", self.game.ticks)
 
     def tick(self):
@@ -1407,10 +1407,10 @@ class TownHall_upgrade(Building):
         self.upgrades_into = [e for e in self.upgrades]
 
     def on_die(self):
-        animation_explosion(self.x, self.y, 1000, 25, self.game)
+        animation_explosion(self.x, self.y, 1000, 30, self.game)
         for i in range(10):
             animation_explosion(self.x + random.randint(-150, 150), self.y + random.randint(-150, 150),
-                                random.randint(100, 500), random.randint(10, 40), self.game)
+                                random.randint(100, 500), random.randint(10, 30), self.game)
         print("game over", self.game.ticks)
 
     @classmethod
@@ -3109,11 +3109,12 @@ class animation_explosion:
     def __init__(self, x, y, size, speed, game):
         if len(game.animations) > MAX_ANIMATIONS:
             return
-        self.sprite = client_utility.animation(x, y, size, game, images.Explosion, group=7)
+        image=random.choice([images.Explosion,images.Explosion2]) if size<500 else images.Explosion
+        self.sprite = client_utility.animation(x, y, size, game, image, group=7 + math.floor(size/300))
         self.sprite2 = pyglet.sprite.Sprite(images.Shockwave, x=x * SPRITE_SIZE_MULT - game.camx,
                                             y=y * SPRITE_SIZE_MULT - game.camy,
                                             batch=game.batch, group=groups.g[6])
-        self.sprite_duration = images.Explosion.get_duration()
+        self.sprite_duration = image.get_duration()
         self.sprite.rotation = random.randint(0, 360)
         self.x, self.y = x, y
         self.game = game
@@ -3123,6 +3124,7 @@ class animation_explosion:
         animation_crater(x, y, size / 2, size / 3, game)
         self.exists = False
         self.duration = 128 / speed
+        self.explosion_speed=2/self.duration
         if size > 500:
             animation_screen_shake(size / 100, self.duration * 1.1, self.game)
 
@@ -3138,7 +3140,7 @@ class animation_explosion:
             self.sprite.update(x=self.x * SPRITE_SIZE_MULT - self.game.camx,
                                y=self.y * SPRITE_SIZE_MULT - self.game.camy,
                                scale=min(.004, self.exists_time * 20 / images.Fire.width) * self.size)
-            self.sprite.tick(dt)
+            self.sprite.tick(dt*self.explosion_speed)
         self.sprite2.update(x=self.x * SPRITE_SIZE_MULT - self.game.camx, y=self.y * SPRITE_SIZE_MULT - self.game.camy,
                             scale=self.exists_time * self.size / images.Shockwave.width * 4)
         # self.sprite.opacity = (256 - 2 * self.exists_time)

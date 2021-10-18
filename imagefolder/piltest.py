@@ -1,13 +1,13 @@
 from PIL import Image
 import os
-current="explosion/aaa"
+current="boom biatch/00"
 
-for i in range(120,121,2):
-    file = Image.open(current + str(i).zfill(4) + ".png")
+for i in range(10,35,1):
+    file = Image.open(current + str(i).zfill(2) + ".png")
 #    file=file.rotate(90, expand=True)
-    file = file.crop((650, 250, 1250, 850))  # right top left bottom
+    file = file.crop((450, 0, 1550, 1100))  # right top left bottom
     file.thumbnail((256, 256))
-    file.save("explosion/tt" + str(int(i/2)) + ".png")
+    file.save("boom biatch/t" + str(i-10) + ".png")
 
 
 #for i in range(120):
