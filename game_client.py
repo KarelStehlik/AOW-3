@@ -3110,7 +3110,7 @@ class animation_explosion:
         if len(game.animations) > MAX_ANIMATIONS:
             return
         image=random.choice([images.Explosion,images.Explosion2]) if size<500 else images.Explosion
-        self.sprite = client_utility.animation(x, y, size, game, image, group=7 + math.floor(size/300))
+        self.sprite = client_utility.animation(x, y, size, game, image, group=7 + math.floor(size/500))
         self.sprite2 = pyglet.sprite.Sprite(images.Shockwave, x=x * SPRITE_SIZE_MULT - game.camx,
                                             y=y * SPRITE_SIZE_MULT - game.camy,
                                             batch=game.batch, group=groups.g[6])
@@ -3126,7 +3126,7 @@ class animation_explosion:
         self.duration = 128 / speed
         self.explosion_speed=2/self.duration
         if size > 500:
-            animation_screen_shake(size / 70, self.duration * 1.1, self.game)
+            animation_screen_shake(size / 200, self.duration * 1.1, self.game)
 
     def tick(self, dt):
         if dt > .5:
@@ -3143,7 +3143,6 @@ class animation_explosion:
             self.sprite.tick(dt*self.explosion_speed)
         self.sprite2.update(x=self.x * SPRITE_SIZE_MULT - self.game.camx, y=self.y * SPRITE_SIZE_MULT - self.game.camy,
                             scale=self.exists_time * self.size / images.Shockwave.width * 4)
-        # self.sprite.opacity = (256 - 2 * self.exists_time)
         self.sprite2.opacity = 150 * (self.duration - self.exists_time) / self.duration
         self.exists = True
 
