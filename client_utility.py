@@ -206,24 +206,27 @@ class toolbar:
 class animation(pyglet.sprite.Sprite):
     img = images.FlameRing
     standalone = False
+    layer=5
 
-    def __init__(self, x, y, size, game, img=None, group=5):
-        if len(game.animations) > MAX_ANIMATIONS:
+    def __init__(self, x, y, size, game, img=None, group=None, loop=False, duration=1):
+        if self.standalone and len(game.animations) > MAX_ANIMATIONS:
             return
         super().__init__(self.img if img is None else img, x=x * SPRITE_SIZE_MULT - game.camx,
                          y=y * SPRITE_SIZE_MULT - game.camy,
-                         batch=game.batch, group=groups.g[group])
+                         batch=game.batch, group=groups.g[group if group is not None else self.layer])
         self.rotation = random.randint(0, 360)
-        self.scale = size / self.width
+        self.scale = size / (self.img if img is None else img).get_max_width()
         self.true_x, self.true_y = x, y
         self.game = game
         if self.standalone:
             game.animations.append(self)
         self.exists = True
         self.anim_time = 0
-        self.max_duration = 1
+        self.max_duration = duration
         self.anim_frames = len(self.image.frames) - 1
         self.frame_duration = self.max_duration / self.anim_frames
+        self.loop=loop
+
 
     def tick(self, dt):
         if not self.exists:
@@ -250,7 +253,7 @@ class animation(pyglet.sprite.Sprite):
             self.dispatch_event('on_animation_end')
 
     def on_animation_end(self):
-        if not self.exists:
+        if not self.exists or self.loop:
             return
         self.delete()
 
@@ -261,3 +264,13 @@ class animation(pyglet.sprite.Sprite):
         if self.standalone:
             self.game.animations.remove(self)
         super().delete()
+
+def dict_to_string(d):
+    result=""
+    for key,value in d.items():
+        if isinstance(value,float):
+            v=int(value)
+        else:
+            v=value
+        result+=f"{key}: {v}"
+    return result

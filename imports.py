@@ -184,6 +184,7 @@ def distance(x1, y1, x2, y2):
 
 
 distance(1.1, 1.1, 1.1, 1.1)
+distance(1,1,1,1)
 
 
 @njit  # (List(float64))

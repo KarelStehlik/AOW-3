@@ -20,15 +20,15 @@ def centre_anchor(e):
     e.anchor_y = e.height // 2
 
 
-def load_animation(folder, num, duration, name="/t"):
+def load_animation(folder, num, duration, name="/t", loop=False):
     images = [RI(folder + name + str(i)) for i in range(num)]
-    return pyglet.image.Animation.from_image_sequence(images, duration, False)
+    return pyglet.image.Animation.from_image_sequence(images, duration, loop)
 
 
 Testfire = RI("Testfire")
-flame_wave = load_animation("flame_wave", 17, 1)
+flame_wave = load_animation("flame_wave", 45, 1/10)
 FlameRing = load_animation("fire_ring", 40, 1 / 40)
-Explosion = load_animation("boom biatch", 25, 1 / 5)
+Explosion = load_animation("boom biatch", 25, 1 / 5, loop=True)
 Explosion2 = load_animation("explosion", 108, 1 / 15, name="/tt")
 Background = IL("Background").get_texture()
 Wall = IL("Wall").get_texture()
@@ -39,6 +39,7 @@ Crater = RI("crater")
 Tree = RI("tree")
 MagicTree = RI("magic_tree")
 Nature = RI("nature")
+Fireball=load_animation("fireball",151,1/20, name="/t", loop=True)
 
 Freeze = RI("Freeze")
 UpgradeButton = RI("UpgradeButton")

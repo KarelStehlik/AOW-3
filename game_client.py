@@ -180,9 +180,9 @@ class Game:
                 self.summon_ai_wave(*data["args"])
             elif action == "th upgrade":
                 possible_upgrades[data["num"]](self.players[data["side"]], data["tick"])
-                self.players[data["side"]].gain_money(-possible_upgrades[data["num"]].get_cost())
+                self.players[data["side"]].force_purchase(possible_upgrades[data["num"]].get_cost())
             elif action == "spell":
-                self.players[data["side"]].mana -= possible_spells[data["num"]].get_cost()
+                self.players[data["side"]].force_purchase(possible_spells[data["num"]].get_cost())
                 possible_spells[data["num"]](self, data["side"], data["tick"], data["x"], data["y"])
 
     def summon_ai_wave(self, side, x, y, units, tick, worth, amplifier):
@@ -261,6 +261,11 @@ class Game:
         if True in [e.mouse_click(x, y) for e in self.UI_toolbars]:
             return
         self.selected.mouse_click(x, y)
+        if self.upgrade_menu is not None and self.upgrade_menu.opened:
+            return
+        for e in self.mouse_click_detectors:
+            if isinstance(e,building_upgrade_menu):
+                return
         for e in self.players[self.side].all_buildings:
             if self.selected.__class__ is not selection_wall and \
                     e.distance_to_point((x + self.camx) / SPRITE_SIZE_MULT,
@@ -327,8 +332,7 @@ class player:
         self.formations = []
         self.all_buildings = []
         self.spells = []
-        self.money = STARTING_MONEY
-        self.mana = STARTING_MANA
+        self.resources = {"money":STARTING_MONEY,"mana":STARTING_MANA}
         self.max_mana = MAX_MANA
         self.TownHall = None
         self.auras = []
@@ -340,7 +344,7 @@ class player:
         self.farm_value = 0
 
     def gain_mana(self, amount):
-        self.mana = min(self.mana + amount, self.max_mana)
+        self.resources["mana"] = min(self.resources["mana"] + amount, self.max_mana)
 
     def add_aura(self, aur):
         self.auras.append(aur)
@@ -390,13 +394,23 @@ class player:
         self.TownHall = TownHall(TH_DISTANCE * self.side, TH_DISTANCE * self.side, self.side, self.game)
 
     def gain_money(self, amount):
-        self.money += amount
+        self.resources["money"] += amount
 
     def attempt_purchase(self, amount):
-        if self.money < amount:
-            return False
-        self.money -= amount
+        for key, value in amount.items():
+            if self.resources[key] < value:
+                return False
+        for key, value in amount.items():
+            self.resources[key] -= value
         return True
+
+    def force_purchase(self,amount):
+        for key, value in amount.items():
+            self.resources[key] -= value
+        return False
+
+    def gain_resource(self,amount,key):
+        self.resources[key]+=amount
 
     def tick_units(self):
         # ticks before other stuff to ensure the units are in their chunks
@@ -415,8 +429,8 @@ class player:
 
     def graphics_update(self, dt):
         if self.side == self.game.side:
-            self.game.UI_topBar.money.text = "Gold: " + str(int(self.money))
-            self.game.UI_topBar.mana.text = "Mana: " + str(int(self.mana))
+            self.game.UI_topBar.money.text = "Gold: " + str(int(self.resources["money"]))
+            self.game.UI_topBar.mana.text = "Mana: " + str(int(self.resources["mana"]))
         [e.graphics_update(dt) for e in self.units]
         [e.graphics_update(dt) for e in self.walls]
         [e.graphics_update(dt) for e in self.all_buildings]
@@ -524,8 +538,7 @@ class UI_formation(client_utility.toolbar):
         if self.units[x][y] == num:
             return
         if num != -1:
-            obstruct = self.detect_obstruction(unit_stats[possible_units[num].name]["size"], x, y)
-            if obstruct:
+            if self.detect_obstruction(unit_stats[possible_units[num].name]["size"], x, y):
                 pass
             else:
                 self.units[x][y] = num
@@ -539,38 +552,29 @@ class UI_formation(client_utility.toolbar):
                                                                       batch=self.game.batch,
                                                                       group=groups.g[self.layer + 2])
         else:
-            obstruct = self.detect_obstruction(0, x, y)
-            if obstruct:
-                x, y = obstruct[0], obstruct[1]
-                self.units[x][y] = num
-                self.sprites[x][y].delete()
-                self.sprites[x][y] = client_utility.sprite_with_scale(images.UnitSlot, self.dot_scale, 1, 1,
-                                                                      self.x + self.dot_size * (x + 2.5),
-                                                                      self.y + self.dot_size * (y + 2.5),
-                                                                      batch=self.game.batch,
-                                                                      group=groups.g[self.layer + 1])
-            else:
-                self.units[x][y] = num
-                self.sprites[x][y].delete()
-                self.sprites[x][y] = client_utility.sprite_with_scale(images.UnitSlot, self.dot_scale, 1, 1,
-                                                                      self.x + self.dot_size * (x + 2.5),
-                                                                      self.y + self.dot_size * (y + 2.5),
-                                                                      batch=self.game.batch,
-                                                                      group=groups.g[self.layer + 1])
+            self.units[x][y] = num
+            self.sprites[x][y].delete()
+            self.sprites[x][y] = client_utility.sprite_with_scale(images.UnitSlot, self.dot_scale, 1, 1,
+                                                                  self.x + self.dot_size * (x + 2.5),
+                                                                  self.y + self.dot_size * (y + 2.5),
+                                                                  batch=self.game.batch,
+                                                                  group=groups.g[self.layer + 1])
         if update_cost:
             self.update_cost()
 
     def update_cost(self):
-        self.cost = 0
+        self.cost = {"money": 0}
         for x in range(UNIT_FORMATION_COLUMNS):
             for y in range(UNIT_FORMATION_ROWS):
                 if self.units[x][y] != -1:
-                    self.cost += possible_units[self.units[x][y]].get_cost([])
-        self.cost_count.text = "Cost: " + str(int(self.cost))
+                    for key, value in possible_units[self.units[x][y]].get_cost([]).items():
+                        if key in self.cost:
+                            self.cost[key] += value
+                        else:
+                            self.cost[key] = value
+        self.cost_count.text = client_utility.dict_to_string(self.cost)
 
     def detect_obstruction(self, size, x, y):
-        # if size <= UNIT_SIZE:
-        #     return
         for x2 in range(UNIT_FORMATION_COLUMNS):
             for y2 in range(UNIT_FORMATION_ROWS):
                 if self.units[x2][y2] != -1 and not (x2 == x and y2 == y):
@@ -785,12 +789,12 @@ class selection_building(selection):
     def mouse_click(self, x, y):
         if not self.cancelbutton.mouse_click(x, y):
             for e in self.game.players[1].all_buildings:
-                if e.distance_to_point((x + self.camx) / SPRITE_SIZE_MULT,
-                                       (y + self.camy) / SPRITE_SIZE_MULT) < self.size / 2:
+                if e.prevents_placement and e.distance_to_point((x + self.camx) / SPRITE_SIZE_MULT,
+                                                                (y + self.camy) / SPRITE_SIZE_MULT) < self.size / 2:
                     return
             for e in self.game.players[0].all_buildings:
-                if e.distance_to_point((x + self.camx) / SPRITE_SIZE_MULT,
-                                       (y + self.camy) / SPRITE_SIZE_MULT) < self.size / 2:
+                if e.prevents_placement and e.distance_to_point((x + self.camx) / SPRITE_SIZE_MULT,
+                                                                (y + self.camy) / SPRITE_SIZE_MULT) < self.size / 2:
                     return
             close_to_friendly = False
             for e in self.game.players[self.game.side].all_buildings:
@@ -1065,7 +1069,7 @@ class selection_spell(selection):
         self.sprite = pyglet.sprite.Sprite(images.Shockwave, batch=game.batch, group=groups.g[4])
         self.sprite.scale = unit_stats[possible_spells[self.index].name]["radius"] * 2 / \
                             images.Shockwave.width * SPRITE_SIZE_MULT
-        self.label = pyglet.text.Label("cost: " + str(unit_stats[possible_spells[self.index].name]["cost"]),
+        self.label = pyglet.text.Label(client_utility.dict_to_string(possible_spells[self.index].get_cost()),
                                        font_size=int(20 * SPRITE_SIZE_MULT), color=(50, 200, 255, 255),
                                        batch=game.batch, group=groups.g[5], anchor_x="center", anchor_y="bottom")
 
@@ -1137,7 +1141,8 @@ class building_upgrade_menu(client_utility.toolbar):
             if game.players[game.side].has_unit(e):
                 self.texts.append(pyglet.text.Label(
                     x=self.target.x * SPRITE_SIZE_MULT - game.camx - self.width / 2 + buttonsize * (i + .5),
-                    y=self.target.y * SPRITE_SIZE_MULT - game.camy - self.height / 2, text=str(int(e.get_cost([]))),
+                    y=self.target.y * SPRITE_SIZE_MULT - game.camy - self.height / 2,
+                    text=client_utility.dict_to_string(e.get_cost([])),
                     color=(255, 240, 0, 255),
                     group=groups.g[9], batch=game.batch, anchor_y="bottom", anchor_x="center",
                     font_size=0.00625 * SCREEN_WIDTH))
@@ -1172,6 +1177,7 @@ class Building:
     name = "TownHall"
     entity_type = "townhall"
     image = images.Tower
+    prevents_placement = True
 
     def __init__(self, x, y, tick, side, game, instant=False, size_override=None, group_override=2):
         x, y = int(x), int(y)
@@ -1400,9 +1406,11 @@ class TownHall_upgrade(Building):
         if target is not None:
             super().__init__(target.x, target.y, tick, target.side, target.game)
             self.comes_from = target
+            target.game.players[target.side].force_purchase(self.get_cost([]))
         else:
             super().__init__(x, y, tick, side, game)
             self.comes_from = None
+            game.players[side].force_purchase(self.get_cost([]))
         self.game.players[self.side].TownHall = self
         self.upgrades_into = [e for e in self.upgrades]
 
@@ -1414,8 +1422,12 @@ class TownHall_upgrade(Building):
         print("game over", self.game.ticks)
 
     @classmethod
-    def get_cost(cls, params):
-        return unit_stats[cls.name]["cost"]
+    def get_cost(cls, params=()):
+        resources = {"money": unit_stats[cls.name]["cost"]}
+        for e in unit_stats[cls.name].keys():
+            if e.startswith("cost_"):
+                resources[e[5::]] = unit_stats[cls.name][e]
+        return resources
 
 
 class TownHall1(TownHall_upgrade):
@@ -1471,7 +1483,7 @@ class TownHall2(TownHall_upgrade):
     def attack(self, target):
         direction = target.towards(self.x, self.y)
         flame_wave(self.x, self.y, *direction, self.game, self.side, self.stats["dmg"], self, self.stats["bulletspeed"],
-                   self.stats["reach"] * 1.5, self.stats["bullet_size"], scale=self.stats["bullet_scale"],
+                   self.stats["reach"] * 1.5, self.stats["bullet_size"], scale=self.stats["bullet_size"],
                    pierce=self.stats["pierce"],
                    cluster=self.stats["cluster"], recursion=self.stats["recursion"])
 
@@ -1516,6 +1528,7 @@ class Tree(Building):
     entity_type = "tree"
     image = images.Tree
     upgrades = []
+    prevents_placement = False
 
     def __init__(self, x, y, side, game, size, health=None):
         size = max(.1, size)
@@ -1573,7 +1586,7 @@ class Tower(Building):
     upgrades = []
 
     def __init__(self, x, y, tick, side, game):
-        game.players[side].money -= self.get_cost([])
+        game.players[side].force_purchase(self.get_cost([]))
         super().__init__(x, y, tick, side, game)
         self.sprite2 = pyglet.sprite.Sprite(images.TowerCrack, x=x * SPRITE_SIZE_MULT,
                                             y=y * SPRITE_SIZE_MULT, batch=game.batch,
@@ -1587,8 +1600,12 @@ class Tower(Building):
         self.turns_without_target = 0
 
     @classmethod
-    def get_cost(cls, params):
-        return unit_stats[cls.name]["cost"]
+    def get_cost(cls, params=()):
+        resources = {"money": unit_stats[cls.name]["cost"]}
+        for e in unit_stats[cls.name].keys():
+            if e.startswith("cost_"):
+                resources[e[5::]] = unit_stats[cls.name][e]
+        return resources
 
     def on_delete(self):
         self.sprite2.delete()
@@ -1672,8 +1689,12 @@ class tower_upgrade(Tower):
         self.upgrades_into = [e for e in self.upgrades]
 
     @classmethod
-    def get_cost(cls, params):
-        return unit_stats[cls.name]["cost"]
+    def get_cost(cls, params=()):
+        resources = {"money": unit_stats[cls.name]["cost"]}
+        for e in unit_stats[cls.name].keys():
+            if e.startswith("cost_"):
+                resources[e[5::]] = unit_stats[cls.name][e]
+        return resources
 
 
 class Tower1(tower_upgrade, Tower):
@@ -1717,7 +1738,7 @@ class Tower231(tower_upgrade, Tower):
         direction = target.towards(self.x, self.y)
         self.sprite.rotation = 90 - get_rotation_norm(*direction) * 180 / math.pi
         flame_wave(self.x, self.y, *direction, self.game, self.side, self.stats["dmg"], self, self.stats["bulletspeed"],
-                   self.stats["reach"] * 1.2, self.stats["bullet_size"], scale=self.stats["bullet_scale"],
+                   self.stats["reach"] * 1.2, self.stats["bullet_size"], scale=self.stats["bullet_size"],
                    pierce=self.stats["pierce"], cluster=self.stats["cluster"], recursion=self.stats["recursion"])
 
 
@@ -1849,13 +1870,17 @@ class Farm(Building):
     upgrades = []
 
     def __init__(self, x, y, tick, side, game):
-        game.players[side].money -= self.get_cost([])
+        game.players[side].force_purchase(self.get_cost([]))
         super().__init__(x, y, tick, side, game)
         self.upgrades_into = [e for e in self.upgrades]
 
     @classmethod
-    def get_cost(cls, params):
-        return unit_stats[cls.name]["cost"]
+    def get_cost(cls, params=()):
+        resources = {"money": unit_stats[cls.name]["cost"]}
+        for e in unit_stats[cls.name].keys():
+            if e.startswith("cost_"):
+                resources[e[5::]] = unit_stats[cls.name][e]
+        return resources
 
     def tick2(self):
         super().tick2()
@@ -1880,8 +1905,12 @@ class farm_upgrade(Farm):
         self.upgrades_into = [e for e in self.upgrades]
 
     @classmethod
-    def get_cost(cls, params):
-        return unit_stats[cls.name]["cost"]
+    def get_cost(cls, params=()):
+        resources = {"money": unit_stats[cls.name]["cost"]}
+        for e in unit_stats[cls.name].keys():
+            if e.startswith("cost_"):
+                resources[e[5::]] = unit_stats[cls.name][e]
+        return resources
 
 
 class Farm1(farm_upgrade, Farm):
@@ -1923,9 +1952,10 @@ for e in possible_buildings:
 class Wall:
     name = "Wall"
     entity_type = "wall"
+    prevents_placement = True
 
     def __init__(self, t1, t2, tick, side, game):
-        game.players[side].money -= self.get_cost([])
+        game.players[side].force_purchase(self.get_cost([]))
         self.exists = False
         self.spawning = game.ticks - tick
         self.ID = (t1.x, t1.y, game.ticks - self.spawning)
@@ -1976,8 +2006,12 @@ class Wall:
         game.players[side].on_building_summon(self)
 
     @classmethod
-    def get_cost(cls, params):
-        return unit_stats[cls.name]["cost"]
+    def get_cost(cls, params=()):
+        resources = {"money": unit_stats[cls.name]["cost"]}
+        for e in unit_stats[cls.name].keys():
+            if e.startswith("cost_"):
+                resources[e[5::]] = unit_stats[cls.name][e]
+        return resources
 
     def update_stats(self, stats=None):
         if not self.exists:
@@ -2076,7 +2110,7 @@ class Formation:
         else:
             self.x, self.y = x, y
         if not AI:
-            game.players[side].money -= self.get_cost([troops])
+            game.players[side].force_purchase(self.get_cost(troops))
             self.has_warning = False
             self.warning = None
         elif side != game.side:
@@ -2119,11 +2153,15 @@ class Formation:
 
     @classmethod
     def get_cost(cls, params):
-        cost = 0
+        cost = {"money": 0}
         for column in range(UNIT_FORMATION_COLUMNS):
             for row in range(UNIT_FORMATION_ROWS):
-                if params[0][column][row] != -1:
-                    cost += possible_units[params[0][column][row]].get_cost([])
+                if params[column][row] != -1:
+                    for key, value in possible_units[params[column][row]].get_cost([]).items():
+                        if key in cost:
+                            cost[key] += value
+                        else:
+                            cost[key] = value
         return cost
 
     def tick(self):
@@ -2393,8 +2431,12 @@ class Unit:
             return
 
     @classmethod
-    def get_cost(cls, params):
-        return unit_stats[cls.name]["cost"]
+    def get_cost(cls, params=()):
+        resources = {"money": unit_stats[cls.name]["cost"]}
+        for e in unit_stats[cls.name].keys():
+            if e.startswith("cost_"):
+                resources[e[5::]] = unit_stats[cls.name][e]
+        return resources
 
     def update_hpbar(self):
         if not self.exists:
@@ -2837,14 +2879,20 @@ class Projectile:
     scale = 1
 
     def __init__(self, x, y, dx, dy, game, side, damage, source, speed, reach, scale=None, pierce=2, cluster=5,
-                 rotation=None, recursion=2):
-        # (dx,dy) must be normalized
+                 rotation=None, recursion=2, animated=False):
+        # (dx,dy) must be normalizedas
         self.x, self.y = x, y
-        self.sprite = pyglet.sprite.Sprite(self.image, self.x, self.y, batch=game.batch, group=groups.g[5])
-        if scale is None:
-            self.sprite.scale = self.scale * SPRITE_SIZE_MULT
+        self.animated = animated
+        if animated:
+            self.sprite = client_utility.animation(self.x, self.y,
+                                                   self.scale if scale is None else scale, game, img=self.image,
+                                                   duration=reach / speed * constants.INV_FPS)
         else:
-            self.sprite.scale = scale * SPRITE_SIZE_MULT
+            self.sprite = pyglet.sprite.Sprite(self.image, self.x, self.y, batch=game.batch, group=groups.g[5])
+            if scale is None:
+                self.sprite.scale = self.scale * SPRITE_SIZE_MULT
+            else:
+                self.sprite.scale = scale * SPRITE_SIZE_MULT
         if rotation is None:
             rotation = get_rotation_norm(dx, dy)
         self.sprite.rotation = 90 - rotation * 180 / math.pi
@@ -2903,7 +2951,13 @@ class Projectile:
         self.already_hit = []
 
     def graphics_update(self, dt):
-        self.sprite.update(x=self.x * SPRITE_SIZE_MULT - self.game.camx, y=self.y * SPRITE_SIZE_MULT - self.game.camy)
+        if self.animated:
+            self.sprite.true_x = self.x
+            self.sprite.true_y = self.y
+            self.sprite.tick(dt)
+        else:
+            self.sprite.update(x=self.x * SPRITE_SIZE_MULT - self.game.camx,
+                               y=self.y * SPRITE_SIZE_MULT - self.game.camy)
 
     def split(self):
         if self.recursion > 0:
@@ -2917,9 +2971,9 @@ class Projectile:
 
 class Projectile_with_size(Projectile):
     def __init__(self, x, y, dx, dy, game, side, damage, source, speed, reach, size, scale=None, pierce=2, cluster=5,
-                 rotation=None, recursion=2):
+                 rotation=None, recursion=2, animated=False):
         super().__init__(x, y, dx, dy, game, side, damage, source, speed, reach, scale=scale, pierce=pierce,
-                         cluster=cluster, rotation=rotation, recursion=2)
+                         cluster=cluster, rotation=rotation, recursion=2, animated=animated)
         self.size = size
 
     def tick(self):
@@ -2959,21 +3013,10 @@ class Arrow(Projectile):
 
 class flame_wave(Projectile_with_size):
     image = images.flame_wave
-    scale = .1
+    scale = 80
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.max_duration = self.reach / self.speed * INV_FPS
-        self.anim_time = 0
-        self.anim_frames = len(self.sprite.image.frames) - 1
-        self.frame_duration = self.max_duration / self.anim_frames
-
-    def graphics_update(self, dt):
-        self.anim_time += dt
-        while self.anim_time > self.frame_duration:
-            self.sprite._animate(0)
-            self.anim_time -= self.frame_duration
-        self.sprite.update(x=self.x * SPRITE_SIZE_MULT - self.game.camx, y=self.y * SPRITE_SIZE_MULT - self.game.camy)
+        super().__init__(*args, **kwargs, animated=True)
 
 
 class Boulder(Projectile):
@@ -3109,8 +3152,8 @@ class animation_explosion:
     def __init__(self, x, y, size, speed, game):
         if len(game.animations) > MAX_ANIMATIONS:
             return
-        image=random.choice([images.Explosion,images.Explosion2]) if size<500 else images.Explosion
-        self.sprite = client_utility.animation(x, y, size, game, image, group=7 + math.floor(size/500))
+        image = random.choice([images.Explosion, images.Explosion2]) if size < 500 else images.Explosion
+        self.sprite = client_utility.animation(x, y, size, game, image, group=7 + math.floor(size / 500))
         self.sprite2 = pyglet.sprite.Sprite(images.Shockwave, x=x * SPRITE_SIZE_MULT - game.camx,
                                             y=y * SPRITE_SIZE_MULT - game.camy,
                                             batch=game.batch, group=groups.g[6])
@@ -3121,28 +3164,27 @@ class animation_explosion:
         self.size, self.speed = size, speed
         self.exists_time = 0
         game.animations.append(self)
-        animation_crater(x, y, size / 2, size / 3, game)
+        if size > 100:
+            animation_crater(x, y, size / 2, size / 3, game)
         self.exists = False
         self.duration = 128 / speed
-        self.explosion_speed=2/self.duration
+        self.explosion_speed = 2 / self.duration
         if size > 500:
             animation_screen_shake(size / 200, self.duration * 1.1, self.game)
+        self.shockwave_scale_constant = self.size / images.Shockwave.width * 4
 
     def tick(self, dt):
-        if dt > .5:
-            self.delete()
-            return
         self.exists_time += dt
-        if self.exists_time > self.duration:
+        if self.exists_time > self.duration or dt > .5:
             self.delete()
             return
         if self.sprite._vertex_list is not None:
             self.sprite.update(x=self.x * SPRITE_SIZE_MULT - self.game.camx,
                                y=self.y * SPRITE_SIZE_MULT - self.game.camy,
                                scale=min(.004, self.exists_time * 20 / images.Fire.width) * self.size)
-            self.sprite.tick(dt*self.explosion_speed)
+            self.sprite.tick(dt * self.explosion_speed)
         self.sprite2.update(x=self.x * SPRITE_SIZE_MULT - self.game.camx, y=self.y * SPRITE_SIZE_MULT - self.game.camy,
-                            scale=self.exists_time * self.size / images.Shockwave.width * 4)
+                            scale=self.exists_time * self.shockwave_scale_constant)
         self.sprite2.opacity = 150 * (self.duration - self.exists_time) / self.duration
         self.exists = True
 
@@ -3253,8 +3295,9 @@ class animation_freeze:
 
 
 class animation_ring_of_fire(client_utility.animation):
-    img = images.FlameRing
+    img = images.Explosion2
     standalone = True
+    layer = 5
 
 
 class animation_rage:
@@ -3564,8 +3607,12 @@ class Upgrade:
         game.connection.Send({"action": "th upgrade", "num": possible_upgrades.index(cls)})
 
     @classmethod
-    def get_cost(cls):
-        return float(upgrade_stats[cls.name]["cost"])
+    def get_cost(cls, params=()):
+        resources = {"money": int(upgrade_stats[cls.name]["cost"])}
+        for e in upgrade_stats[cls.name].keys():
+            if e.startswith("cost_"):
+                resources[e[5::]] = int(upgrade_stats[cls.name][e])
+        return resources
 
     @classmethod
     def get_time(cls):
@@ -3672,7 +3719,7 @@ class Upgrade_Menu(client_utility.toolbar):
         self.y_moving = (key.W in self.keys_pressed) - (key.S in self.keys_pressed)
 
     def graphics_update(self, dt):
-        self.moneylabel.text = "Gold:" + str(int(self.game.players[self.game.side].money))
+        self.moneylabel.text = "Gold:" + str(int(self.game.players[self.game.side].resources["money"]))
         for e in self.unfinished_upgrades:
             if self.game.players[self.game.side].has_upgrade(e[0]):
                 e[1].opacity = 255
@@ -3715,7 +3762,7 @@ class upgrade_description(client_utility.toolbar):
                                                   font_size=0.013 * SCREEN_WIDTH))
         elif available == 1:
             self.sprites.append(pyglet.text.Label(x=SCREEN_WIDTH * 0.705, y=SCREEN_HEIGHT * 0.01,
-                                                  text=f"Cost: {int(upg.get_cost())}, Time: {upg.get_time()} sec",
+                                                  text=f"{client_utility.dict_to_string(upg.get_cost())}, Time: {upg.get_time()} sec",
                                                   color=(255, 240, 0, 255),
                                                   group=groups.g[layer + 1], batch=batch, anchor_y="bottom",
                                                   anchor_x="left",
@@ -3961,8 +4008,12 @@ class Spell:
         pass
 
     @classmethod
-    def get_cost(cls):
-        return unit_stats[cls.name]["cost"]
+    def get_cost(cls, params=()):
+        resources = {"mana": unit_stats[cls.name]["cost"]}
+        for e in unit_stats[cls.name].keys():
+            if e.startswith("cost_"):
+                resources[e[5::]] = unit_stats[cls.name][e]
+        return resources
 
 
 class Fireball(Spell):
@@ -3972,18 +4023,19 @@ class Fireball(Spell):
         super().__init__(game, side, tick, x, y)
         self.x1, self.y1 = game.players[side].TownHall.x, game.players[side].TownHall.y
         self.dx, self.dy = self.x - self.x1, self.y - self.y1
-        self.sprite = pyglet.sprite.Sprite(images.Meteor, batch=game.batch, group=groups.g[4])
         self.radius = unit_stats[self.name]["radius"]
+        self.sprite = client_utility.animation(self.x1, self.y1, self.radius * 0.6, game, img=images.Fireball,
+                                               loop=True)
+        self.sprite.rotation = 90 - get_rotation(self.dx, self.dy) * 180 / math.pi
         self.dmg = unit_stats[self.name]["dmg"]
-        self.sprite.scale = self.radius / (2 * images.Meteor.width)
-        self.sprite.rotation = 90 - 180 / math.pi * get_rotation(self.dx, self.dy)
         self.delay *= distance(self.x1, self.y1, x, y)
         self.delay = max(self.delay, ACTION_DELAY * FPS)
 
     def graphics_update(self, dt):
         progress = self.spawning / self.delay
-        self.sprite.update(x=(self.x1 + self.dx * progress - self.game.camx) * SPRITE_SIZE_MULT,
-                           y=(self.y1 + self.dy * progress - self.game.camy) * SPRITE_SIZE_MULT)
+        self.sprite.true_x = self.x1 + self.dx * progress
+        self.sprite.true_y = self.y1 + self.dy * progress
+        self.sprite.tick(dt)
 
     def main(self):
         self.sprite.delete()

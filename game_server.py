@@ -100,11 +100,13 @@ class Game:
                 if not close_to_friendly:
                     return
                 for e in self.players[1].all_buildings:
-                    if e.distance_to_point(*data["xy"]) < unit_stats[entity_type.name]["size"] / 2:
-                        return
+                    if e.prevents_placement:
+                        if e.distance_to_point(*data["xy"]) < unit_stats[entity_type.name]["size"] / 2:
+                            return
                 for e in self.players[0].all_buildings:
-                    if e.distance_to_point(*data["xy"]) < unit_stats[entity_type.name]["size"] / 2:
-                        return
+                    if e.prevents_placement:
+                        if e.distance_to_point(*data["xy"]) < unit_stats[entity_type.name]["size"] / 2:
+                            return
                 if self.players[side].attempt_purchase(entity_type.get_cost([])):
                     entity_type(data["xy"][0], data["xy"][1], side, self)
                     self.send_both({"action": "place_building", "xy": data["xy"], "tick": self.ticks, "side": side,
@@ -134,7 +136,7 @@ class Game:
                                 return
                             else:
                                 confirmed_units.append(troop)
-                if self.players[side].attempt_purchase(Formation.get_cost([data["troops"], ])):
+                if self.players[side].attempt_purchase(Formation.get_cost(data["troops"])):
                     if is_empty_2d(data["troops"]):
                         return
                     Formation(data["instructions"], data["troops"], side, self)
@@ -176,7 +178,7 @@ class Game:
                 if not self.players[side].has_unit(entity_type):
                     print("cheating detected! (178)")
                     return
-                if self.players[side].attempt_mana_purchase(entity_type.get_cost()):
+                if self.players[side].attempt_purchase(entity_type.get_cost()):
                     entity_type(self, side, data["x"], data["y"])
                     data["tick"] = self.ticks
                     data["side"] = side
@@ -274,8 +276,7 @@ class player:
         self.formations = []
         self.all_buildings = []
         self.spells = []
-        self.money = STARTING_MONEY
-        self.mana = STARTING_MANA
+        self.resources = {"money":STARTING_MONEY,"mana":STARTING_MANA}
         self.max_mana = MAX_MANA
         self.TownHall = None
         self.ai_wave = 0
@@ -289,7 +290,7 @@ class player:
         self.farm_value = 1000
 
     def gain_mana(self, amount):
-        self.mana = min(self.mana + amount, self.max_mana)
+        self.resources["mana"] = min(self.resources["mana"] + amount, self.max_mana)
 
     def add_aura(self, aur):
         self.auras.append(aur)
@@ -336,18 +337,17 @@ class player:
         self.TownHall = TownHall(TH_DISTANCE * self.side, TH_DISTANCE * self.side, self.side, self.game)
 
     def gain_money(self, amount):
-        self.money += amount
+        self.resources["money"] += amount
+
+    def gain_resource(self,amount,key):
+        self.resources[key]+=amount
 
     def attempt_purchase(self, amount):
-        if self.money < amount:
-            return False
-        self.money -= amount
-        return True
-
-    def attempt_mana_purchase(self, amount):
-        if self.mana < amount:
-            return False
-        self.mana -= amount
+        for key,value in amount.items():
+            if self.resources[key]<value:
+                return False
+        for key,value in amount.items():
+            self.resources[key]-=value
         return True
 
     def tick_units(self):
@@ -386,6 +386,7 @@ class chunk:
 class Building:
     name = "TownHall"
     entity_type = "townhall"
+    prevents_placement=True
 
     def __init__(self, x, y, side, game, instant=False, size_override=None):
         x, y = int(x), int(y)
@@ -509,6 +510,7 @@ class Tree(Building):
     name = "Tree"
     entity_type = "tree"
     upgrades = []
+    prevents_placement = False
 
     def __init__(self, x, y, side, game, size,health=None):
         size = max(.1, size)
@@ -584,8 +586,12 @@ class TownHall_upgrade(Building):
         print("game over", self.game.ticks)
 
     @classmethod
-    def get_cost(cls, params):
-        return unit_stats[cls.name]["cost"]
+    def get_cost(cls, params=()):
+        resources = {"money": unit_stats[cls.name]["cost"]}
+        for e in unit_stats[cls.name].keys():
+            if e.startswith("cost_"):
+                resources[e[5::]] = unit_stats[cls.name][e]
+        return resources
 
 
 class TownHall1(TownHall_upgrade):
@@ -688,8 +694,12 @@ class Tower(Building):
         self.turns_without_target = 0
 
     @classmethod
-    def get_cost(cls, params):
-        return unit_stats[cls.name]["cost"]
+    def get_cost(cls, params=()):
+        resources = {"money": unit_stats[cls.name]["cost"]}
+        for e in unit_stats[cls.name].keys():
+            if e.startswith("cost_"):
+                resources[e[5::]] = unit_stats[cls.name][e]
+        return resources
 
     def tick2(self):
         super().tick2()
@@ -898,8 +908,12 @@ class Farm(Building):
         self.upgrades_into = [e for e in self.upgrades]
 
     @classmethod
-    def get_cost(cls, params):
-        return unit_stats[cls.name]["cost"]
+    def get_cost(cls, params=()):
+        resources = {"money": unit_stats[cls.name]["cost"]}
+        for e in unit_stats[cls.name].keys():
+            if e.startswith("cost_"):
+                resources[e[5::]] = unit_stats[cls.name][e]
+        return resources
 
     def tick2(self):
         super().tick2()
@@ -954,6 +968,7 @@ for e in possible_buildings:
 class Wall:
     name = "Wall"
     entity_type = "wall"
+    prevents_placement=True
 
     def __init__(self, t1, t2, side, game):
         self.exists = False
@@ -1003,8 +1018,12 @@ class Wall:
         self.width = self.stats["size"]
 
     @classmethod
-    def get_cost(cls, params):
-        return unit_stats[cls.name]["cost"]
+    def get_cost(cls, params=()):
+        resources = {"money": unit_stats[cls.name]["cost"]}
+        for e in unit_stats[cls.name].keys():
+            if e.startswith("cost_"):
+                resources[e[5::]] = unit_stats[cls.name][e]
+        return resources
 
     def take_damage(self, amount, source, type=None):
         if not self.exists:
@@ -1102,11 +1121,15 @@ class Formation:
 
     @classmethod
     def get_cost(cls, params):
-        cost = 0
+        cost = {"money": 0}
         for column in range(UNIT_FORMATION_COLUMNS):
             for row in range(UNIT_FORMATION_ROWS):
-                if params[0][column][row] != -1:
-                    cost += possible_units[params[0][column][row]].get_cost([])
+                if params[column][row] != -1:
+                    for key, value in possible_units[params[column][row]].get_cost([]).items():
+                        if key in cost:
+                            cost[key] += value
+                        else:
+                            cost[key] = value
         return cost
 
     def tick(self):
@@ -1294,8 +1317,12 @@ class Unit:
         return dx * invh, dy * invh
 
     @classmethod
-    def get_cost(cls, params):
-        return unit_stats[cls.name]["cost"]
+    def get_cost(cls, params=()):
+        resources = {"money": unit_stats[cls.name]["cost"]}
+        for e in unit_stats[cls.name].keys():
+            if e.startswith("cost_"):
+                resources[e[5::]] = unit_stats[cls.name][e]
+        return resources
 
     def take_damage(self, amount, source, type=None):
         if not self.exists:
@@ -1997,8 +2024,12 @@ class Upgrade:
         pass
 
     @classmethod
-    def get_cost(cls):
-        return int(upgrade_stats[cls.name]["cost"])
+    def get_cost(cls, params=()):
+        resources = {"money": int(upgrade_stats[cls.name]["cost"])}
+        for e in upgrade_stats[cls.name].keys():
+            if e.startswith("cost_"):
+                resources[e[5::]] = int(upgrade_stats[cls.name][e])
+        return resources
 
     @classmethod
     def get_time(cls):
@@ -2149,8 +2180,12 @@ class Spell:
         pass
 
     @classmethod
-    def get_cost(cls):
-        return unit_stats[cls.name]["cost"]
+    def get_cost(cls, params=()):
+        resources = {"mana": unit_stats[cls.name]["cost"]}
+        for e in unit_stats[cls.name].keys():
+            if e.startswith("cost_"):
+                resources[e[5::]] = unit_stats[cls.name][e]
+        return resources
 
 
 class Fireball(Spell):
