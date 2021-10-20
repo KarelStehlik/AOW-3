@@ -14,11 +14,11 @@ def generate_units(money):
 
     big, medium, small, huge = [], [], [], []
     for e in possible_units:
-        if e.get_cost([]) > 50000:
+        if e.get_cost([])["money"] > 50000:
             huge.append(e)
-        elif e.get_cost([]) >= 2000:
+        elif e.get_cost([])["money"] >= 2000:
             big.append(e)
-        elif e.get_cost([]) <= 100:
+        elif e.get_cost([])["money"] <= 100:
             small.append(e)
         else:
             medium.append(e)
@@ -34,7 +34,7 @@ def generate_units(money):
                 choice = random.choice(small)
             else:
                 return units, original_money / (original_money - money)
-            money -= choice.get_cost([])
+            money -= choice.get_cost([])["money"]
             units[x][y] = possible_units.index(choice)
     return units, original_money / (original_money - money)
 

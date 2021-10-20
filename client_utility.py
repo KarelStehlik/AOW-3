@@ -204,7 +204,7 @@ class toolbar:
 
 
 class animation(pyglet.sprite.Sprite):
-    img = images.FlameRing
+    img = images.Explosion2
     standalone = False
     layer=5
 
