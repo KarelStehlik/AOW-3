@@ -1,14 +1,14 @@
 from PIL import Image
 import os
 
-current = "flame_wave/tt"
+current = "explosion2/tt"
 # '''
-for i in range(1, 46, 1):
+for i in range(2, 106, 1):
     file = Image.open(current + str(i).zfill(4) + ".png")
     #file = file.rotate(90, expand=True)
-    file = file.crop((90, 85, 800, 370))  # right top left bottom
+    file = file.crop((300, 110, 600, 390))  # right top left bottom
     # file.thumbnail((256, 256))
-    file.save("flame_wave/t" + str(i-1) + ".png")
+    file.save("explosion2/t" + str(i-2) + ".png")
 
 '''
 bg=Image.open("faura.png")

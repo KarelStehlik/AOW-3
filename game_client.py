@@ -55,6 +55,8 @@ class Game:
         self.upgrade_menu = None
         self.minimap = minimap(self)
         self.test = 0
+        self.obstacles_vlist = obstacle_vertexlist(self)
+        self.all_obstacles=[]
 
     def open_upgrade_menu(self):
         if self.upgrade_menu is None:
@@ -83,6 +85,13 @@ class Game:
             return
         self.chunks[location] = chunk()
         self.chunks[location].buildings[unit.side].append(unit)
+
+    def add_obstacle_to_chunk(self, unit, location):
+        if location in self.chunks:
+            self.chunks[location].obstacles.append(unit)
+            return
+        self.chunks[location] = chunk()
+        self.chunks[location].obstacles.append(unit)
 
     def add_wall_to_chunk(self, unit, location):
         if location in self.chunks:
@@ -184,6 +193,8 @@ class Game:
             elif action == "spell":
                 self.players[data["side"]].force_purchase(possible_spells[data["num"]].get_cost())
                 possible_spells[data["num"]](self, data["side"], data["tick"], data["x"], data["y"])
+            elif action == "generate obstacles":
+                self.generate_obstacles(float(data["seed"]))
 
     def summon_ai_wave(self, side, x, y, units, tick, worth, amplifier):
         wave = Formation([], units, tick, 1 - side, self, x=x, y=y, AI=True, amplifier=float(amplifier))
@@ -264,7 +275,7 @@ class Game:
         if self.upgrade_menu is not None and self.upgrade_menu.opened:
             return
         for e in self.mouse_click_detectors:
-            if isinstance(e,building_upgrade_menu):
+            if isinstance(e, building_upgrade_menu):
                 return
         for e in self.players[self.side].all_buildings:
             if self.selected.__class__ is not selection_wall and \
@@ -292,6 +303,7 @@ class Game:
         [e.update_cam(self.camx, self.camy) for e in self.players]
         [e.update_cam(self.camx, self.camy) for e in self.cam_update_detectors]
         self.selected.update_cam(self.camx, self.camy)
+        self.obstacles_vlist.update_cam(self.camx, self.camy)
 
     def centre_cam(self):
         self.camx = self.players[self.side].TownHall.x - SCREEN_WIDTH / 2
@@ -321,6 +333,27 @@ class Game:
                 return e
         return None
 
+    def generate_obstacles(self, seed):
+        random.seed(seed)
+        x0, y0 = (self.players[0].TownHall.x + self.players[1].TownHall.x) / 2, (
+                self.players[0].TownHall.y + self.players[1].TownHall.y) / 2
+        for mountainrange in range(MOUNTAINRANGES):
+            failsafe, x, y = 0, 0, 0
+            while (self.players[0].TownHall.distance_to_point(x, y) < MOUNTAIN_TH_DISTANCE or
+                   self.players[1].TownHall.distance_to_point(x, y) < MOUNTAIN_TH_DISTANCE) and failsafe < 100:
+                x = x0 + random.randint(-MOUNTAINSPREAD, MOUNTAINSPREAD)
+                y = x0 + random.randint(-MOUNTAINSPREAD, MOUNTAINSPREAD)
+                failsafe += 1
+            mountains = [
+                Obstacle(x, y, random.randint(MOUNTAINSIZE - MOUNTAINSIZE_VAR, MOUNTAINSIZE + MOUNTAINSIZE_VAR), self)
+            ]
+            for i in range(MOUNTAINS - 1):
+                m = random.choice(mountains)
+                size = random.randint(MOUNTAINSIZE - MOUNTAINSIZE_VAR, MOUNTAINSIZE + MOUNTAINSIZE_VAR)
+                angle = random.random() * 2 * math.pi
+                mountains.append(
+                    Obstacle(m.x + math.cos(angle) * size * .8, m.y + math.sin(angle) * size * .8, size, self))
+
 
 class player:
 
@@ -332,15 +365,14 @@ class player:
         self.formations = []
         self.all_buildings = []
         self.spells = []
-        self.resources = {"money":STARTING_MONEY,"mana":STARTING_MANA}
+        self.resources = {"money": STARTING_MONEY, "mana": STARTING_MANA}
         self.max_mana = MAX_MANA
         self.TownHall = None
         self.auras = []
         self.pending_upgrades = []
         self.owned_upgrades = [Upgrade_default(self, 0)]
         self.unlocked_units = [Swordsman, Archer, Defender, Tower, Wall, Farm, Tower1, Tower2, Tower11, Tower21,
-                               Farm1, Farm2, Tower3, Tower31, Farm11, Fireball, Freeze, Rage, Tower23, TownHall1,
-                               TownHall2, TownHall3, Tree_spell]
+                               Farm1, Farm2, Tower3, Tower31, Farm11, Fireball, Freeze, Rage, Tower23]
         self.farm_value = 0
 
     def gain_mana(self, amount):
@@ -404,13 +436,13 @@ class player:
             self.resources[key] -= value
         return True
 
-    def force_purchase(self,amount):
+    def force_purchase(self, amount):
         for key, value in amount.items():
             self.resources[key] -= value
         return False
 
-    def gain_resource(self,amount,key):
-        self.resources[key]+=amount
+    def gain_resource(self, amount, key):
+        self.resources[key] += amount
 
     def tick_units(self):
         # ticks before other stuff to ensure the units are in their chunks
@@ -448,6 +480,7 @@ class chunk:
         self.units = [[], []]
         self.buildings = [[], []]
         self.walls = [[], []]
+        self.obstacles = []
 
     def is_empty(self):
         return self.units[0] == [] == self.units[1] == self.buildings[0] == [] == self.buildings[1] == \
@@ -679,6 +712,7 @@ class minimap(client_utility.toolbar):
         [self.mark(e, (0, 255, 0, 255)) for e in self.game.players[self.game.side].all_buildings]
         [self.mark(e, (255, 0, 0, 255)) for e in self.game.players[1 - self.game.side].units]
         [self.mark(e, (255, 0, 0, 255)) for e in self.game.players[1 - self.game.side].all_buildings]
+        [self.mark(e, (0, 0, 0, 255)) for e in self.game.all_obstacles]
 
     def mark(self, e, color):
         if self.current_entity >= self.max_entities:
@@ -1131,7 +1165,7 @@ class building_upgrade_menu(client_utility.toolbar):
         self.height = buttonsize
         super().__init__(self.target.x * SPRITE_SIZE_MULT - game.camx - self.width / 2,
                          self.target.y * SPRITE_SIZE_MULT - game.camy - self.height / 2, self.width, self.height,
-                         game.batch)
+                         game.batch, layer=9)
         self.game = game
         game.mouse_click_detectors.append(self)
         i = 0
@@ -1144,7 +1178,9 @@ class building_upgrade_menu(client_utility.toolbar):
                     y=self.target.y * SPRITE_SIZE_MULT - game.camy - self.height / 2,
                     text=client_utility.dict_to_string(e.get_cost([])),
                     color=(255, 240, 0, 255),
-                    group=groups.g[9], batch=game.batch, anchor_y="bottom", anchor_x="center",
+                    group=groups.g[self.layer + 2], batch=game.batch, anchor_y="bottom", anchor_x="center",
+                    multiline=True,
+                    width=buttonsize,
                     font_size=0.00625 * SCREEN_WIDTH))
                 self.add(self.clicked_button,
                          self.target.x * SPRITE_SIZE_MULT - game.camx - self.width / 2 + buttonsize * i,
@@ -1173,6 +1209,66 @@ class building_upgrade_menu(client_utility.toolbar):
         self.delete()
 
 
+class obstacle_vertexlist:
+    def __init__(self, game):
+        self.size = MOUNTAINS * MOUNTAINRANGES
+        pyglet.gl.glEnable(pyglet.gl.GL_BLEND)
+        self.sprite = game.batch.add(
+            self.size * 4, pyglet.gl.GL_QUADS, client_utility.TextureBindGroup(images.Mountain, layer=1),
+            ("v2f", (0, 0) * self.size * 4),
+            ("t2f/static", (0, 0, 1, 0, 1, 1, 0, 1) * self.size),
+            ("c4B/static", (255, 255, 255, 255) * self.size * 4)
+        )
+        self.current_index = 0
+        self.camx, self.camy = game.camx, game.camy
+        self.actual_vertices = []
+
+    def add(self, x, y, size):
+        size /= 2
+        x *= SPRITE_SIZE_MULT
+        x -= self.camx
+        y *= SPRITE_SIZE_MULT
+        y -= self.camy
+        size *= SPRITE_SIZE_MULT
+        self.sprite.vertices[self.current_index:self.current_index + 8] = (x - size, y - size,
+                                                                           x + size, y - size,
+                                                                           x + size, y + size,
+                                                                           x - size, y + size)
+        self.current_index += 8
+        self.actual_vertices += (x - size, y - size, x + size, y - size, x + size, y + size, x - size, y + size)
+
+    def update_cam(self, x, y):
+        dx, dy = x - self.camx, y - self.camy
+        self.camx, self.camy = x, y
+        self.sprite.vertices -= np.array([dx, dy] * self.size * 4)
+
+
+class Obstacle:
+    prevents_placement = True
+    img = images.Boulder
+
+    def __init__(self, x, y, size, game: Game):
+        self.x, self.y, self.size, self.game = x, y, size, game
+        chunks = get_chunks(x, y, size)
+        for e in chunks:
+            game.add_obstacle_to_chunk(self, e)
+
+        game.obstacles_vlist.add(x, y, size)
+        game.all_obstacles.append(self)
+
+    def collide(self, e):
+        if not e.exists:
+            return
+        dx = e.x - self.x
+        dy = e.y - self.y
+        s = (e.size + self.size) / 2
+        if max(abs(dx), abs(dy)) < s:
+            dist_sq = dx ** 2 + dy ** 2
+            if dist_sq < s ** 2:
+                shovage = s * dist_sq ** -.5 - 1
+                e.take_knockback(dx * shovage, dy * shovage, self)
+
+
 class Building:
     name = "TownHall"
     entity_type = "townhall"
@@ -1198,6 +1294,9 @@ class Building:
         self.game.players[side].all_buildings.append(self)
         for e in self.chunks:
             game.add_building_to_chunk(self, e)
+        self.collision_chunks = []
+        for c in self.chunks:
+            self.collision_chunks.append(self.game.chunks[c])
         hpbar_y_centre = self.sprite.y
         hpbar_y_range = 2 * SPRITE_SIZE_MULT
         hpbar_x_centre = self.sprite.x
@@ -1347,8 +1446,8 @@ class Building:
             [e.tick() for e in self.effects]
 
     def shove(self):
-        for c in self.chunks:
-            for e in self.game.chunks[c].units[1 - self.side]:
+        for ch in self.collision_chunks:
+            for e in ch.units[1 - self.side]:
                 if not e.exists:
                     continue
                 dx = e.x - self.x
@@ -1383,7 +1482,7 @@ class TownHall(Building):
         for i in range(10):
             animation_explosion(self.x + random.randint(-150, 150), self.y + random.randint(-150, 150),
                                 random.randint(100, 500), random.randint(10, 30), self.game)
-        print("game over", self.game.ticks)
+        print("game over", self.game.ticks, self.game.players[self.side].resources)
 
     def tick(self):
         if self.spawning < FPS * ACTION_DELAY:
@@ -1521,6 +1620,12 @@ class TownHall3(TownHall_upgrade):
             dist = self.stats["spread"] * abs(math.sin(self.game.ticks * 2 ** i))
             Tree(self.x + math.cos(self.game.ticks * 3 ** i) * dist, self.y + math.sin(self.game.ticks * 3 ** i) * dist,
                  self.side, self.game, size)
+
+
+class TownHall4(TownHall_upgrade):
+    upgrades = []
+    name = "TownHall4"
+    image = images.Fire
 
 
 class Tree(Building):
@@ -1932,19 +2037,19 @@ class Farm2(farm_upgrade, Farm):
 
 
 possible_buildings = [Tower, Farm, Tower1, Tower2, Tower21, Tower11, Farm1, Farm2, Tower211, Tower3, Tower31, Tower22,
-                      Farm11, Tower23, Tower231, TownHall, TownHall1, TownHall2, TownHall3]
+                      Farm11, Tower23, Tower231, TownHall, TownHall1, TownHall2, TownHall3, TownHall4]
 
 
 def get_upg_num(cls):
     return int(cls.__name__[-1])
 
 
-for e in possible_buildings:
-    name1 = e.__name__
+for dddd in possible_buildings:
+    name1 = dddd.__name__
     for j in possible_buildings:
         name2 = j.__name__
         if len(name1) == len(name2) + 1 and name1[0:-1] == name2:
-            j.upgrades.append(e)
+            j.upgrades.append(dddd)
             j.upgrades.sort(key=get_upg_num)
             continue
 
@@ -1974,6 +2079,9 @@ class Wall:
         self.chunks = get_wall_chunks(self.x1, self.y1, self.x2, self.y2, self.norm_vector, self.line_c, self.width)
         for e in self.chunks:
             self.game.add_wall_to_chunk(self, e)
+        self.collision_chunks = []
+        for c in self.chunks:
+            self.collision_chunks.append(self.game.chunks[c])
 
         x = self.width * .5 / self.length
         a = x * (self.y2 - self.y1)
@@ -2065,19 +2173,17 @@ class Wall:
             return
 
     def shove(self):
-        for c in self.chunks:
-            chonk = self.game.find_chunk(c)
-            if chonk is not None:
-                for e in chonk.units[1 - self.side]:
-                    if not e.exists:
-                        continue
-                    if point_line_dist(e.x, e.y, self.norm_vector, self.line_c) < (self.width + e.size) * .5 and \
-                            point_line_dist(e.x, e.y, (self.norm_vector[1], -self.norm_vector[0]),
-                                            self.crossline_c) < self.length * .5:
-                        shovage = point_line_dist(e.x, e.y, self.norm_vector, self.line_c) - (self.width + e.size) * .5
-                        if e.x * self.norm_vector[0] + e.y * self.norm_vector[1] + self.line_c > 0:
-                            shovage *= -1
-                        e.take_knockback(self.norm_vector[0] * shovage, self.norm_vector[1] * shovage, self)
+        for ch in self.collision_chunks:
+            for e in ch.units[1 - self.side]:
+                if not e.exists:
+                    continue
+                if point_line_dist(e.x, e.y, self.norm_vector, self.line_c) < (self.width + e.size) * .5 and \
+                        point_line_dist(e.x, e.y, (self.norm_vector[1], -self.norm_vector[0]),
+                                        self.crossline_c) < self.length * .5:
+                    shovage = point_line_dist(e.x, e.y, self.norm_vector, self.line_c) - (self.width + e.size) * .5
+                    if e.x * self.norm_vector[0] + e.y * self.norm_vector[1] + self.line_c > 0:
+                        shovage *= -1
+                    e.take_knockback(self.norm_vector[0] * shovage, self.norm_vector[1] * shovage, self)
 
     def update_cam(self, x, y):
         self.sprite.vertices = self.crack_sprite.vertices = [(self.vertices_no_cam[i] - (x if i % 2 == 0 else y)) for i
@@ -2572,7 +2678,7 @@ class Unit:
             return
         self.x += x
         self.y += y
-        if source.side != self.side:
+        if hasattr(source, "side") and source.side != self.side:
             if source.entity_type == "unit" and source not in self.formation.all_targets:
                 self.formation.attack(source.formation)
             elif source.entity_type in ["tower", "townhall", "wall",
@@ -2604,8 +2710,13 @@ class Unit:
         self.reached_goal = False
 
     def shove(self):
+        if not self.exists:
+            return
         for c in self.chunks:
-            units = self.game.chunks[c].units
+            chonk = self.game.chunks[c]
+            for e in chonk.obstacles:
+                e.collide(self)
+            units = chonk.units
             for e in units[self.side]:
                 self.check_collision(e)
             for e in units[self.side - 1]:
@@ -3152,7 +3263,8 @@ class animation_explosion:
     def __init__(self, x, y, size, speed, game):
         if len(game.animations) > MAX_ANIMATIONS:
             return
-        image = random.choice([images.Explosion, images.Explosion2]) if size < 500 else images.Explosion
+        image = random.choice(
+            [images.Explosion, images.Explosion1, images.Explosion2]) if size < 500 else images.Explosion
         self.sprite = client_utility.animation(x, y, size, game, image, group=7 + math.floor(size / 500))
         self.sprite2 = pyglet.sprite.Sprite(images.Shockwave, x=x * SPRITE_SIZE_MULT - game.camx,
                                             y=y * SPRITE_SIZE_MULT - game.camy,
@@ -3238,7 +3350,7 @@ class animation_crater:
         self.exists = True
 
     def tick(self, dt):
-        if dt > .1:
+        if dt > .5:
             self.delete()
             return
         self.exists_time += dt
@@ -3274,7 +3386,7 @@ class animation_freeze:
         self.exists = True
 
     def tick(self, dt):
-        if dt > .2:
+        if dt > .1:
             self.delete()
             return
         if self.exists_time >= self.duration:
@@ -3295,7 +3407,7 @@ class animation_freeze:
 
 
 class animation_ring_of_fire(client_utility.animation):
-    img = images.Explosion2
+    img = images.Explosion
     standalone = True
     layer = 5
 
@@ -3577,6 +3689,7 @@ class AOE_aura:
 class Upgrade:
     image = images.Tower
     previous = []
+    excludes = []
     name = "This Is A Bug."
     x = 0
     y = 0
@@ -3641,13 +3754,13 @@ class Upgrade_Menu(client_utility.toolbar):
             self.movables.append(self.add(e.attempt_buy, e.x * 200 * SPRITE_SIZE_MULT + SCREEN_HEIGHT * .75,
                                           e.y * 200 * SPRITE_SIZE_MULT + SCREEN_HEIGHT * .45, SCREEN_HEIGHT * .1,
                                           SCREEN_HEIGHT * .1, e.image, args=(self.game,),
-                                          layer=3, mouseover=self.open_desc, mover_args=(e,), mouseoff=self.close_desc))
+                                          layer=4, mouseover=self.open_desc, mover_args=(e,), mouseoff=self.close_desc))
             for prev in e.previous:
                 line = pyglet.sprite.Sprite(images.UpgradeLine,
                                             x=SPRITE_SIZE_MULT * (e.x + prev.x) * 100 + SCREEN_HEIGHT * .8,
                                             y=SPRITE_SIZE_MULT * (e.y + prev.y) * 100 + SCREEN_HEIGHT * .5,
                                             batch=self.batch,
-                                            group=groups.g[self.layer + 1])
+                                            group=groups.g[self.layer + 2])
                 line.rotation = 90 - get_rotation(e.x - prev.x, e.y - prev.y) * 180 / math.pi
                 line.scale_x = SCREEN_WIDTH * .05 / line.width
                 line.scale_y = distance(e.x, e.y, prev.x, prev.y) * 200 * SPRITE_SIZE_MULT / line.height
@@ -3678,6 +3791,9 @@ class Upgrade_Menu(client_utility.toolbar):
             rem_time = self.game.players[self.game.side].upgrade_time_remaining(upg)
         elif self.game.players[self.game.side].has_upgrade(upg):
             available = 3
+        for e in upg.excludes:
+            if self.game.players[self.game.side].has_upgrade(e):
+                available = 4
         self.upgrade_desc = upgrade_description(upg, self.batch, self.layer + 4, available, remaining_time=rem_time)
 
     def close_desc(self):
@@ -3754,31 +3870,44 @@ class upgrade_description(client_utility.toolbar):
         self.remaining_time = remaining_time
         self.sprites = []
         if available == 0:
-            self.sprites.append(pyglet.text.Label(x=SCREEN_WIDTH * 0.705, y=SCREEN_HEIGHT * 0.01,
+            self.sprites.append(pyglet.text.Label(x=SCREEN_WIDTH * 0.705, y=SCREEN_HEIGHT * 0.01, multiline=True,
+                                                  width=SCREEN_WIDTH * .29,
                                                   text="Research previous upgrades first",
                                                   color=(255, 100, 100, 255),
                                                   group=groups.g[layer + 1], batch=batch, anchor_y="bottom",
                                                   anchor_x="left",
                                                   font_size=0.013 * SCREEN_WIDTH))
         elif available == 1:
-            self.sprites.append(pyglet.text.Label(x=SCREEN_WIDTH * 0.705, y=SCREEN_HEIGHT * 0.01,
+            self.sprites.append(pyglet.text.Label(x=SCREEN_WIDTH * 0.705, y=SCREEN_HEIGHT * 0.01, multiline=True,
+                                                  width=SCREEN_WIDTH * .29,
                                                   text=f"{client_utility.dict_to_string(upg.get_cost())}, Time: {upg.get_time()} sec",
                                                   color=(255, 240, 0, 255),
                                                   group=groups.g[layer + 1], batch=batch, anchor_y="bottom",
                                                   anchor_x="left",
                                                   font_size=0.013 * SCREEN_WIDTH))
         elif available == 2:
-            self.sprites.append(pyglet.text.Label(x=SCREEN_WIDTH * 0.705, y=SCREEN_HEIGHT * 0.01,
+            self.sprites.append(pyglet.text.Label(x=SCREEN_WIDTH * 0.705, y=SCREEN_HEIGHT * 0.01, multiline=True,
+                                                  width=SCREEN_WIDTH * .29,
                                                   text=f"Upgrade in progress: {int(remaining_time * INV_FPS)}",
                                                   color=(0, 255, 0, 255),
                                                   group=groups.g[layer + 1], batch=batch, anchor_y="bottom",
                                                   anchor_x="left",
                                                   font_size=0.013 * SCREEN_WIDTH),
                                 )
-        else:
-            self.sprites.append(pyglet.text.Label(x=SCREEN_WIDTH * 0.705, y=SCREEN_HEIGHT * 0.01,
+        elif available == 3:
+            self.sprites.append(pyglet.text.Label(x=SCREEN_WIDTH * 0.705, y=SCREEN_HEIGHT * 0.01, multiline=True,
+                                                  width=SCREEN_WIDTH * .29,
                                                   text="Thou Posesseth This Development",
                                                   color=(0, 255, 0, 255),
+                                                  group=groups.g[layer + 1], batch=batch, anchor_y="bottom",
+                                                  anchor_x="left",
+                                                  font_size=0.013 * SCREEN_WIDTH),
+                                )
+        else:
+            self.sprites.append(pyglet.text.Label(x=SCREEN_WIDTH * 0.705, y=SCREEN_HEIGHT * 0.01, multiline=True,
+                                                  width=SCREEN_WIDTH * .29,
+                                                  text="locked",
+                                                  color=(255, 0, 0, 255),
                                                   group=groups.g[layer + 1], batch=batch, anchor_y="bottom",
                                                   anchor_x="left",
                                                   font_size=0.013 * SCREEN_WIDTH),
@@ -3789,7 +3918,8 @@ class upgrade_description(client_utility.toolbar):
                                               group=groups.g[layer + 1], batch=batch, anchor_y="bottom",
                                               anchor_x="center",
                                               font_size=0.025 * SCREEN_WIDTH))
-        self.sprites.append(pyglet.text.Label(x=SCREEN_WIDTH * 0.85, y=SCREEN_HEIGHT * 0.89,
+        self.sprites.append(pyglet.text.Label(x=SCREEN_WIDTH * 0.85, y=SCREEN_HEIGHT * 0.89, multiline=True,
+                                              width=SCREEN_WIDTH * .28,
                                               text=upgrade_stats[upg.name]["desc"],
                                               color=(200, 200, 200, 255),
                                               group=groups.g[layer + 1], batch=batch, anchor_y="top",
@@ -3818,6 +3948,7 @@ class upgrade_description(client_utility.toolbar):
 
 
 class Upgrade_default(Upgrade):
+    previous = []
     x = 0
     y = 0
     name = "The Beginning"
@@ -3825,7 +3956,7 @@ class Upgrade_default(Upgrade):
 
 class Upgrade_test_1(Upgrade):
     image = images.Bear
-    previous = [Upgrade_default]
+    previous = []
     x = 1
     y = 0
     name = "Bigger Stalls"
@@ -3836,7 +3967,7 @@ class Upgrade_test_1(Upgrade):
 
 class Upgrade_catapult(Upgrade):
     name = "Catapults"
-    previous = [Upgrade_default]
+    previous = []
     image = images.Trebuchet
     x = -1
     y = 0
@@ -3847,10 +3978,10 @@ class Upgrade_catapult(Upgrade):
 
 class Upgrade_bigger_arrows(Upgrade):
     name = "Bigger Arrows"
+    previous = []
     image = images.Arrow_upg
     x = 0
     y = 1
-    previous = [Upgrade_default]
 
     def on_finish(self):
         self.player.add_aura(aura(effect_stat_mult, ("dmg", float(upgrade_stats[self.name]["mod"])),
@@ -3861,10 +3992,10 @@ class Upgrade_bigger_arrows(Upgrade):
 
 class Upgrade_bigger_rocks(Upgrade):
     name = "Bigger Rocks"
+    previous = []
     image = images.Boulder
     x = 1
     y = 1
-    previous = [Upgrade_bigger_arrows]
 
     def on_finish(self):
         self.player.add_aura(aura(effect_stat_mult, ("dmg", float(upgrade_stats[self.name]["mod_dmg"])),
@@ -3876,7 +4007,7 @@ class Upgrade_bigger_rocks(Upgrade):
 
 class Upgrade_egg(Upgrade):
     name = "Egg Cannon"
-    previous = [Upgrade_bigger_rocks]
+    previous = []
     image = images.Egg
     x = 1
     y = 2
@@ -3887,7 +4018,7 @@ class Upgrade_egg(Upgrade):
 
 class Upgrade_mines(Upgrade):
     name = "Mines"
-    previous = [Upgrade_bigger_rocks]
+    previous = []
     image = images.Mine
     x = 2
     y = 1
@@ -3898,10 +4029,10 @@ class Upgrade_mines(Upgrade):
 
 class Upgrade_faster_archery(Upgrade):
     name = "Faster Archery"
+    previous = []
     x = -1
     y = 1
     image = images.Arrow_upg_2
-    previous = [Upgrade_bigger_arrows]
 
     def on_finish(self):
         self.player.add_aura(aura(effect_stat_mult, ("cd", float(upgrade_stats[self.name]["mod"])),
@@ -3910,10 +4041,10 @@ class Upgrade_faster_archery(Upgrade):
 
 class Upgrade_vigorous_farming(Upgrade):
     name = "Vigorous Farming"
+    previous = []
     x = 0
     y = -1
     image = images.Farm1
-    previous = [Upgrade_default]
 
     def on_finish(self):
         self.player.add_aura(aura(effect_stat_mult, ("production", float(upgrade_stats[self.name]["mod"])),
@@ -3922,10 +4053,10 @@ class Upgrade_vigorous_farming(Upgrade):
 
 class Upgrade_nanobots(Upgrade):
     name = "Nanobots"
+    previous = []
     x = 0
     y = -2
     image = images.Farm1
-    previous = [Upgrade_vigorous_farming]
 
     def on_finish(self):
         self.player.add_aura(aura(effect_regen, (float(upgrade_stats[self.name]["mod"]),),
@@ -3934,10 +4065,10 @@ class Upgrade_nanobots(Upgrade):
 
 class Upgrade_walls(Upgrade):
     name = "Tough Walls"
+    previous = []
     x = 0
     y = -3
     image = images.Farm1
-    previous = [Upgrade_nanobots]
 
     def on_finish(self):
         self.player.add_aura(aura(effect_stat_mult, ("resistance", float(upgrade_stats[self.name]["mod"])),
@@ -3946,7 +4077,7 @@ class Upgrade_walls(Upgrade):
 
 class Upgrade_necromancy(Upgrade):
     name = "Necromancy"
-    previous = [Upgrade_catapult]
+    previous = []
     x = -2
     y = 0
     image = images.Beam
@@ -3957,7 +4088,7 @@ class Upgrade_necromancy(Upgrade):
 
 class Upgrade_superior_pyrotechnics(Upgrade):
     name = "Superior Pyrotechnics"
-    previous = [Upgrade_mines]
+    previous = []
     x = 2
     y = 2
     image = images.Beam
@@ -3968,7 +4099,7 @@ class Upgrade_superior_pyrotechnics(Upgrade):
 
 class Upgrade_golem(Upgrade):
     image = images.Boulder
-    previous = [Upgrade_test_1]
+    previous = []
     x = 2
     y = 0
     name = "Golem"
@@ -3977,9 +4108,80 @@ class Upgrade_golem(Upgrade):
         self.player.unlock_unit(Golem)
 
 
+class Upgrade_trees(Upgrade):
+    image = images.Tree
+    previous = []
+    x = 2
+    y = 0
+    name = "Trees"
+
+    def on_finish(self):
+        self.player.unlock_unit(Tree_spell)
+
+
+class Upgrade_nature(Upgrade):
+    image = images.Boulder
+    excludes = []
+    previous = []
+    x = 2
+    y = 0
+    name = "Nature"
+
+    def on_finish(self):
+        self.player.unlock_unit(TownHall3)
+
+
+class Upgrade_fire(Upgrade):
+    image = images.Boulder
+    excludes = []
+    previous = []
+    x = 2
+    y = 0
+    name = "Fire"
+
+    def on_finish(self):
+        self.player.unlock_unit(TownHall2)
+
+
+class Upgrade_frost(Upgrade):
+    image = images.Boulder
+    excludes = []
+    previous = []
+    x = 2
+    y = 0
+    name = "Frost"
+
+    def on_finish(self):
+        self.player.unlock_unit(TownHall1)
+
+
+class Upgrade_tech(Upgrade):
+    image = images.Boulder
+    excludes = []
+    previous = []
+    x = 2
+    y = 0
+    name = "Tech"
+
+    def on_finish(self):
+        self.player.unlock_unit(TownHall4)
+
+
+for uuuu in [Upgrade_frost, Upgrade_fire, Upgrade_nature, Upgrade_tech]:
+    uuuu.excludes = [Upgrade_frost, Upgrade_fire, Upgrade_nature, Upgrade_tech]
+    uuuu.excludes.remove(uuuu)
+
 possible_upgrades = [Upgrade_default, Upgrade_test_1, Upgrade_bigger_arrows, Upgrade_catapult, Upgrade_bigger_rocks,
                      Upgrade_egg, Upgrade_faster_archery, Upgrade_vigorous_farming, Upgrade_mines, Upgrade_necromancy,
-                     Upgrade_nanobots, Upgrade_walls, Upgrade_superior_pyrotechnics, Upgrade_golem]
+                     Upgrade_nanobots, Upgrade_walls, Upgrade_superior_pyrotechnics, Upgrade_golem, Upgrade_frost,
+                     Upgrade_fire, Upgrade_nature, Upgrade_tech, Upgrade_trees]
+
+for uuuu in possible_upgrades:
+    uuuu.x, uuuu.y = int(upgrade_stats[uuuu.name]["x"]), int(upgrade_stats[uuuu.name]["y"])
+    fromme = upgrade_stats[uuuu.name]["from"].split("&")
+    for uuu2 in possible_upgrades:
+        if uuu2.name in fromme:
+            uuuu.previous.append(uuu2)
 
 
 class Spell:

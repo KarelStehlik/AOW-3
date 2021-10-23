@@ -10,6 +10,7 @@ from numba import njit, float64
 import constants
 import cProfile
 import pstats
+import numpy as np
 #import tensorflow
 
 pyglet.gl.glEnable(pyglet.gl.GL_BLEND)
@@ -24,7 +25,10 @@ def load_stats():
             stats = {}
             for e in name_stats[1].split(","):
                 k = e.split("=")
-                stats[k[0]] = float(k[1])
+                if k[0].startswith("cost"):
+                    stats[k[0]] = int(k[1])
+                else:
+                    stats[k[0]] = float(k[1])
                 if k[0] == "speed":
                     stats[k[0]] /= constants.FPS
             unit_statst[name_stats[0]] = stats

@@ -55,6 +55,7 @@ class Game:
         self.unit_formation_rows = UNIT_FORMATION_ROWS
         self.debug_secs, self.debug_ticks = time.time(), 0
         self.projectiles = []
+        self.generate_obstacles()
 
     def send_both(self, msg):
         self.channels[0].Send(msg)
@@ -99,14 +100,22 @@ class Game:
                         close_to_friendly = True
                 if not close_to_friendly:
                     return
-                for e in self.players[1].all_buildings:
-                    if e.prevents_placement:
-                        if e.distance_to_point(*data["xy"]) < unit_stats[entity_type.name]["size"] / 2:
-                            return
-                for e in self.players[0].all_buildings:
-                    if e.prevents_placement:
-                        if e.distance_to_point(*data["xy"]) < unit_stats[entity_type.name]["size"] / 2:
-                            return
+                chonks = [self.find_chunk(e) for e in get_chunks(*data["xy"], unit_stats[entity_type.name]["size"])]
+                for chonk in chonks:
+                    if chonk is None:
+                        continue
+                    for e in chonk.buildings[1]:
+                        if e.prevents_placement:
+                            if e.distance_to_point(*data["xy"]) < unit_stats[entity_type.name]["size"] / 2:
+                                return
+                    for e in chonk.buildings[0]:
+                        if e.prevents_placement:
+                            if e.distance_to_point(*data["xy"]) < unit_stats[entity_type.name]["size"] / 2:
+                                return
+                    for e in chonk.obstacles:
+                        if e.prevents_placement:
+                            if distance(*data["xy"], e.x, e.y) < (unit_stats[entity_type.name]["size"] + e.size) / 2:
+                                return
                 if self.players[side].attempt_purchase(entity_type.get_cost([])):
                     entity_type(data["xy"][0], data["xy"][1], side, self)
                     self.send_both({"action": "place_building", "xy": data["xy"], "tick": self.ticks, "side": side,
@@ -168,6 +177,9 @@ class Game:
                 for e in upg.previous:
                     if not self.players[side].has_upgrade(e):
                         return
+                for e in upg.excludes:
+                    if self.players[side].has_upgrade(e):
+                        return
                 if self.players[side].has_upgrade(upg) or self.players[side].is_upgrade_pending(upg):
                     return
                 if self.players[side].attempt_purchase(upg.get_cost()):
@@ -220,6 +232,13 @@ class Game:
         self.chunks[location] = chunk()
         self.chunks[location].buildings[unit.side].append(unit)
 
+    def add_obstacle_to_chunk(self, unit, location):
+        if location in self.chunks:
+            self.chunks[location].obstacles.append(unit)
+            return
+        self.chunks[location] = chunk()
+        self.chunks[location].obstacles.append(unit)
+
     def add_wall_to_chunk(self, unit, location):
         if location in self.chunks:
             self.chunks[location].walls[unit.side].append(unit)
@@ -265,6 +284,29 @@ class Game:
                 return e
         return None
 
+    def generate_obstacles(self):
+        seed = random.random()
+        random.seed(seed)
+        x0, y0 = (self.players[0].TownHall.x + self.players[1].TownHall.x) / 2, (
+                self.players[0].TownHall.y + self.players[1].TownHall.y) / 2
+        for mountainrange in range(MOUNTAINRANGES):
+            failsafe, x, y = 0, 0, 0
+            while (self.players[0].TownHall.distance_to_point(x, y) < MOUNTAIN_TH_DISTANCE or
+                   self.players[1].TownHall.distance_to_point(x, y) < MOUNTAIN_TH_DISTANCE) and failsafe < 100:
+                x = x0 + random.randint(-MOUNTAINSPREAD, MOUNTAINSPREAD)
+                y = x0 + random.randint(-MOUNTAINSPREAD, MOUNTAINSPREAD)
+                failsafe += 1
+            mountains = [
+                Obstacle(x, y, random.randint(MOUNTAINSIZE - MOUNTAINSIZE_VAR, MOUNTAINSIZE + MOUNTAINSIZE_VAR), self)
+            ]
+            for i in range(MOUNTAINS - 1):
+                m = random.choice(mountains)
+                size = random.randint(MOUNTAINSIZE - MOUNTAINSIZE_VAR, MOUNTAINSIZE + MOUNTAINSIZE_VAR)
+                angle = random.random() * 2 * math.pi
+                mountains.append(
+                    Obstacle(m.x + math.cos(angle) * size * .8, m.y + math.sin(angle) * size * .8, size, self))
+        self.send_both({"action": "generate obstacles", "seed": str(seed)})
+
 
 class player:
 
@@ -276,7 +318,7 @@ class player:
         self.formations = []
         self.all_buildings = []
         self.spells = []
-        self.resources = {"money":STARTING_MONEY,"mana":STARTING_MANA}
+        self.resources = {"money": STARTING_MONEY, "mana": STARTING_MANA}
         self.max_mana = MAX_MANA
         self.TownHall = None
         self.ai_wave = 0
@@ -285,8 +327,7 @@ class player:
         self.pending_upgrades = []
         self.owned_upgrades = [Upgrade_default(self)]
         self.unlocked_units = [Swordsman, Archer, Defender, Tower, Wall, Farm, Tower1, Tower2, Tower11, Tower21,
-                               Farm1, Farm2, Tower3, Tower31, Farm11, Fireball, Freeze, Rage, Tower23, TownHall1,
-                               TownHall2,TownHall3, Tree_spell]
+                               Farm1, Farm2, Tower3, Tower31, Farm11, Fireball, Freeze, Rage, Tower23]
         self.farm_value = 1000
 
     def gain_mana(self, amount):
@@ -339,15 +380,15 @@ class player:
     def gain_money(self, amount):
         self.resources["money"] += amount
 
-    def gain_resource(self,amount,key):
-        self.resources[key]+=amount
+    def gain_resource(self, amount, key):
+        self.resources[key] += amount
 
     def attempt_purchase(self, amount):
-        for key,value in amount.items():
-            if self.resources[key]<value:
+        for key, value in amount.items():
+            if self.resources[key] < value:
                 return False
-        for key,value in amount.items():
-            self.resources[key]-=value
+        for key, value in amount.items():
+            self.resources[key] -= value
         return True
 
     def tick_units(self):
@@ -371,6 +412,7 @@ class chunk:
         self.units = [[], []]
         self.buildings = [[], []]
         self.walls = [[], []]
+        self.obstacles = []
 
     def is_empty(self):
         return self.units[0] == [] == self.units[1] == self.buildings[0] == [] == self.buildings[1] == \
@@ -382,11 +424,32 @@ class chunk:
 
 ##################   ---/core---  #################
 ##################   ---units---  #################
+class Obstacle:
+    prevents_placement = True
+
+    def __init__(self, x, y, size, game: Game):
+        self.x, self.y, self.size, self.game = x, y, size, game
+        chunks = get_chunks(x, y, size)
+        for e in chunks:
+            game.add_obstacle_to_chunk(self, e)
+
+    def collide(self, e):
+        if not e.exists:
+            return
+        dx = e.x - self.x
+        dy = e.y - self.y
+        s = (e.size + self.size) / 2
+        if max(abs(dx), abs(dy)) < s:
+            dist_sq = dx ** 2 + dy ** 2
+            if dist_sq < s ** 2:
+                shovage = s * dist_sq ** -.5 - 1
+                e.take_knockback(dx * shovage, dy * shovage, self)
+
 
 class Building:
     name = "TownHall"
     entity_type = "townhall"
-    prevents_placement=True
+    prevents_placement = True
 
     def __init__(self, x, y, side, game, instant=False, size_override=None):
         x, y = int(x), int(y)
@@ -402,12 +465,15 @@ class Building:
         self.game.players[side].all_buildings.append(self)
         for e in self.chunks:
             game.add_building_to_chunk(self, e)
+        self.collision_chunks = []
+        for c in self.chunks:
+            self.collision_chunks.append(self.game.chunks[c])
         self.upgrades_into = []
         self.comes_from = None
         self.effects = []
-        self.base_stats = {e:unit_stats[self.name][e] for e in unit_stats[self.name].keys()}
+        self.base_stats = {e: unit_stats[self.name][e] for e in unit_stats[self.name].keys()}
         if size_override is not None:
-            self.base_stats["size"]=size_override
+            self.base_stats["size"] = size_override
         self.mods_add = {e: [] for e in unit_stats[self.name].keys()}
         self.mods_multiply = {e: [] for e in unit_stats[self.name].keys()}
         self.stats = {e: (self.base_stats[e] + sum(self.mods_add[e])) * product(*self.mods_multiply[e]) for e in
@@ -492,8 +558,8 @@ class Building:
             [e.tick() for e in self.effects]
 
     def shove(self):
-        for c in self.chunks:
-            for e in self.game.chunks[c].units[1 - self.side]:
+        for ch in self.collision_chunks:
+            for e in ch.units[1 - self.side]:
                 if not e.exists:
                     continue
                 dx = e.x - self.x
@@ -512,17 +578,17 @@ class Tree(Building):
     upgrades = []
     prevents_placement = False
 
-    def __init__(self, x, y, side, game, size,health=None):
+    def __init__(self, x, y, side, game, size, health=None):
         size = max(.1, size)
-        super().__init__(x, y, side, game, size_override=size*unit_stats[self.name]["size"])
+        super().__init__(x, y, side, game, size_override=size * unit_stats[self.name]["size"])
         self.additionals = []
         self.bigness = size
-        effect_stat_mult("health", size**2).apply(self)
+        effect_stat_mult("health", size ** 2).apply(self)
         self.health_set = health
 
     def on_summon(self):
         if self.health_set is not None:
-            self.health=self.health_set
+            self.health = self.health_set
         self.check_overlap()
         if not self.exists:
             return
@@ -531,7 +597,6 @@ class Tree(Building):
             AOE_aura(effect_instant_health, ((self.bigness ** 2) * self.stats["heal"],),
                      [self.x, self.y, self.bigness * self.stats["diameter"]],
                      self.game, self.side, None, None, freq))
-
 
     def on_delete(self):
         [e.delete() for e in self.additionals]
@@ -553,8 +618,8 @@ class Tree(Building):
         new_health = self.health + other.health
         self.delete()
         other.delete()
-        a=Tree(new_x, new_y, self.side, self.game, new_size / unit_stats[self.name]["size"], health=new_health)
-        a.spawning=50
+        a = Tree(new_x, new_y, self.side, self.game, new_size / unit_stats[self.name]["size"], health=new_health)
+        a.spawning = 50
 
 
 class TownHall(Building):
@@ -566,10 +631,10 @@ class TownHall(Building):
         super().__init__(x, y, side, game)
         self.exists = True
         self.tick = self.tick2
-        self.upgrades_into = [TownHall1, TownHall2,TownHall3]
+        self.upgrades_into = [TownHall1, TownHall2, TownHall3]
 
     def on_die(self):
-        print("game over", self.game.ticks)
+        print("game over", self.game.ticks, self.game.players[self.side].resources)
 
 
 class TownHall_upgrade(Building):
@@ -677,7 +742,13 @@ class TownHall3(TownHall_upgrade):
         for i in range(int(self.stats["trees"])):
             size = self.stats["tree_size"] * (math.sin(self.game.ticks ** i) + 1)
             dist = self.stats["spread"] * abs(math.sin(self.game.ticks * 2 ** i))
-            Tree(self.x+math.cos(self.game.ticks*3**i)*dist,self.y+math.sin(self.game.ticks*3**i)*dist,self.side,self.game,size)
+            Tree(self.x + math.cos(self.game.ticks * 3 ** i) * dist, self.y + math.sin(self.game.ticks * 3 ** i) * dist,
+                 self.side, self.game, size)
+
+
+class TownHall4(TownHall_upgrade):
+    upgrades = []
+    name = "TownHall4"
 
 
 class Tower(Building):
@@ -948,19 +1019,19 @@ class Farm2(Farm_upgrade):
 
 
 possible_buildings = [Tower, Farm, Tower1, Tower2, Tower21, Tower11, Farm1, Farm2, Tower211, Tower3, Tower31, Tower22,
-                      Farm11, Tower23, Tower231, TownHall, TownHall1, TownHall2,TownHall3]
+                      Farm11, Tower23, Tower231, TownHall, TownHall1, TownHall2, TownHall3, TownHall4]
 
 
 def get_upg_num(cls):
     return int(cls.__name__[-1])
 
 
-for e in possible_buildings:
-    name1 = e.__name__
+for dddd in possible_buildings:
+    name1 = dddd.__name__
     for j in possible_buildings:
         name2 = j.__name__
         if len(name1) == len(name2) + 1 and name1[0:-1] == name2:
-            j.upgrades.append(e)
+            j.upgrades.append(dddd)
             j.upgrades.sort(key=get_upg_num)
             continue
 
@@ -968,7 +1039,7 @@ for e in possible_buildings:
 class Wall:
     name = "Wall"
     entity_type = "wall"
-    prevents_placement=True
+    prevents_placement = True
 
     def __init__(self, t1, t2, side, game):
         self.exists = False
@@ -989,6 +1060,9 @@ class Wall:
         self.chunks = get_wall_chunks(self.x1, self.y1, self.x2, self.y2, self.norm_vector, self.line_c, self.width)
         for e in self.chunks:
             self.game.add_wall_to_chunk(self, e)
+        self.collision_chunks = []
+        for c in self.chunks:
+            self.collision_chunks.append(self.game.chunks[c])
 
         self.effects = []
         self.base_stats = unit_stats[self.name]
@@ -1037,19 +1111,17 @@ class Wall:
             return
 
     def shove(self):
-        for c in self.chunks:
-            chonk = self.game.find_chunk(c)
-            if chonk is not None:
-                for e in chonk.units[1 - self.side]:
-                    if not e.exists:
-                        return
-                    if point_line_dist(e.x, e.y, self.norm_vector, self.line_c) < (self.width + e.size) * .5 and \
-                            point_line_dist(e.x, e.y, (self.norm_vector[1], -self.norm_vector[0]),
-                                            self.crossline_c) < self.length * .5:
-                        shovage = point_line_dist(e.x, e.y, self.norm_vector, self.line_c) - (self.width + e.size) * .5
-                        if e.x * self.norm_vector[0] + e.y * self.norm_vector[1] + self.line_c > 0:
-                            shovage *= -1
-                        e.take_knockback(self.norm_vector[0] * shovage, self.norm_vector[1] * shovage, self)
+        for ch in self.collision_chunks:
+            for e in ch.units[1 - self.side]:
+                if not e.exists:
+                    return
+                if point_line_dist(e.x, e.y, self.norm_vector, self.line_c) < (self.width + e.size) * .5 and \
+                        point_line_dist(e.x, e.y, (self.norm_vector[1], -self.norm_vector[0]),
+                                        self.crossline_c) < self.length * .5:
+                    shovage = point_line_dist(e.x, e.y, self.norm_vector, self.line_c) - (self.width + e.size) * .5
+                    if e.x * self.norm_vector[0] + e.y * self.norm_vector[1] + self.line_c > 0:
+                        shovage *= -1
+                    e.take_knockback(self.norm_vector[0] * shovage, self.norm_vector[1] * shovage, self)
 
     def towards(self, x, y):
         if point_line_dist(x, y, (self.norm_vector[1], -self.norm_vector[0]), self.crossline_c) < self.length * .5:
@@ -1452,7 +1524,7 @@ class Unit:
             return
         self.x += x
         self.y += y
-        if source.side != self.side:
+        if hasattr(source, "side") and source.side != self.side:
             if source.entity_type == "unit" and source not in self.formation.all_targets:
                 self.formation.attack(source.formation)
             elif source.entity_type in ["tower", "townhall", "wall",
@@ -1470,7 +1542,10 @@ class Unit:
         if not self.exists:
             return
         for c in self.chunks:
-            units = self.game.chunks[c].units
+            chonk = self.game.chunks[c]
+            for e in chonk.obstacles:
+                e.collide(self)
+            units = chonk.units
             for e in units[self.side]:
                 self.check_collision(e)
             for e in units[self.side - 1]:
@@ -1865,7 +1940,7 @@ class effect_instant_health(effect):
         self.amount = amount
 
     def apply(self, target):
-        target.health = min(target.health+self.amount,target.stats["health"])
+        target.health = min(target.health + self.amount, target.stats["health"])
 
 
 class effect_stat_mult(effect):
@@ -2000,6 +2075,7 @@ class AOE_aura:
 
 class Upgrade:
     previous = []
+    excludes = []
     name = "This Is A Bug."
 
     def __init__(self, player):
@@ -2037,28 +2113,29 @@ class Upgrade:
 
 
 class Upgrade_default(Upgrade):
+    previous = []
     name = "The Beginning"
 
 
 class Upgrade_test_1(Upgrade):
+    previous = []
     name = "Bigger Stalls"
-    previous = [Upgrade_default]
 
     def on_finish(self):
         self.player.unlock_unit(Bear)
 
 
 class Upgrade_catapult(Upgrade):
+    previous = []
     name = "Catapults"
-    previous = [Upgrade_default]
 
     def on_finish(self):
         self.player.unlock_unit(Trebuchet)
 
 
 class Upgrade_bigger_arrows(Upgrade):
+    previous = []
     name = "Bigger Arrows"
-    previous = [Upgrade_default]
 
     def on_finish(self):
         self.player.add_aura(aura(effect_stat_mult, ("dmg", float(upgrade_stats[self.name]["mod"])),
@@ -2066,8 +2143,8 @@ class Upgrade_bigger_arrows(Upgrade):
 
 
 class Upgrade_bigger_rocks(Upgrade):
+    previous = []
     name = "Bigger Rocks"
-    previous = [Upgrade_bigger_arrows]
 
     def on_finish(self):
         self.player.add_aura(aura(effect_stat_mult, ("dmg", float(upgrade_stats[self.name]["mod_dmg"])),
@@ -2077,24 +2154,24 @@ class Upgrade_bigger_rocks(Upgrade):
 
 
 class Upgrade_egg(Upgrade):
+    previous = []
     name = "Egg Cannon"
-    previous = [Upgrade_bigger_rocks]
 
     def on_finish(self):
         self.player.unlock_unit(Tower211)
 
 
 class Upgrade_mines(Upgrade):
+    previous = []
     name = "Mines"
-    previous = [Upgrade_bigger_rocks]
 
     def on_finish(self):
         self.player.unlock_unit(Tower22)
 
 
 class Upgrade_faster_archery(Upgrade):
+    previous = []
     name = "Faster Archery"
-    previous = [Upgrade_bigger_arrows]
 
     def on_finish(self):
         self.player.add_aura(aura(effect_stat_mult, ("cd", float(upgrade_stats[self.name]["mod"])),
@@ -2102,8 +2179,8 @@ class Upgrade_faster_archery(Upgrade):
 
 
 class Upgrade_vigorous_farming(Upgrade):
+    previous = []
     name = "Vigorous Farming"
-    previous = [Upgrade_default]
 
     def on_finish(self):
         self.player.add_aura(aura(effect_stat_mult, ("production", float(upgrade_stats[self.name]["mod"])),
@@ -2111,8 +2188,8 @@ class Upgrade_vigorous_farming(Upgrade):
 
 
 class Upgrade_nanobots(Upgrade):
+    previous = []
     name = "Nanobots"
-    previous = [Upgrade_vigorous_farming]
 
     def on_finish(self):
         self.player.add_aura(aura(effect_regen, (float(upgrade_stats[self.name]["mod"]),),
@@ -2120,8 +2197,8 @@ class Upgrade_nanobots(Upgrade):
 
 
 class Upgrade_walls(Upgrade):
+    previous = []
     name = "Tough Walls"
-    previous = [Upgrade_nanobots]
 
     def on_finish(self):
         self.player.add_aura(aura(effect_stat_mult, ("resistance", float(upgrade_stats[self.name]["mod"])),
@@ -2129,32 +2206,87 @@ class Upgrade_walls(Upgrade):
 
 
 class Upgrade_necromancy(Upgrade):
+    previous = []
     name = "Necromancy"
-    previous = [Upgrade_catapult]
 
     def on_finish(self):
         self.player.unlock_unit(Necromancer)
 
 
 class Upgrade_superior_pyrotechnics(Upgrade):
+    previous = []
     name = "Superior Pyrotechnics"
-    previous = [Upgrade_mines]
 
     def on_finish(self):
         self.player.unlock_unit(Tower231)
 
 
 class Upgrade_golem(Upgrade):
-    previous = [Upgrade_test_1]
+    previous = []
     name = "Golem"
 
     def on_finish(self):
         self.player.unlock_unit(Golem)
 
 
+class Upgrade_trees(Upgrade):
+    previous = []
+    name = "Trees"
+
+    def on_finish(self):
+        self.player.unlock_unit(Tree_spell)
+
+
+class Upgrade_nature(Upgrade):
+    previous = []
+    excludes = []
+    name = "Nature"
+
+    def on_finish(self):
+        self.player.unlock_unit(TownHall3)
+
+
+class Upgrade_fire(Upgrade):
+    previous = []
+    excludes = []
+    name = "Fire"
+
+    def on_finish(self):
+        self.player.unlock_unit(TownHall2)
+
+
+class Upgrade_frost(Upgrade):
+    previous = []
+    excludes = []
+    name = "Frost"
+
+    def on_finish(self):
+        self.player.unlock_unit(TownHall1)
+
+
+class Upgrade_tech(Upgrade):
+    previous = []
+    excludes = []
+    name = "Tech"
+
+    def on_finish(self):
+        self.player.unlock_unit(TownHall4)
+
+
+for uuuu in [Upgrade_frost, Upgrade_fire, Upgrade_nature, Upgrade_tech]:
+    uuuu.excludes = [Upgrade_frost, Upgrade_fire, Upgrade_nature, Upgrade_tech]
+    uuuu.excludes.remove(uuuu)
+
 possible_upgrades = [Upgrade_default, Upgrade_test_1, Upgrade_bigger_arrows, Upgrade_catapult, Upgrade_bigger_rocks,
                      Upgrade_egg, Upgrade_faster_archery, Upgrade_vigorous_farming, Upgrade_mines, Upgrade_necromancy,
-                     Upgrade_nanobots, Upgrade_walls, Upgrade_superior_pyrotechnics, Upgrade_golem]
+                     Upgrade_nanobots, Upgrade_walls, Upgrade_superior_pyrotechnics, Upgrade_golem, Upgrade_frost,
+                     Upgrade_fire, Upgrade_nature, Upgrade_tech, Upgrade_trees]
+
+for uuuu in possible_upgrades:
+    fromme = upgrade_stats[uuuu.name]["from"].split("&")
+    for uuu2 in possible_upgrades:
+        if uuu2.name in fromme:
+            uuuu.previous.append(uuu2)
 
 
 class Spell:
@@ -2214,13 +2346,14 @@ class Freeze(Spell):
     def main(self):
         AOE_aura(effect_freeze, (self.duration,), [self.x, self.y, self.radius], self.game, 1 - self.side, 0)
 
+
 class Tree_spell(Spell):
     name = "Tree_spell"
 
     def __init__(self, game, side, x, y):
         super().__init__(game, side, x, y)
         self.radius = unit_stats[self.name]["radius"]
-        self.trees=unit_stats[self.name]["trees"]
+        self.trees = unit_stats[self.name]["trees"]
         self.tree_size = unit_stats[self.name]["tree_size"]
 
     def main(self):
@@ -2229,6 +2362,7 @@ class Tree_spell(Spell):
             dist = self.radius * abs(math.sin(self.game.ticks * 2 ** i))
             Tree(self.x + math.cos(self.game.ticks * 3 ** i) * dist, self.y + math.sin(self.game.ticks * 3 ** i) * dist,
                  self.side, self.game, size)
+
 
 class Rage(Spell):
     name = "Rage"

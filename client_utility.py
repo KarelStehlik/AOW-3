@@ -268,6 +268,8 @@ class animation(pyglet.sprite.Sprite):
 def dict_to_string(d):
     result=""
     for key,value in d.items():
+        if result:
+            result+=", "
         if isinstance(value,float):
             v=int(value)
         else:
