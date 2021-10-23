@@ -10,7 +10,7 @@ Mines:desc=Unlocks mine towers|flavor=Parry this, you filthy casual!|cost=100000
 Necromancy:desc=Unlocks Necromancers|flavor=My king, why must we research death magic? is it safe?|cost=50000|time=100|x=-1|y=-3|from=Nature
 Nanobots:desc=passive regen for buildings|flavor=Nanobots are actually quite trivial, easy to produce in medieval times with one simple trick!|cost=15000|time=10|mod=8|x=-1|y=4|from=Faster Archery
 Tough Walls:desc=Makes walls much stronger|flavor=step 1 is to add bricks. step 2, add more bricks.|cost=40000|time=42|mod=.45|x=-1|y=0|from=The Beginning
-Superior Pyrotechnics:desc=Advanced flame towers|flavor=Everything is flammable|cost=1000000|time=200|x=0|y=4|from=Catapults
+Superior Pyrotechnics:desc=Advanced flame towers|flavor=Everything is flammable|cost=1000000|time=200|x=3|y=0|from=Fire
 Golem:desc=Unlocks golems|flavor=How do you kill that which has close to a million health|cost=5420420|time=1|cost_mana=1000|x=0|y=-3|from=Nature
 Nature:desc=Embrace Trees|flavor=|cost=5420420|time=1|cost_mana=1000|x=0|y=-2|from=Vigorous Farming
 Fire:desc=Burn it All!|flavor=This is war, after all|cost=5420420|time=1|cost_mana=1000|x=2|y=0|from=Bigger Stalls
