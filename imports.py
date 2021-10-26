@@ -201,4 +201,6 @@ def product(*a):
     return p
 
 
+
+
 product(1.2, 1.3, 1.2)

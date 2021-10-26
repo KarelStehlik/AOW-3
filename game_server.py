@@ -6,11 +6,11 @@ def generate_units(money):
     original_money = money
     units = [[-1 for _ in range(UNIT_FORMATION_ROWS)] for _ in range(UNIT_FORMATION_COLUMNS)]
 
-    # units[1][1]=len(possible_units)-1
-    # return units, 1
-    # units[1][1] = 1
-    # money-=possible_units[1].get_cost([])
-    # return units, original_money / (original_money - money)
+    #'''
+    units[1][1] = 1
+    money-=possible_units[1].get_cost([])["money"]
+    return units, original_money / (original_money - money)
+    #'''
 
     big, medium, small, huge = [], [], [], []
     for e in possible_units:
@@ -178,7 +178,7 @@ class Game:
                     if not self.players[side].has_upgrade(e):
                         return
                 for e in upg.excludes:
-                    if self.players[side].has_upgrade(e):
+                    if FACTION_LOCK and (self.players[side].has_upgrade(e) or self.players[side].is_upgrade_pending(e)):
                         return
                 if self.players[side].has_upgrade(upg) or self.players[side].is_upgrade_pending(upg):
                     return
@@ -287,14 +287,13 @@ class Game:
     def generate_obstacles(self):
         seed = random.random()
         random.seed(seed)
-        x0, y0 = (self.players[0].TownHall.x + self.players[1].TownHall.x) / 2, (
-                self.players[0].TownHall.y + self.players[1].TownHall.y) / 2
         for mountainrange in range(MOUNTAINRANGES):
-            failsafe, x, y = 0, 0, 0
+            failsafe, x, y = 0, random.randint(-MOUNTAINSPREAD, MOUNTAINSPREAD), random.randint(-MOUNTAINSPREAD,
+                                                                                                MOUNTAINSPREAD)
             while (self.players[0].TownHall.distance_to_point(x, y) < MOUNTAIN_TH_DISTANCE or
                    self.players[1].TownHall.distance_to_point(x, y) < MOUNTAIN_TH_DISTANCE) and failsafe < 100:
-                x = x0 + random.randint(-MOUNTAINSPREAD, MOUNTAINSPREAD)
-                y = x0 + random.randint(-MOUNTAINSPREAD, MOUNTAINSPREAD)
+                x = random.randint(-MOUNTAINSPREAD, MOUNTAINSPREAD)
+                y = random.randint(-MOUNTAINSPREAD, MOUNTAINSPREAD)
                 failsafe += 1
             mountains = [
                 Obstacle(x, y, random.randint(MOUNTAINSIZE - MOUNTAINSIZE_VAR, MOUNTAINSIZE + MOUNTAINSIZE_VAR), self)
@@ -375,7 +374,7 @@ class player:
             self.game.summon_ai_wave(self.side)
 
     def summon_townhall(self):
-        self.TownHall = TownHall(TH_DISTANCE * self.side, TH_DISTANCE * self.side, self.side, self.game)
+        self.TownHall = TownHall(TH_DISTANCE * (self.side-.5), TH_DISTANCE * (self.side-.5), self.side, self.game)
 
     def gain_money(self, amount):
         self.resources["money"] += amount
@@ -631,7 +630,7 @@ class TownHall(Building):
         super().__init__(x, y, side, game)
         self.exists = True
         self.tick = self.tick2
-        self.upgrades_into = [TownHall1, TownHall2, TownHall3]
+        self.upgrades_into = [TownHall1, TownHall2, TownHall3, TownHall4]
 
     def on_die(self):
         print("game over", self.game.ticks, self.game.players[self.side].resources)

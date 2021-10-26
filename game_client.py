@@ -56,7 +56,8 @@ class Game:
         self.minimap = minimap(self)
         self.test = 0
         self.obstacles_vlist = obstacle_vertexlist(self)
-        self.all_obstacles=[]
+        self.all_obstacles = []
+        self.pathing_map = np.ones((int((MOUNTAINSPREAD + MOUNTAINSIZE * MOUNTAINS) / PATHING_CHUNK_SIZE),) * 2)
 
     def open_upgrade_menu(self):
         if self.upgrade_menu is None:
@@ -335,14 +336,12 @@ class Game:
 
     def generate_obstacles(self, seed):
         random.seed(seed)
-        x0, y0 = (self.players[0].TownHall.x + self.players[1].TownHall.x) / 2, (
-                self.players[0].TownHall.y + self.players[1].TownHall.y) / 2
         for mountainrange in range(MOUNTAINRANGES):
-            failsafe, x, y = 0, 0, 0
+            failsafe, x, y = 0, random.randint(-MOUNTAINSPREAD, MOUNTAINSPREAD), random.randint(-MOUNTAINSPREAD, MOUNTAINSPREAD)
             while (self.players[0].TownHall.distance_to_point(x, y) < MOUNTAIN_TH_DISTANCE or
                    self.players[1].TownHall.distance_to_point(x, y) < MOUNTAIN_TH_DISTANCE) and failsafe < 100:
-                x = x0 + random.randint(-MOUNTAINSPREAD, MOUNTAINSPREAD)
-                y = x0 + random.randint(-MOUNTAINSPREAD, MOUNTAINSPREAD)
+                x = random.randint(-MOUNTAINSPREAD, MOUNTAINSPREAD)
+                y = random.randint(-MOUNTAINSPREAD, MOUNTAINSPREAD)
                 failsafe += 1
             mountains = [
                 Obstacle(x, y, random.randint(MOUNTAINSIZE - MOUNTAINSIZE_VAR, MOUNTAINSIZE + MOUNTAINSIZE_VAR), self)
@@ -423,7 +422,7 @@ class player:
             e.apply(unit)
 
     def summon_townhall(self):
-        self.TownHall = TownHall(TH_DISTANCE * self.side, TH_DISTANCE * self.side, self.side, self.game)
+        self.TownHall = TownHall(TH_DISTANCE * (self.side-.5), TH_DISTANCE * (self.side-.5), self.side, self.game)
 
     def gain_money(self, amount):
         self.resources["money"] += amount
@@ -679,11 +678,11 @@ class UI_top_bar(client_utility.toolbar):
 
 class minimap(client_utility.toolbar):
     def __init__(self, game: Game):
-        super().__init__(0, int(SCREEN_HEIGHT * .25), int(SCREEN_HEIGHT * .25), int(SCREEN_HEIGHT * .25), game.batch,
+        super().__init__(0, int(SCREEN_HEIGHT * .25), int(SCREEN_HEIGHT * .3), int(SCREEN_HEIGHT * .3), game.batch,
                          image=images.UpgradeScreen, layer=9)
         self.game = game
         self.batch = game.batch
-        self.view_range = 6000
+        self.view_range = 10000
         self.scale = self.width / self.view_range
         self.dot_scale = self.scale
         self.game.UI_toolbars.append(self)
@@ -1246,6 +1245,7 @@ class obstacle_vertexlist:
 class Obstacle:
     prevents_placement = True
     img = images.Boulder
+    pathing_cost = 999999
 
     def __init__(self, x, y, size, game: Game):
         self.x, self.y, self.size, self.game = x, y, size, game
@@ -1475,7 +1475,7 @@ class TownHall(Building):
         self.exists = True
         self.sprite.opacity = 255
         self.tick = self.tick2
-        self.upgrades_into = [TownHall1, TownHall2, TownHall3]
+        self.upgrades_into = [TownHall1, TownHall2, TownHall3, TownHall4]
 
     def on_die(self):
         animation_explosion(self.x, self.y, 1000, 30, self.game)
@@ -3278,7 +3278,7 @@ class animation_explosion:
         game.animations.append(self)
         if size > 100:
             animation_crater(x, y, size / 2, size / 3, game)
-        self.exists = False
+        self.exists = True
         self.duration = 128 / speed
         self.explosion_speed = 2 / self.duration
         if size > 500:
@@ -3298,7 +3298,6 @@ class animation_explosion:
         self.sprite2.update(x=self.x * SPRITE_SIZE_MULT - self.game.camx, y=self.y * SPRITE_SIZE_MULT - self.game.camy,
                             scale=self.exists_time * self.shockwave_scale_constant)
         self.sprite2.opacity = 150 * (self.duration - self.exists_time) / self.duration
-        self.exists = True
 
     def delete(self):
         if not self.exists:
@@ -3407,7 +3406,7 @@ class animation_freeze:
 
 
 class animation_ring_of_fire(client_utility.animation):
-    img = images.Explosion
+    img = images.Explosion1
     standalone = True
     layer = 5
 
