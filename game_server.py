@@ -6,11 +6,11 @@ def generate_units(money):
     original_money = money
     units = [[-1 for _ in range(UNIT_FORMATION_ROWS)] for _ in range(UNIT_FORMATION_COLUMNS)]
 
-    #'''
+    '''
     units[1][1] = 1
     money-=possible_units[1].get_cost([])["money"]
     return units, original_money / (original_money - money)
-    #'''
+    '''
 
     big, medium, small, huge = [], [], [], []
     for e in possible_units:
