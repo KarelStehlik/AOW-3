@@ -10,8 +10,8 @@ Tower2:size=50,health=2000,cost=1500,dmg=8,cd=1.6,reach=300,bulletspeed=8,explos
 Tower11:size=50,health=1500,cost=3500,dmg=6,cd=0.02,reach=300,bulletspeed=15,spread=0.2,shots=2,bullet_scale=.05,pierce=1,cluster=0,recursion=0,resistance=1
 Tower21:size=50,health=3000,cost=6000,dmg=30,cd=2,reach=800,bulletspeed=20,explosion_radius=100,bullet_scale=.15,pierce=1,cluster=0,recursion=0,resistance=1
 Tower22:size=50,health=3000,cost=25000,dmg=200,cd=8,reach=250,bulletspeed=20,explosion_radius=200,bullet_scale=.07,pierce=1,cluster=0,recursion=0,duration=5000,resistance=1
-Tower23:size=75,health=6900,cost=35000,dmg=60,cd=.3,reach=150,resistance=1
-Tower231:size=100,health=20000,cost=150000,dmg=50,cd=.3,reach=400,resistance=1,bulletspeed=10,bullet_size=250,pierce=1000,cluster=0,recursion=0,flame_radius=200,dmg2=90
+Tower23:size=75,health=6900,cost=35000,dmg=20,cd=.3,reach=150,resistance=1
+Tower231:size=100,health=20000,cost=150000,dmg=20,cd=.3,reach=400,resistance=1,bulletspeed=10,bullet_size=250,pierce=1000,cluster=0,recursion=0,flame_radius=200,dmg2=70
 Tower211:size=70,health=5000,cost=500000,dmg=150,cd=0.2,reach=1500,bulletspeed=30,explosion_radius=200,bullet_scale=.15,pierce=1,cluster=5,recursion=1,resistance=1,cost_mana=1000
 Tower3:size=50,health=900,cost=5000,dmg=5,cd=0.2,reach=400,bulletspeed=10,proximity=500,bullet_scale=.15,pierce=3,cluster=10,recursion=1,resistance=1
 Tower31:size=50,health=1500,cost=10000,dmg=5,cd=0.35,reach=400,bulletspeed=20,proximity=500,bullet_scale=.15,pierce=3,cluster=6,recursion=2,resistance=1
@@ -31,4 +31,4 @@ Fireball:cost=500,radius=150,dmg=2000,delay=.02
 Tree_spell:cost=700,radius=300,delay=60,trees=10,tree_size=1
 Freeze:cost=300,radius=150,duration=200,delay=60
 Rage:cost=500,radius=350,duration=500,buff=2,delay=60
-Golem:vwidth=220,vheight=150,speed=100,size=200,health=75000,dmg=500,cd=.7,reach=30,cost=100000,cost_mana=100,mass=400,resistance=1,wall_mult=10
+Golem:vwidth=220,vheight=150,speed=100,size=200,health=75000,dmg=500,cd=.7,reach=30,cost=100000,cost_mana=10,mass=400,resistance=1,wall_mult=10
