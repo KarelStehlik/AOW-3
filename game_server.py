@@ -374,7 +374,7 @@ class player:
             self.game.summon_ai_wave(self.side)
 
     def summon_townhall(self):
-        self.TownHall = TownHall(TH_DISTANCE * (self.side-.5), TH_DISTANCE * (self.side-.5), self.side, self.game)
+        self.TownHall = TownHall(TH_DISTANCE * (self.side - .5), TH_DISTANCE * (self.side - .5), self.side, self.game)
 
     def gain_money(self, amount):
         self.resources["money"] += amount
@@ -424,7 +424,7 @@ class chunk:
 ##################   ---/core---  #################
 ##################   ---units---  #################
 class Obstacle:
-    prevents_placement = True
+    prevents_placement = False
 
     def __init__(self, x, y, size, game: Game):
         self.x, self.y, self.size, self.game = x, y, size, game
@@ -668,10 +668,10 @@ class TownHall1(TownHall_upgrade):
 
     def on_summon(self):
         freq = 8
-        self.additionals.append(AOE_aura(effect_stat_mult, ("speed", self.stats["slow"], freq),
-                                         [self.x, self.y, self.stats["radius"]],
-                                         self.game, 1 - self.side, None, [e.name for e in possible_units], freq))
-        self.additionals.append(AOE_aura(effect_stat_mult, ("cd", 1 / self.stats["slow"], freq),
+        self.additionals.append(AOE_aura(effect_combined,
+                                         ((effect_stat_mult, effect_stat_mult),
+                                          (("speed", self.stats["slow"]), ("cd", 1 / self.stats["slow"])),
+                                          freq, "townhall_freeze"),
                                          [self.x, self.y, self.stats["radius"]],
                                          self.game, 1 - self.side, None, frequency=freq))
 
@@ -1902,16 +1902,28 @@ def AOE_damage(x, y, size, amount, source, game, type=None):
 
 
 class effect:
-    def __init__(self, duration=None):
+    def __init__(self, duration=None, ID=None):
         self.remaining_duration = duration
         self.target = None
+        self.ID = ID
 
     def apply(self, target):
+        if self.ID is not None:
+            for e in target.effects:
+                if e.ID == self.ID:
+                    if e.remaining_duration is None or self.remaining_duration is None:
+                        e.remaining_duration = None
+                    else:
+                        e.remaining_duration = max(e.remaining_duration, self.remaining_duration)
+                    return False
         self.target = target
         self.target.effects.append(self)
         self.on_apply(target)
+        return True
 
     def remove(self):
+        if self.target is None:
+            return
         self.target.effects.remove(self)
         self.on_remove()
 
@@ -1935,7 +1947,7 @@ class effect:
 
 class effect_instant_health(effect):
     def __init__(self, amount):
-        super().__init__(0)
+        super().__init__(0, None)
         self.amount = amount
 
     def apply(self, target):
@@ -1943,15 +1955,15 @@ class effect_instant_health(effect):
 
 
 class effect_stat_mult(effect):
-    def __init__(self, stat, amount, duration=None):
-        super().__init__(duration)
+    def __init__(self, stat, amount, duration=None, ID=None):
+        super().__init__(duration, ID)
         self.stat = stat
         self.mult = amount
 
     def apply(self, target):
-        if self.stat in target.stats.keys():
-            self.target = target
-            self.target.effects.append(self)
+        if self.stat not in target.stats:
+            return
+        if super().apply(target):
             self.target.mods_multiply[self.stat].append(self.mult)
             self.target.update_stats([self.stat])
 
@@ -1969,12 +1981,14 @@ class effect_freeze(effect):
 
 
 class effect_stat_add(effect):
-    def __init__(self, stat, amount, duration=None):
-        super().__init__(duration)
+    def __init__(self, stat, amount, duration=None, ID=None):
+        super().__init__(duration, ID)
         self.stat = stat
         self.mult = amount
 
     def on_apply(self, target):
+        if self.stat not in target.stats:
+            return
         self.target.mods_add[self.stat].append(self.mult)
         self.target.update_stats([self.stat])
 
@@ -1984,12 +1998,26 @@ class effect_stat_add(effect):
 
 
 class effect_regen(effect):
-    def __init__(self, amount, duration=None):
-        super().__init__(duration)
+    def __init__(self, amount, duration=None, ID=None):
+        super().__init__(duration, ID)
         self.strength = amount
 
     def on_tick(self):
         self.target.health = min(self.target.stats["health"], self.target.health + self.strength)
+
+
+class effect_combined(effect):
+    def __init__(self, effects, args, duration=None, ID=None):
+        super().__init__(duration, ID)
+        self.effects = [effects[i](*args[i]) for i in range(len(effects))]
+
+    def on_apply(self, target):
+        for e in self.effects:
+            e.apply(target)
+
+    def on_remove(self):
+        for e in self.effects:
+            e.remove()
 
 
 class aura:
@@ -2374,10 +2402,14 @@ class Rage(Spell):
 
     def main(self):
         freq = 16
-        AOE_aura(effect_stat_mult, ("speed", self.buff, freq), [self.x, self.y, self.radius],
-                 self.game, self.side, self.duration, [e.name for e in possible_units], freq)
-        AOE_aura(effect_stat_mult, ("cd", 1 / self.buff, freq), [self.x, self.y, self.radius],
-                 self.game, self.side, self.duration, frequency=freq)
+        AOE_aura(effect_combined, (
+            (effect_stat_mult, effect_stat_mult),
+            (("speed", self.buff), ("cd", 1 / self.buff)),
+            freq, "rage"
+        ),
+                 [self.x, self.y, self.radius * 2],
+                 self.game, self.side, self.duration, frequency=freq
+                 )
 
 
 possible_spells = [Fireball, Freeze, Rage, Tree_spell]
