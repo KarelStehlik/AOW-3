@@ -11,7 +11,8 @@ import constants
 import cProfile
 import pstats
 import numpy as np
-#import tensorflow
+
+# import tensorflow
 
 pyglet.gl.glEnable(pyglet.gl.GL_BLEND)
 
@@ -118,6 +119,7 @@ def get_chunks_force_circle(x, y, size):
         i += 1
     return chunks
 
+
 get_chunks_force_circle(1.1, 1.1, 1.1)
 
 
@@ -188,7 +190,34 @@ def distance(x1, y1, x2, y2):
 
 
 distance(1.1, 1.1, 1.1, 1.1)
-distance(1,1,1,1)
+distance(1, 1, 1, 1)
+
+
+@njit
+def distance_squared(x1, y1, x2, y2):
+    return (x1 - x2) ** 2 + (y1 - y2) ** 2
+
+
+distance_squared(1.1, 1.1, 1.1, 1.1)
+distance_squared(1, 1, 1, 1)
+
+
+@njit
+def hypot(x, y):
+    return (x ** 2 + y ** 2) ** .5
+
+
+hypot(1.1, 1.1)
+hypot(1, 1)
+
+
+@njit
+def hypot_squared(x, y):
+    return x ** 2 + y ** 2
+
+
+hypot_squared(1.1, 1.1)
+hypot_squared(1, 1)
 
 
 @njit  # (List(float64))
@@ -199,8 +228,6 @@ def product(*a):
     for e in a:
         p *= e
     return p
-
-
 
 
 product(1.2, 1.3, 1.2)

@@ -206,7 +206,7 @@ class toolbar:
 class animation(pyglet.sprite.Sprite):
     img = images.Explosion2
     standalone = False
-    layer=5
+    layer = 5
 
     def __init__(self, x, y, size, game, img=None, group=None, loop=False, duration=1):
         if self.standalone and len(game.animations) > MAX_ANIMATIONS:
@@ -225,8 +225,7 @@ class animation(pyglet.sprite.Sprite):
         self.max_duration = duration
         self.anim_frames = len(self.image.frames) - 1
         self.frame_duration = self.max_duration / self.anim_frames
-        self.loop=loop
-
+        self.loop = loop
 
     def tick(self, dt):
         if not self.exists:
@@ -238,8 +237,8 @@ class animation(pyglet.sprite.Sprite):
                     y=self.true_y * SPRITE_SIZE_MULT - self.game.camy)
         self.anim_time += dt
         frames = math.floor(self.anim_time / self.frame_duration)
-        self.anim_time-=frames*self.frame_duration
-        if frames==0:
+        self.anim_time -= frames * self.frame_duration
+        if frames == 0:
             return
         self._frame_index += frames
         if self._frame_index >= len(self._animation.frames):
@@ -265,14 +264,15 @@ class animation(pyglet.sprite.Sprite):
             self.game.animations.remove(self)
         super().delete()
 
+
 def dict_to_string(d):
-    result=""
-    for key,value in d.items():
+    result = ""
+    for key, value in d.items():
         if result:
-            result+=", "
-        if isinstance(value,float):
-            v=int(value)
+            result += ", "
+        if isinstance(value, float):
+            v = int(value)
         else:
-            v=value
-        result+=f"{key}: {v}"
+            v = value
+        result += f"{key}: {v}"
     return result

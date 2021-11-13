@@ -433,16 +433,9 @@ class Obstacle:
             game.add_obstacle_to_chunk(self, e)
 
     def collide(self, e):
-        if not e.exists:
+        if not e.exists or (self.x-e.x)**2+(self.y-e.y)**2 > (e.size + self.size) ** 2 / 4:
             return
-        dx = e.x - self.x
-        dy = e.y - self.y
-        s = (e.size + self.size) / 2
-        if max(abs(dx), abs(dy)) < s:
-            dist_sq = dx ** 2 + dy ** 2
-            if dist_sq < s ** 2:
-                shovage = s * dist_sq ** -.5 - 1
-                e.take_knockback(dx * shovage, dy * shovage, self)
+        effect_combined((effect_stat_mult, effect_stat_mult), (("speed", 1 / 10), ("mass", 10)), 2, "mountain").apply(e)
 
 
 class Building:
@@ -561,14 +554,17 @@ class Building:
             for e in ch.units[1 - self.side]:
                 if not e.exists:
                     continue
-                dx = e.x - self.x
-                dy = e.y - self.y
-                s = (e.size + self.size) / 2
-                if max(abs(dx), abs(dy)) < s:
-                    dist_sq = dx ** 2 + dy ** 2
-                    if dist_sq < s ** 2:
-                        shovage = s * dist_sq ** -.5 - 1
-                        e.take_knockback(dx * shovage, dy * shovage, self)
+                self.collide(e)
+
+    def collide(self, e):
+        dx = e.x - self.x
+        dy = e.y - self.y
+        s = (e.size + self.size) / 2
+        if max(abs(dx), abs(dy)) < s:
+            dist_sq = dx * dx + dy * dy
+            if dist_sq < s ** 2:
+                shovage = s * dist_sq ** -.5 - 1
+                e.take_knockback(dx * shovage, dy * shovage, self)
 
 
 class Tree(Building):
@@ -613,7 +609,7 @@ class Tree(Building):
     def merge(self, other):
         new_x = (self.x * self.size ** 2 + other.x * other.size ** 2) / (self.size ** 2 + other.size ** 2)
         new_y = (self.y * self.size ** 2 + other.y * other.size ** 2) / (self.size ** 2 + other.size ** 2)
-        new_size = distance(self.size, other.size, 0, 0)
+        new_size = hypot(self.size, other.size)
         new_health = self.health + other.health
         self.delete()
         other.delete()
@@ -887,7 +883,7 @@ class Tower22(Tower_upgrade):
             dx, dy = target.x - self.x, target.y - self.y
         Mine(self.x, self.y, dx, dy, self.game, self.side, self.stats["dmg"], self,
              self.stats["bulletspeed"],
-             distance(dx, dy, 0, 0), self.stats["explosion_radius"], self.stats["duration"],
+             hypot(dx, dy), self.stats["explosion_radius"], self.stats["duration"],
              pierce=self.stats["pierce"],
              cluster=self.stats["cluster"], recursion=self.stats["recursion"])
 
@@ -1412,10 +1408,10 @@ class Unit:
         if self.target is not None and self.target.exists:
             return
         self.target = None
-        dist = 1000000
+        dist = 100000000
         for e in self.formation.all_targets:
             if e.exists:
-                new_dist = e.distance_to_point(self.x, self.y) - self.size
+                new_dist = abs(self.x-e.x)+abs(self.y-e.y)
                 if new_dist < dist:
                     dist = new_dist
                     self.target = e
@@ -1557,7 +1553,7 @@ class Unit:
         dy = other.y - self.y
         size = (self.size + other.size) / 2
         if abs(dx) < size > abs(dy):
-            dist_sq = dx * dx + dy * dy
+            dist_sq = dx*dx+dy*dy
             if dist_sq == 0:
                 dist_sq = .01
             if dist_sq < size * size:

@@ -1258,16 +1258,9 @@ class Obstacle:
         game.all_obstacles.append(self)
 
     def collide(self, e):
-        if not e.exists:
+        if not e.exists or (self.x - e.x) ** 2 + (self.y - e.y) ** 2 > (e.size + self.size) ** 2 / 4:
             return
-        dx = e.x - self.x
-        dy = e.y - self.y
-        s = (e.size + self.size) / 2
-        if max(abs(dx), abs(dy)) < s:
-            dist_sq = dx ** 2 + dy ** 2
-            if dist_sq < s ** 2:
-                shovage = s * dist_sq ** -.5 - 1
-                e.take_knockback(dx * shovage, dy * shovage, self)
+        effect_combined((effect_stat_mult, effect_stat_mult), (("speed", 1 / 10), ("mass", 10)), 2, "mountain").apply(e)
 
 
 class Building:
@@ -1451,14 +1444,17 @@ class Building:
             for e in ch.units[1 - self.side]:
                 if not e.exists:
                     continue
-                dx = e.x - self.x
-                dy = e.y - self.y
-                s = (e.size + self.size) / 2
-                if max(abs(dx), abs(dy)) < s:
-                    dist_sq = dx ** 2 + dy ** 2
-                    if dist_sq < s ** 2:
-                        shovage = s * dist_sq ** -.5 - 1
-                        e.take_knockback(dx * shovage, dy * shovage, self)
+                self.collide(e)
+
+    def collide(self, e):
+        dx = e.x - self.x
+        dy = e.y - self.y
+        s = (e.size + self.size) / 2
+        if max(abs(dx), abs(dy)) < s:
+            dist_sq = dx * dx + dy * dy
+            if dist_sq < s ** 2:
+                shovage = s * dist_sq ** -.5 - 1
+                e.take_knockback(dx * shovage, dy * shovage, self)
 
     def graphics_update(self, dt):
         if self.shown:
@@ -1677,7 +1673,7 @@ class Tree(Building):
     def merge(self, other):
         new_x = (self.x * self.size ** 2 + other.x * other.size ** 2) / (self.size ** 2 + other.size ** 2)
         new_y = (self.y * self.size ** 2 + other.y * other.size ** 2) / (self.size ** 2 + other.size ** 2)
-        new_size = distance(self.size, other.size, 0, 0)
+        new_size = hypot(self.size, other.size)
         new_health = self.health + other.health
         self.delete()
         other.delete()
@@ -1864,7 +1860,7 @@ class Tower22(tower_upgrade, Tower):
         self.sprite.rotation = 90 - get_rotation(dx, dy) * 180 / math.pi
         Mine(self.x, self.y, dx, dy, self.game, self.side, self.stats["dmg"], self,
              self.stats["bulletspeed"],
-             distance(dx, dy, 0, 0), self.stats["explosion_radius"], self.stats["duration"],
+             hypot(dx, dy), self.stats["explosion_radius"], self.stats["duration"],
              scale=self.stats["bullet_scale"], pierce=self.stats["pierce"], cluster=self.stats["cluster"],
              recursion=self.stats["recursion"])
 
@@ -2333,8 +2329,8 @@ class Formation:
 
     def update_warning(self, x, y):
         warn_distance = 500
-        dist = distance(self.x * SPRITE_SIZE_MULT - x - SCREEN_WIDTH / 2,
-                        self.y * SPRITE_SIZE_MULT - y - SCREEN_HEIGHT / 2, 0, 0)
+        dist = hypot(self.x * SPRITE_SIZE_MULT - x - SCREEN_WIDTH / 2,
+                     self.y * SPRITE_SIZE_MULT - y - SCREEN_HEIGHT / 2)
         if dist > warn_distance:
             warn_angle = get_rotation(self.x * SPRITE_SIZE_MULT - x - SCREEN_WIDTH / 2,
                                       self.y * SPRITE_SIZE_MULT - y - SCREEN_HEIGHT / 2)
@@ -2566,10 +2562,10 @@ class Unit:
         if self.target is not None and self.target.exists:
             return
         self.target = None
-        dist = 1000000
+        dist = 100000000
         for e in self.formation.all_targets:
             if e.exists:
-                new_dist = e.distance_to_point(self.x, self.y) - self.size
+                new_dist = abs(self.x - e.x) + abs(self.y - e.y)
                 if new_dist < dist:
                     dist = new_dist
                     self.target = e
@@ -3518,9 +3514,9 @@ class effect:
             for e in target.effects:
                 if e.ID == self.ID:
                     if e.remaining_duration is None or self.remaining_duration is None:
-                        e.remaining_duration=None
+                        e.remaining_duration = None
                     else:
-                        e.remaining_duration=max(e.remaining_duration,self.remaining_duration)
+                        e.remaining_duration = max(e.remaining_duration, self.remaining_duration)
                     return False
         self.target = target
         self.target.effects.append(self)
@@ -4245,7 +4241,7 @@ class Fireball(Spell):
         self.dx, self.dy = self.x - self.x1, self.y - self.y1
         self.radius = unit_stats[self.name]["radius"]
         self.sprite = client_utility.animation(self.x1, self.y1, self.radius * 0.6, game, img=images.Fireball,
-                                               loop=True)
+                                               loop=True, duration=3)
         self.sprite.rotation = 90 - get_rotation(self.dx, self.dy) * 180 / math.pi
         self.dmg = unit_stats[self.name]["dmg"]
         self.delay *= distance(self.x1, self.y1, x, y)
@@ -4309,9 +4305,9 @@ class Rage(Spell):
             (("speed", self.buff), ("cd", 1 / self.buff)),
             freq, "rage"
         ),
-                 [self.x, self.y, self.radius*2],
+                 [self.x, self.y, self.radius * 2],
                  self.game, self.side, self.duration, frequency=freq
-        )
+                 )
         animation_rage(self.x, self.y, self.radius * 2, self.duration * INV_FPS, self.game)
 
 
