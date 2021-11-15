@@ -433,7 +433,7 @@ class Obstacle:
             game.add_obstacle_to_chunk(self, e)
 
     def collide(self, e):
-        if not e.exists or (self.x-e.x)**2+(self.y-e.y)**2 > (e.size + self.size) ** 2 / 4:
+        if not e.exists or (self.x - e.x) ** 2 + (self.y - e.y) ** 2 > (e.size + self.size) ** 2 / 4:
             return
         effect_combined((effect_stat_mult, effect_stat_mult), (("speed", 1 / 10), ("mass", 10)), 2, "mountain").apply(e)
 
@@ -523,6 +523,9 @@ class Building:
 
     def distance_to_point(self, x, y):
         return distance(self.x, self.y, x, y) - self.size / 2
+
+    def fast_point_dist(self,x,y):
+        return abs(self.x-x)+abs(self.y-y)
 
     def towards(self, x, y):
         dx, dy = self.x - x, self.y - y
@@ -1138,6 +1141,9 @@ class Wall:
             return distance(x, y, self.tower_1.x, self.tower_1.y) - self.width / 2
         return distance(x, y, self.tower_2.x, self.tower_2.y) - self.width / 2
 
+    def fast_point_dist(self,x,y):
+        return self.distance_to_point(x,y)
+
     def tick(self):
         if self.spawning < FPS * ACTION_DELAY:
             self.spawning += 1
@@ -1378,6 +1384,9 @@ class Unit:
     def distance_to_point(self, x, y):
         return distance(self.x, self.y, x, y) - self.size / 2
 
+    def fast_point_dist(self,x,y):
+        return abs(self.x-x)+abs(self.y-y)
+
     def towards(self, x, y):
         dx, dy = self.x - x, self.y - y
         invh = inv_h(dx, dy)
@@ -1411,7 +1420,7 @@ class Unit:
         dist = 100000000
         for e in self.formation.all_targets:
             if e.exists:
-                new_dist = abs(self.x-e.x)+abs(self.y-e.y)
+                new_dist = e.fast_point_dist(self.x, self.y)
                 if new_dist < dist:
                     dist = new_dist
                     self.target = e
@@ -1553,7 +1562,7 @@ class Unit:
         dy = other.y - self.y
         size = (self.size + other.size) / 2
         if abs(dx) < size > abs(dy):
-            dist_sq = dx*dx+dy*dy
+            dist_sq = dx * dx + dy * dy
             if dist_sq == 0:
                 dist_sq = .01
             if dist_sq < size * size:

@@ -1407,6 +1407,9 @@ class Building:
     def distance_to_point(self, x, y):
         return distance(self.x, self.y, x, y) - self.size / 2
 
+    def fast_point_dist(self, x, y):
+        return abs(self.x - x) + abs(self.y - y)
+
     def update_cam(self, x, y):
         x, y = self.x * SPRITE_SIZE_MULT - x, self.y * SPRITE_SIZE_MULT - y
         if self.shown:
@@ -2149,6 +2152,9 @@ class Wall:
             return distance(x, y, self.tower_1.x, self.tower_1.y) - self.width / 2
         return distance(x, y, self.tower_2.x, self.tower_2.y) - self.width / 2
 
+    def fast_point_dist(self, x, y):
+        return self.distance_to_point(x, y)
+
     def die(self):
         if not self.exists:
             return
@@ -2515,6 +2521,9 @@ class Unit:
     def distance_to_point(self, x, y):
         return distance(self.x, self.y, x, y) - self.size / 2
 
+    def fast_point_dist(self, x, y):
+        return abs(self.x - x) + abs(self.y - y)
+
     def towards(self, x, y):
         dx, dy = self.x - x, self.y - y
         invh = inv_h(dx, dy)
@@ -2565,7 +2574,7 @@ class Unit:
         dist = 100000000
         for e in self.formation.all_targets:
             if e.exists:
-                new_dist = abs(self.x - e.x) + abs(self.y - e.y)
+                new_dist = e.fast_point_dist(self.x, self.y)
                 if new_dist < dist:
                     dist = new_dist
                     self.target = e
