@@ -2,7 +2,7 @@ TownHall:size=200,health=1500,resistance=1,spell_resistance=0
 TownHall1:cost=666420,size=200,health=15000,resistance=.1,spell_resistance=0,radius=2000,slow=.4
 TownHall3:cost=555555,size=200,health=15000,resistance=.1,spell_resistance=0,trees=20,tree_size=2,spread=500
 TownHall4:cost=555555,size=200,health=50000,resistance=1,spell_resistance=0
-Tree:cost=666420,size=50,health=4000,resistance=1,spell_resistance=.5,diameter=300,heal=75
+Tree:cost=666420,size=50,health=4000,resistance=1,spell_resistance=.5,diameter=150,heal=50
 TownHall2:cost=500555,size=200,health=6000,resistance=1,spell_resistance=0,dmg=200,cd=0.05,reach=850,bulletspeed=20,pierce=1000,cluster=0,recursion=0,bullet_size=200
 Tower:size=50,health=900,cost=1500,dmg=5,cd=0.2,reach=400,bulletspeed=6,proximity=500,bullet_scale=.15,pierce=1,cluster=0,recursion=0,resistance=1
 Tower1:size=50,health=900,cost=1500,dmg=3.5,cd=0.05,reach=400,bulletspeed=14,bullet_scale=.15,pierce=1,cluster=0,recursion=0,resistance=1
@@ -31,4 +31,4 @@ Fireball:cost=500,radius=150,dmg=2000,delay=.02
 Tree_spell:cost=700,radius=300,delay=60,trees=10,tree_size=1
 Freeze:cost=300,radius=150,duration=200,delay=60
 Rage:cost=500,radius=350,duration=500,buff=2,delay=60
-Golem:vwidth=220,vheight=150,speed=100,size=200,health=75000,dmg=500,cd=.7,reach=30,cost=100000,cost_mana=10,mass=400,resistance=1,wall_mult=10
+Golem:vwidth=220,vheight=150,speed=100,size=200,health=40000,dmg=500,cd=.7,reach=30,cost=100000,cost_mana=10,mass=400,resistance=1,wall_mult=10
