@@ -689,7 +689,7 @@ class minimap(client_utility.toolbar):
         self.dot_scale = self.scale
         self.game.UI_toolbars.append(self)
         self.game.drawables.append(self)
-        self.max_entities = 800
+        self.max_entities = 2000
         self.current_entity = 0
         self.already_checked = []
         self.sprite2 = game.batch.add(
