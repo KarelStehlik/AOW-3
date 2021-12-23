@@ -1,6 +1,6 @@
 import pyglet
 
-CHEATS = True
+CHEATS = False
 FACTION_LOCK=False
 display = pyglet.canvas.Display()
 screen = display.get_default_screen()
@@ -23,7 +23,7 @@ PASSIVE_MANA = .08
 ACTION_DELAY = 1
 WAVE_INTERVAL = 60 * 150**9
 MAX_ANIMATIONS = 150
-MOUNTAINRANGES =1#45
+MOUNTAINRANGES =30
 MOUNTAINS = 5
 MOUNTAINSIZE = 400
 MOUNTAINSIZE_VAR = 150
