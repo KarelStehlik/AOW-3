@@ -7,10 +7,10 @@ def generate_units(money):
     units = [[-1 for _ in range(UNIT_FORMATION_ROWS)] for _ in range(UNIT_FORMATION_COLUMNS)]
 
     '''
-    units[1][1] = 1
-    money-=possible_units[1].get_cost([])["money"]
-    return units, original_money / (original_money - money)
-    '''
+	units[1][1] = 1
+	money-=possible_units[1].get_cost([])["money"]
+	return units, original_money / (original_money - money)
+	'''
 
     big, medium, small, huge = [], [], [], []
     for e in possible_units:
@@ -90,7 +90,7 @@ class Game:
                 if not self.players[side].has_unit(entity_type):
                     print("cheating detected! (B)")
                     return
-                if self.players[side].TownHall.distance_to_point(*data["xy"]) > self.players[
+                if not CHEATS and self.players[side].TownHall.distance_to_point(*data["xy"]) > self.players[
                     1 - side].TownHall.distance_to_point(*data["xy"]):
                     return
                 close_to_friendly = False
@@ -326,7 +326,8 @@ class player:
         self.pending_upgrades = []
         self.owned_upgrades = [Upgrade_default(self)]
         self.unlocked_units = [Swordsman, Archer, Defender, Tower, Wall, Farm, Tower1, Tower2, Tower11, Tower21,
-                               Farm1, Farm2, Tower3, Tower31, Farm11, Fireball, Freeze, Rage, Tower23]
+                               Farm1, Farm2, Tower3, Tower31, Farm11, Fireball, Freeze, Rage, Tower23, Tower221, Tower4,
+                               Tower41]
         self.farm_value = 1000
 
     def gain_mana(self, amount):
@@ -524,8 +525,8 @@ class Building:
     def distance_to_point(self, x, y):
         return distance(self.x, self.y, x, y) - self.size / 2
 
-    def fast_point_dist(self,x,y):
-        return abs(self.x-x)+abs(self.y-y)
+    def fast_point_dist(self, x, y):
+        return abs(self.x - x) + abs(self.y - y)
 
     def towards(self, x, y):
         dx, dy = self.x - x, self.y - y
@@ -827,6 +828,16 @@ class Tower1(Tower_upgrade):
     upgrades = []
 
 
+class Tower4(Tower_upgrade):
+    name = "Tower4"
+    upgrades = []
+
+
+class Tower41(Tower_upgrade):
+    name = "Tower41"
+    upgrades = []
+
+
 class Tower11(Tower_upgrade):
     name = "Tower11"
     upgrades = []
@@ -920,6 +931,101 @@ class Tower22(Tower_upgrade):
                         self.target = unit
                         self.turns_without_target = 0
                         return True
+        return False
+
+
+class Tower221(Tower_upgrade):
+    name = "Tower221"
+    upgrades = []
+
+    def __init__(self, *a, **k):
+        super().__init__(*a, **k)
+        self.t_stats = {}
+        for k, v in self.stats.items():
+            if k.startswith("t_"):
+                self.t_stats[k[2::]] = v
+
+    def attack(self, target):
+        angle = self.game.ticks ** 2
+        dist = self.stats["reach"] * abs(math.sin(self.game.ticks))
+        dx = dist * math.cos(angle)
+        dy = dist * math.sin(angle)
+        Turret(self.x + dx, self.y + dy, self.t_stats, self.stats["spawn_lifetime"], self.side, self.game)
+
+    def tick2(self):
+        super().tick2()
+        if self.current_cooldown > 0:
+            self.current_cooldown -= 1 * INV_FPS
+        if self.current_cooldown <= 0:
+            self.current_cooldown += self.stats["cd"]
+            self.attack(None)
+
+
+class Turret(Building):
+    name = "Turret"
+    entity_type = "tower"
+    upgrades = []
+
+    def __init__(self, x, y, stats, lifetime, side, game, alt_attack=None):
+        if "size" in stats:
+            super().__init__(x, y, side, game, instant=True, size_override=stats["size"])
+        else:
+            super().__init__(x, y, side, game, instant=True)
+        self.current_cooldown = 0
+        self.target = None
+        self.upgrades_into = []
+        self.turns_without_target = 0
+        for s in stats:
+            self.base_stats[s] = stats[s]
+        self.lifetime = lifetime
+        self.update_stats()
+        self.shooting_in_chunks = get_chunks_force_circle(self.x, self.y, 2 * self.stats["reach"])
+        if alt_attack is not None:
+            self.attack = alt_attack
+
+    def tick2(self):
+        super().tick2()
+        assert self.frozen >= 0
+        if self.frozen == 0:
+            if self.current_cooldown > 0:
+                self.current_cooldown -= 1 * INV_FPS
+            if self.current_cooldown <= 0:
+                if self.acquire_target():
+                    self.current_cooldown += self.stats["cd"]
+                    self.attack(self.target)
+                else:
+                    self.turns_without_target += 1
+        self.lifetime -= INV_FPS
+        if self.lifetime <= 0:
+            self.die()
+
+    def attack(self, target):
+        Bullet(self.x, self.y, get_rotation_norm(*target.towards(self.x, self.y)), self.game, self.side,
+               self.stats["dmg"], self,
+              self.stats["bulletspeed"],
+              self.stats["reach"] * 1.5, pierce=self.stats["pierce"], cluster=self.stats["cluster"],
+              recursion=self.stats["recursion"])
+
+    def acquire_target(self):
+        if self.target is not None and \
+                self.target.exists and self.target.distance_to_point(self.x, self.y) < self.stats["reach"]:
+            return True
+        if self.turns_without_target == 60 or self.turns_without_target == 0:
+            self.turns_without_target = 0
+            for c in self.shooting_in_chunks:
+                chonker = self.game.find_chunk(c)
+                if chonker is not None:
+                    for unit in chonker.units[1 - self.side]:
+                        if unit.exists and unit.distance_to_point(self.x, self.y) < self.stats["reach"]:
+                            self.target = unit
+                            self.turns_without_target = 0
+                            return True
+                    for unit in chonker.buildings[1 - self.side]:
+                        if unit.exists and unit.distance_to_point(self.x, self.y) < self.stats["reach"]:
+                            self.target = unit
+                            self.turns_without_target = 0
+                            return True
+            return False
         return False
 
 
@@ -1017,6 +1123,7 @@ class Farm2(Farm_upgrade):
 
 
 possible_buildings = [Tower, Farm, Tower1, Tower2, Tower21, Tower11, Farm1, Farm2, Tower211, Tower3, Tower31, Tower22,
+                      Tower221, Tower4, Tower41,
                       Farm11, Tower23, Tower231, TownHall, TownHall1, TownHall2, TownHall3, TownHall4]
 
 
@@ -1141,8 +1248,8 @@ class Wall:
             return distance(x, y, self.tower_1.x, self.tower_1.y) - self.width / 2
         return distance(x, y, self.tower_2.x, self.tower_2.y) - self.width / 2
 
-    def fast_point_dist(self,x,y):
-        return self.distance_to_point(x,y)
+    def fast_point_dist(self, x, y):
+        return self.distance_to_point(x, y)
 
     def tick(self):
         if self.spawning < FPS * ACTION_DELAY:
@@ -1384,8 +1491,8 @@ class Unit:
     def distance_to_point(self, x, y):
         return distance(self.x, self.y, x, y) - self.size / 2
 
-    def fast_point_dist(self,x,y):
-        return abs(self.x-x)+abs(self.y-y)
+    def fast_point_dist(self, x, y):
+        return abs(self.x - x) + abs(self.y - y)
 
     def towards(self, x, y):
         dx, dy = self.x - x, self.y - y
@@ -2171,7 +2278,7 @@ class Upgrade_bigger_arrows(Upgrade):
 
     def on_finish(self):
         self.player.add_aura(aura(effect_stat_mult, ("dmg", float(upgrade_stats[self.name]["mod"])),
-                                  targets=["Archer", "Tower", "Tower1", "Tower3", "Tower31"]))
+                                  targets=["Archer", "Tower", "Tower1", "Tower3", "Tower31","Tower4","Tower41"]))
 
 
 class Upgrade_bigger_rocks(Upgrade):
