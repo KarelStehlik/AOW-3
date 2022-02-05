@@ -1,3 +1,6 @@
+import time
+
+import pyglet.sprite
 from pyglet.gl import *
 
 import groups
@@ -263,6 +266,42 @@ class animation(pyglet.sprite.Sprite):
         if self.standalone:
             self.game.animations.remove(self)
         super().delete()
+
+
+class super_sprite(pyglet.sprite.Sprite):
+    def __init__(self, textures, *args, **kwargs):
+        super().__init__(textures.images[0], *args, **kwargs)
+        self.animation_playing = False
+        self.animation_start = 0
+        self.animation_duration = 0
+        self.animation_frames = list(range(textures.frames))
+        self.images = textures
+        self.rotate = 0
+
+    def animation(self, frames=None, duration=1, override = True):
+        if self.animation_playing and not override:
+            return
+        self.animation_playing = True
+        self.animation_start = time.perf_counter()
+        self.animation_duration = duration
+        self.animation_frames = list(range(self.images.frames)) if frames is None else frames
+        self._set_texture(self.images.get_texture(self.rotate, self.animation_frames[0]))
+
+    def update(self, x=None, y=None, rotation=None, scale=None, scale_x=None, scale_y=None):
+        super().update(x=x, y=y, scale=scale, scale_x=scale_x, scale_y=scale_y)
+        self.rotate = int(rotation / 360 * self.images.rotations)
+        t = time.perf_counter() - self.animation_start
+        if t > self.animation_duration:
+            self.animation_playing = False
+            self.animation_start = 0
+            self._set_texture(self.images.get_texture(self.rotate, 0))
+        else:
+            self._set_texture(
+                self.images.get_texture(
+                    self.rotate,
+                    self.animation_frames[int(len(self.animation_frames) * t / self.animation_duration)]
+                )
+            )
 
 
 def dict_to_string(d):

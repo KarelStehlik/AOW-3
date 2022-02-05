@@ -25,14 +25,31 @@ def load_animation(folder, num, duration, name="/t", loop=False):
     return pyglet.image.Animation.from_image_sequence(images, duration, loop)
 
 
+class anim_texture:
+    def __init__(self, filename, rotations, frames):
+        self.rotations = rotations
+        self.frames = frames
+        self.images = []
+        for frame in range(frames):
+            for rotation in range(rotations):
+                self.images.append(IL(f"{filename}_{rotation}_{frame}").get_texture())
+
+    def get_texture(self,rotation,frame):
+        return self.images[frame*self.rotations+rotation]
+
+    @property
+    def width(self):
+        return self.images[0].width
+
+
 Testfire = RI("Testfire")
-flame_wave = load_animation("flame_wave", 45, 1/10)
+flame_wave = load_animation("flame_wave", 45, 1 / 10)
 Explosion = load_animation("boom biatch", 25, 1 / 5, loop=True)
 Explosion1 = load_animation("explosion", 98, 1 / 15, name="/tt")
 Explosion2 = load_animation("explosion2", 104, 1 / 15, name="/t")
 Background = IL("Background").get_texture()
 Wall = IL("Wall").get_texture()
-Mountain=IL("Boulder").get_texture()
+Mountain = IL("Boulder").get_texture()
 WallCrack = IL("wall_crack").get_texture()
 blue_arrow = IL("blue_arrow").get_texture()
 Beam = IL("beam").get_texture()
@@ -40,7 +57,7 @@ Crater = RI("crater")
 Tree = RI("tree")
 MagicTree = RI("magic_tree")
 Nature = RI("nature")
-Fireball=load_animation("fireball",151,1/20, name="/t", loop=True)
+Fireball = load_animation("fireball", 151, 1 / 20, name="/t", loop=True)
 
 Freeze = RI("Freeze")
 UpgradeButton = RI("UpgradeButton")
