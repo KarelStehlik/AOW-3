@@ -12,8 +12,8 @@ Nanobots:desc=passive regen for buildings|flavor=Nanobots are actually quite tri
 Tough Walls:desc=Makes walls much stronger|flavor=step 1 is to add bricks. step 2, add more bricks.|cost=40000|time=42|mod=.45|x=-1|y=0|from=The Beginning
 Superior Pyrotechnics:desc=Advanced flame towers|flavor=Everything is flammable|cost=1000000|time=200|x=3|y=0|from=Fire
 Golem:desc=Unlocks golems|flavor=How do you kill that which has close to a million health|cost=5420420|time=1|cost_mana=1000|x=0|y=-3|from=Nature
-Nature:desc=Embrace Trees|flavor=|cost=5420420|time=1|cost_mana=1|x=0|y=-2|from=Vigorous Farming
-Fire:desc=Burn it All!|flavor=This is war, after all|cost=5420420|time=1|cost_mana=1|x=2|y=0|from=Bigger Stalls
-Frost:desc=Very Cool|flavor=|cost=5420420|time=1|cost_mana=1|x=-2|y=0|from=Tough Walls
-Tech:desc=Beep Boop|flavor=|cost=5420420|time=1|cost_mana=1|x=0|y=2|from=Bigger Arrows
+Nature:desc=Embrace Trees|flavor=|cost=54|time=1|cost_mana=1|x=0|y=-2|from=Vigorous Farming
+Fire:desc=Burn it All!|flavor=This is war, after all|cost=542|time=1|cost_mana=1|x=2|y=0|from=Bigger Stalls
+Frost:desc=Very Cool|flavor=|cost=542|time=1|cost_mana=1|x=-2|y=0|from=Tough Walls
+Tech:desc=Beep Boop|flavor=|cost=54|time=1|cost_mana=1|x=0|y=2|from=Bigger Arrows
 Trees:desc=Unlocks Trees|flavor=Money doesn't grow on trees, but health sure does|cost=5420420|time=1|cost_mana=1|x=1|y=-3|from=Nature
