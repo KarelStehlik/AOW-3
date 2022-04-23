@@ -2159,19 +2159,17 @@ class Farm21(farm_upgrade, Farm):
         self.additionals = []
 
     def on_summon(self):
-        freq = 32
         self.additionals.append(
-            AOE_aura(effect_combined,
-                     (
-                         (effect_stat_mult, effect_stat_mult, effect_stat_add, effect_visual),
-                         (("speed", self.stats["buff"]),
-                          ("dmg", self.stats["buff"]),
-                          ("health", self.stats["health_buff"]),
-                          (images.Glow, 150, 1.5)),
-                         self.stats["duration"], self.ID
-                     ),
-                     [self.x, self.y, self.stats["radius"]],
-                     self.game, self.side, None, [e.name for e in possible_units], freq))
+            aura(effect_combined,
+                 (
+                     (effect_stat_mult, effect_stat_mult, effect_stat_add, effect_visual),
+                     (("speed", self.stats["buff"]),
+                      ("dmg", self.stats["buff"]),
+                      ("health", self.stats["health_buff"]),
+                      (images.Glow, 150, 1.5)),
+                     self.stats["duration"], self.ID
+                 ),
+                 self.game, self.side, None, [e.name for e in possible_units]))
 
     def on_delete(self):
         [e.delete() for e in self.additionals]
@@ -3827,12 +3825,13 @@ class effect_combined(effect):
 class aura:
     everywhere = True
 
-    def __init__(self, effect, args, duration=None, targets=None):
+    def __init__(self, effect, args, game, side, duration=None, targets=None):
         self.effect = effect
         self.args = args
         self.remaining_duration = duration
         self.exists = True
         self.targets = targets
+        game.players[side].add_aura(self)
 
     def tick(self):
         if self.remaining_duration is None:
@@ -3843,7 +3842,7 @@ class aura:
 
     def apply(self, target):
         if self.targets is None or target.name in self.targets:
-            self.effect(*self.args, from_aura = self).apply(target)
+            self.effect(*self.args, from_aura=self).apply(target)
 
     def delete(self):
         self.exists = False
@@ -4200,10 +4199,14 @@ class Upgrade_bigger_arrows(Upgrade):
     y = 1
 
     def on_finish(self):
-        self.player.add_aura(aura(effect_stat_mult, ("dmg", float(upgrade_stats[self.name]["mod"])),
-                                  targets=["Archer", "Tower", "Tower1", "Tower3", "Tower31", "Tower4", "Tower41"]))
-        self.player.add_aura(aura(effect_stat_mult, ("bullet_scale", 2),
-                                  targets=["Archer", "Tower", "Tower1", "Tower3", "Tower31", "Tower4", "Tower41"]))
+        aura(effect_stat_mult, ("dmg", float(upgrade_stats[self.name]["mod"])),
+             self.player.game, self.player.side,
+             targets=["Archer", "Tower", "Tower1", "Tower3", "Tower31", "Tower4", "Tower41"],
+             )
+        aura(effect_stat_mult, ("bullet_scale", 2),
+             self.player.game, self.player.side,
+             targets=["Archer", "Tower", "Tower1", "Tower3", "Tower31", "Tower4", "Tower41"]
+             )
 
 
 class Upgrade_bigger_rocks(Upgrade):
@@ -4214,11 +4217,15 @@ class Upgrade_bigger_rocks(Upgrade):
     y = 1
 
     def on_finish(self):
-        self.player.add_aura(aura(effect_stat_mult, ("dmg", float(upgrade_stats[self.name]["mod_dmg"])),
-                                  targets=["Trebuchet", "Tower2", "Tower21"]))
-        self.player.add_aura(aura(effect_stat_mult, ("explosion_radius", float(upgrade_stats[self.name]["mod_rad"])),
-                                  targets=["Trebuchet", "Tower2", "Tower21"]))
-        self.player.add_aura(aura(effect_stat_mult, ("bullet_scale", 2), targets=["Trebuchet", "Tower2", "Tower21"]))
+        aura(effect_stat_mult, ("dmg", float(upgrade_stats[self.name]["mod_dmg"])),
+             self.player.game, self.player.side,
+             targets=["Trebuchet", "Tower2", "Tower21"])
+        aura(effect_stat_mult, ("explosion_radius", float(upgrade_stats[self.name]["mod_rad"])),
+             self.player.game, self.player.side,
+             targets=["Trebuchet", "Tower2", "Tower21"])
+        aura(effect_stat_mult, ("bullet_scale", 2),
+             self.player.game, self.player.side,
+             targets=["Trebuchet", "Tower2", "Tower21"])
 
 
 class Upgrade_egg(Upgrade):
@@ -4251,8 +4258,9 @@ class Upgrade_faster_archery(Upgrade):
     image = images.Arrow_upg_2
 
     def on_finish(self):
-        self.player.add_aura(aura(effect_stat_mult, ("cd", float(upgrade_stats[self.name]["mod"])),
-                                  targets=["Archer", "Tower", "Tower1", "Tower3", "Tower31"]))
+        aura(effect_stat_mult, ("cd", float(upgrade_stats[self.name]["mod"])),
+             self.player.game, self.player.side,
+             targets=["Archer", "Tower", "Tower1", "Tower3", "Tower31"])
 
 
 class Upgrade_vigorous_farming(Upgrade):
@@ -4263,8 +4271,9 @@ class Upgrade_vigorous_farming(Upgrade):
     image = images.Farm1
 
     def on_finish(self):
-        self.player.add_aura(aura(effect_stat_mult, ("production", float(upgrade_stats[self.name]["mod"])),
-                                  targets=["Farm", "Farm1", "Farm2", "Farm21"]))
+        aura(effect_stat_mult, ("production", float(upgrade_stats[self.name]["mod"])),
+             self.player.game, self.player.side,
+             targets=["Farm", "Farm1", "Farm2", "Farm21"])
 
 
 class Upgrade_nanobots(Upgrade):
@@ -4275,8 +4284,9 @@ class Upgrade_nanobots(Upgrade):
     image = images.Farm1
 
     def on_finish(self):
-        self.player.add_aura(aura(effect_regen, (float(upgrade_stats[self.name]["mod"]),),
-                                  targets=["TownHall", "Wall"] + [e.name for e in possible_buildings]))
+        aura(effect_regen, (float(upgrade_stats[self.name]["mod"]),),
+             self.player.game, self.player.side,
+             targets=["TownHall", "Wall"] + [e.name for e in possible_buildings])
 
 
 class Upgrade_walls(Upgrade):
@@ -4287,8 +4297,9 @@ class Upgrade_walls(Upgrade):
     image = images.Farm1
 
     def on_finish(self):
-        self.player.add_aura(aura(effect_stat_mult, ("resistance", float(upgrade_stats[self.name]["mod"])),
-                                  targets=["Wall"]))
+        aura(effect_stat_mult, ("resistance", float(upgrade_stats[self.name]["mod"])),
+             self.player.game, self.player.side,
+             targets=["Wall"])
 
 
 class Upgrade_necromancy(Upgrade):
