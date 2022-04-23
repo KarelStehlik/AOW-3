@@ -1151,7 +1151,7 @@ class Farm21(Farm_upgrade):
                          (("speed", self.stats["buff"]),
                           ("dmg", self.stats["buff"]),
                           ("health", self.stats["health_buff"])),
-                         self.stats["duration"], self.ID
+                         None, self.ID
                      ),
                      self.game, self.side, None, [e.name for e in possible_units]))
 

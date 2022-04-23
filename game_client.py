@@ -2167,7 +2167,7 @@ class Farm21(farm_upgrade, Farm):
                       ("dmg", self.stats["buff"]),
                       ("health", self.stats["health_buff"]),
                       (images.Glow, 150, 1.5)),
-                     self.stats["duration"], self.ID
+                     None, self.ID
                  ),
                  self.game, self.side, None, [e.name for e in possible_units]))
 
