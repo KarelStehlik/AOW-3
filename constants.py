@@ -1,6 +1,6 @@
 import pyglet
 
-CHEATS = True
+CHEATS = False
 FACTION_LOCK=False
 display = pyglet.canvas.Display()
 screen = display.get_default_screen()
