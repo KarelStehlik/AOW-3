@@ -9,7 +9,6 @@ import client_utility
 from imports import *
 
 
-
 # connection.DoConnect(('127.0.0.1', 5071))
 
 
@@ -25,8 +24,6 @@ class MyNetworkListener(ConnectionListener):
     def Network(self, data):
         # print(data)
         self.mode.network(data)
-
-
 
 
 class mode:
@@ -225,7 +222,7 @@ def main():
     place = windoo(caption='test', style=pyglet.window.Window.WINDOW_STYLE_BORDERLESS, width=constants.SCREEN_WIDTH,
                    height=constants.SCREEN_HEIGHT)
     place.set_location(0, 0)
-    t=0
+    t = 0
     while True:
         t += 1
         try:
@@ -244,5 +241,6 @@ def main():
             place.error_close()
             raise e
 
-if __name__=="__main__":
+
+if __name__ == "__main__":
     main()

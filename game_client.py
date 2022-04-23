@@ -1,5 +1,3 @@
-import pyglet.sprite
-
 from imports import *
 import groups
 from constants import *
@@ -169,10 +167,7 @@ class Game:
                                                         data["side"], self)
                 return
             elif action == "place_wall":
-                t1, t2 = self.find_building(data["ID1"], data["side"], "tower"), self.find_building(data["ID2"],
-                                                                                                    data["side"],
-                                                                                                    "tower")
-                Wall(t1, t2, data["tick"], data["side"], self)
+                Wall(*data["pos"], data["tick"], data["side"], self)
                 return
             elif action == "summon_formation":
                 Formation(data["instructions"], data["troops"], data["tick"], data["side"], self)
@@ -373,7 +368,7 @@ class player:
         self.owned_upgrades = [Upgrade_default(self, 0)]
         self.unlocked_units = [Swordsman, Archer, Defender, Tower, Wall, Farm, Tower1, Tower2, Tower11, Tower21,
                                Farm1, Farm2, Tower3, Tower31, Farm11, Fireball, Freeze, Rage, Tower23, Tower221, Tower4,
-                               Tower41]
+                               Tower41, Farm21]
         self.farm_value = 0
 
     def gain_mana(self, amount):
@@ -421,7 +416,8 @@ class player:
 
     def on_building_summon(self, unit):
         for e in self.auras:
-            e.apply(unit)
+            if e.everywhere:
+                e.apply(unit)
 
     def summon_townhall(self):
         self.TownHall = TownHall(TH_DISTANCE * (self.side - .5), TH_DISTANCE * (self.side - .5), self.side, self.game)
@@ -1015,7 +1011,7 @@ class selection_unit_formation(selection):
         for e in self.game.players[1 - self.game.side].walls:
             if e.distance_to_point((x + self.camx) / SPRITE_SIZE_MULT, (y + self.camy) / SPRITE_SIZE_MULT) <= 0:
                 self.instructions.append(["attack", e.ID])
-                visx, visy = (e.x1 + e.x2) / 2 * SPRITE_SIZE_MULT, (e.y1 + e.y2) * SPRITE_SIZE_MULT
+                visx, visy = e.x * SPRITE_SIZE_MULT, e.y * SPRITE_SIZE_MULT
                 self.update_moving_indicator_pos(visx, visy)
                 self.actual_indicator_points += [0 for _ in range(8)]
                 self.current_pos = [visx, visy]
@@ -1261,7 +1257,9 @@ class Obstacle:
     def collide(self, e):
         if not e.exists or (self.x - e.x) ** 2 + (self.y - e.y) ** 2 > (e.size + self.size) ** 2 / 4:
             return
-        effect_combined((effect_stat_mult, effect_stat_mult), (("speed", 1 / 10), ("mass", 10)), 2, "mountain").apply(e)
+        effect_combined((effect_stat_mult, effect_stat_mult),
+                        (("speed", constants.MOUNTAIN_SLOWDOWN), ("mass", 1 / constants.MOUNTAIN_SLOWDOWN)),
+                        2, "mountain").apply(e)
 
 
 class Building:
@@ -1334,10 +1332,12 @@ class Building:
     def show(self):
         self.sprite.batch = self.game.batch
         self.shown = True
+        [e.graphics_show() for e in self.effects]
 
     def hide(self):
         self.sprite.batch = None
         self.shown = False
+        [e.graphics_hide() for e in self.effects]
 
     def update_stats(self, stats=None):
         if not self.exists:
@@ -1403,13 +1403,15 @@ class Building:
             self.game.remove_building_from_chunk(self, e)
         self.hpbar.delete()
         self.exists = False
+        while self.effects:
+            self.effects[0].remove()
         self.on_delete()
 
     def distance_to_point(self, x, y):
         return distance(self.x, self.y, x, y) - self.size / 2
 
     def fast_point_dist(self, x, y):
-        return abs(self.x - x) + abs(self.y - y)
+        return abs(self.x - x) + abs(self.y - y) - self.size / 2
 
     def update_cam(self, x, y):
         x, y = self.x * SPRITE_SIZE_MULT - x, self.y * SPRITE_SIZE_MULT - y
@@ -1463,6 +1465,7 @@ class Building:
     def graphics_update(self, dt):
         if self.shown:
             self.update_hpbar()
+            [e.graphics_update(dt) for e in self.effects]
 
 
 class TownHall(Building):
@@ -1822,10 +1825,12 @@ class Tower2(tower_upgrade, Tower):
                 scale=self.stats["bullet_scale"], pierce=self.stats["pierce"], cluster=self.stats["cluster"],
                 recursion=self.stats["recursion"])
 
+
 class Tower4(tower_upgrade, Tower):
     name = "Tower4"
     image = images.Tower4
     upgrades = []
+
 
 class Tower41(tower_upgrade, Tower):
     name = "Tower41"
@@ -1944,6 +1949,7 @@ class Turret(Building):
     entity_type = "tower"
     image = images.Turret
     upgrades = []
+    prevents_placement = False
 
     def __init__(self, x, y, stats, lifetime, side, game, alt_attack=None):
         if "size" in stats:
@@ -1981,8 +1987,8 @@ class Turret(Building):
         direction = get_rotation_norm(*target.towards(self.x, self.y))
         self.sprite.rotation = 90 - direction / math.pi
         Bullet(self.x, self.y, direction, self.game, self.side, self.stats["dmg"], self, self.stats["bulletspeed"],
-              self.stats["reach"] * 1.5, scale=self.stats["bullet_scale"], pierce=self.stats["pierce"],
-              cluster=self.stats["cluster"], recursion=self.stats["recursion"])
+               self.stats["reach"] * 1.5, scale=self.stats["bullet_scale"], pierce=self.stats["pierce"],
+               cluster=self.stats["cluster"], recursion=self.stats["recursion"])
 
     def acquire_target(self):
         if self.target is not None and \
@@ -2143,8 +2149,36 @@ class Farm2(farm_upgrade, Farm):
     upgrades = []
 
 
+class Farm21(farm_upgrade, Farm):
+    name = "Farm21"
+    image = images.Farm21
+    upgrades = []
+
+    def __init__(self, target=None, tick=None, x=None, y=None, side=None, game=None, ID=None):
+        super().__init__(target, tick, x, y, side, game, ID)
+        self.additionals = []
+
+    def on_summon(self):
+        freq = 32
+        self.additionals.append(
+            AOE_aura(effect_combined,
+                     (
+                         (effect_stat_mult, effect_stat_mult, effect_stat_add, effect_visual),
+                         (("speed", self.stats["buff"]),
+                          ("dmg", self.stats["buff"]),
+                          ("health", self.stats["health_buff"]),
+                          (images.Glow, 150, 1.5)),
+                         self.stats["duration"], self.ID
+                     ),
+                     [self.x, self.y, self.stats["radius"]],
+                     self.game, self.side, None, [e.name for e in possible_units], freq))
+
+    def on_delete(self):
+        [e.delete() for e in self.additionals]
+
+
 possible_buildings = [Tower, Farm, Tower1, Tower2, Tower21, Tower11, Farm1, Farm2, Tower211, Tower3, Tower31, Tower22,
-                      Tower221,Tower4,Tower41,
+                      Tower221, Tower4, Tower41, Farm21,
                       Farm11, Tower23, Tower231, TownHall, TownHall1, TownHall2, TownHall3, TownHall4]
 
 
@@ -2167,20 +2201,19 @@ class Wall:
     entity_type = "wall"
     prevents_placement = True
 
-    def __init__(self, t1, t2, tick, side, game):
+    def __init__(self, x1, y1, x2, y2, tick, side, game):
         game.players[side].force_purchase(self.get_cost([]))
         self.exists = False
         self.spawning = game.ticks - tick
-        self.ID = (t1.x, t1.y, game.ticks - self.spawning)
-        self.x1, self.y1, self.x2, self.y2 = t1.x, t1.y, t2.x, t2.y
+        self.ID = (x1, y1, tick)
+        self.x1, self.y1, self.x2, self.y2 = x1, y1, x2, y2
+        self.x, self.y = (x1 + x2) / 2, (y1 + y2) / 2
         self.length = ((self.x1 - self.x2) ** 2 + (self.y1 - self.y2) ** 2) ** .5
         self.norm_vector = ((self.y2 - self.y1) / self.length, (self.x1 - self.x2) / self.length)
         self.line_c = -self.norm_vector[0] * self.x1 - self.norm_vector[1] * self.y1
         self.crossline_c = (-self.norm_vector[1] * (self.x1 + self.x2) + self.norm_vector[0] * (self.y1 + self.y2)) * .5
         self.side = side
-        self.tower_1, self.tower_2 = t1, t2
         self.width = unit_stats[self.name]["size"]
-        self.health = self.max_health = unit_stats[self.name]["health"]
         self.game = game
         game.players[side].walls.append(self)
 
@@ -2218,6 +2251,7 @@ class Wall:
         self.mods_multiply = {e: [] for e in unit_stats[self.name].keys()}
         self.stats = {e: (self.base_stats[e] + sum(self.mods_add[e])) * product(*self.mods_multiply[e]) for e in
                       self.base_stats.keys()}
+        self.health = self.stats["health"]
         self.frozen = 0
         game.players[side].on_building_summon(self)
 
@@ -2245,20 +2279,20 @@ class Wall:
             if x * self.norm_vector[0] + y * self.norm_vector[1] + self.line_c < 0:
                 return self.norm_vector
             return -self.norm_vector[0], -self.norm_vector[1]
-        if (x - self.tower_1.x) ** 2 + (y - self.tower_1.y) ** 2 < (x - self.tower_2.x) ** 2 + (
-                y - self.tower_2.y) ** 2:
-            invh = inv_h(self.tower_1.x - x, self.tower_1.y - y)
-            return (self.tower_1.x - x) * invh, (self.tower_1.y - y) * invh
-        invh = inv_h(self.tower_2.x - x, self.tower_2.y - y)
-        return (self.tower_2.x - x) * invh, (self.tower_2.y - y) * invh
+        if (x - self.x1) ** 2 + (y - self.y1) ** 2 < (x - self.x2) ** 2 + (
+                y - self.y2) ** 2:
+            invh = inv_h(self.x1 - x, self.y1 - y)
+            return (self.x1 - x) * invh, (self.y1 - y) * invh
+        invh = inv_h(self.x2 - x, self.y2 - y)
+        return (self.x2 - x) * invh, (self.y2 - y) * invh
 
     def distance_to_point(self, x, y):
         if point_line_dist(x, y, (self.norm_vector[1], -self.norm_vector[0]), self.crossline_c) < self.length * .5:
             return point_line_dist(x, y, self.norm_vector, self.line_c) - self.width / 2
-        if (x - self.tower_1.x) ** 2 + (y - self.tower_1.y) ** 2 < (x - self.tower_2.x) ** 2 + (
-                y - self.tower_2.y) ** 2:
-            return distance(x, y, self.tower_1.x, self.tower_1.y) - self.width / 2
-        return distance(x, y, self.tower_2.x, self.tower_2.y) - self.width / 2
+        if (x - self.x1) ** 2 + (y - self.y1) ** 2 < (x - self.x2) ** 2 + (
+                y - self.y2) ** 2:
+            return distance(x, y, self.x1, self.y1) - self.width / 2
+        return distance(x, y, self.x2, self.y2) - self.width / 2
 
     def fast_point_dist(self, x, y):
         return self.distance_to_point(x, y)
@@ -2271,6 +2305,8 @@ class Wall:
         self.game.players[self.side].walls.remove(self)
         [self.game.remove_wall_from_chunk(self, e) for e in self.chunks]
         self.exists = False
+        while self.effects:
+            self.effects[0].remove()
 
     def take_damage(self, amount, source, type=None):
         if not self.exists:
@@ -2314,7 +2350,8 @@ class Wall:
         [e.tick() for e in self.effects]
 
     def graphics_update(self, dt):
-        self.crack_sprite.colors[3::4] = [int((255 * (self.max_health - self.health)) // self.max_health)] * 4
+        self.crack_sprite.colors[3::4] = [int((255 * (self.stats["health"] - self.health)) // self.stats["health"])] * 4
+        [e.graphics_update(dt) for e in self.effects]
 
 
 class Formation:
@@ -2608,10 +2645,12 @@ class Unit:
 
     def show(self):
         self.sprite.batch = self.game.batch
+        [e.graphics_show() for e in self.effects]
         self.shown = True
 
     def hide(self):
         self.sprite.batch = None
+        [e.graphics_hide() for e in self.effects]
         self.shown = False
 
     def update_stats(self, stats=None):
@@ -2630,7 +2669,7 @@ class Unit:
         return distance(self.x, self.y, x, y) - self.size / 2
 
     def fast_point_dist(self, x, y):
-        return abs(self.x - x) + abs(self.y - y)
+        return abs(self.x - x) + abs(self.y - y) - self.size / 2
 
     def towards(self, x, y):
         dx, dy = self.x - x, self.y - y
@@ -2776,6 +2815,8 @@ class Unit:
             self.formation.delete()
         self.formation = None
         self.exists = False
+        while self.effects:
+            self.effects[0].remove()
 
     def take_knockback(self, x, y, source):
         if not self.exists:
@@ -2851,6 +2892,7 @@ class Unit:
         x, y = self.x * SPRITE_SIZE_MULT - self.game.camx, self.y * SPRITE_SIZE_MULT - self.game.camy
         if self.shown:
             self.sprite.update(x=x, y=y, rotation=-self.rotation * 180 / math.pi + 90)
+            [e.graphics_update(dt) for e in self.effects]
             self.update_hpbar()
             if x + self.size < 0 or x - self.size > SCREEN_WIDTH or y + self.size < 0 or y - self.size > SCREEN_HEIGHT:
                 self.hide()
@@ -2900,7 +2942,7 @@ class Trebuchet(Unit):
     def attack(self, target):
         Boulder(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"], self,
                 self.stats["bulletspeed"],
-                target.distance_to_point(self.x, self.y), self.stats["explosion_radius"],
+                max(self.stats["min_range"], target.distance_to_point(self.x, self.y)), self.stats["explosion_radius"],
                 scale=self.stats["bullet_scale"], pierce=self.stats["pierce"], cluster=self.stats["cluster"],
                 recursion=self.stats["recursion"])
 
@@ -3496,7 +3538,7 @@ class animation_freeze:
             self.delete()
             return
         else:
-            self.sprite.opacity = 255 * (self.duration - self.exists_time) / self.duration
+            self.sprite.opacity = 100 * (self.duration - self.exists_time) / self.duration
             self.sprite.update(x=self.x * SPRITE_SIZE_MULT - self.game.camx,
                                y=self.y * SPRITE_SIZE_MULT - self.game.camy)
             self.exists_time += dt
@@ -3621,10 +3663,11 @@ def AOE_damage(x, y, size, amount, source, game, type=None):
 
 
 class effect:
-    def __init__(self, duration=None, ID=None):
+    def __init__(self, duration=None, ID=None, from_aura=None):
         self.remaining_duration = duration
         self.target = None
         self.ID = ID
+        self.from_aura = from_aura
 
     def apply(self, target):
         if self.ID is not None:
@@ -3648,6 +3691,9 @@ class effect:
 
     def tick(self):
         self.on_tick()
+        if self.from_aura is not None and not self.from_aura.exists:
+            self.remove()
+            return
         if self.remaining_duration is None:
             return
         self.remaining_duration -= 1
@@ -3663,10 +3709,19 @@ class effect:
     def on_tick(self):
         pass
 
+    def graphics_update(self, dt):
+        pass
+
+    def graphics_show(self):
+        pass
+
+    def graphics_hide(self):
+        pass
+
 
 class effect_instant_health(effect):
     def __init__(self, amount):
-        super().__init__(0, ID=None)
+        super().__init__(0, ID=None, from_aura=None)
         self.amount = amount
 
     def apply(self, target):
@@ -3674,8 +3729,8 @@ class effect_instant_health(effect):
 
 
 class effect_stat_mult(effect):
-    def __init__(self, stat, amount, duration=None, ID=None):
-        super().__init__(duration, ID)
+    def __init__(self, stat, amount, duration=None, ID=None, from_aura=None):
+        super().__init__(duration, ID, from_aura)
         self.stat = stat
         self.mult = amount
 
@@ -3700,8 +3755,8 @@ class effect_freeze(effect):
 
 
 class effect_stat_add(effect):
-    def __init__(self, stat, amount, duration=None, ID=None):
-        super().__init__(duration, ID)
+    def __init__(self, stat, amount, duration=None, ID=None, from_aura=None):
+        super().__init__(duration, ID, from_aura)
         self.stat = stat
         self.mult = amount
 
@@ -3713,21 +3768,51 @@ class effect_stat_add(effect):
 
     def on_remove(self):
         self.target.mods_add[self.stat].remove(self.mult)
-        self.target.update_stats(self.stat)
+        self.target.update_stats([self.stat])
 
 
 class effect_regen(effect):
-    def __init__(self, amount, duration=None, ID=None):
-        super().__init__(duration, ID)
+    def __init__(self, amount, duration=None, ID=None, from_aura=None):
+        super().__init__(duration, ID, from_aura)
         self.strength = amount
 
     def on_tick(self):
         self.target.health = min(self.target.stats["health"], self.target.health + self.strength)
 
 
+class effect_visual(effect):
+    def __init__(self, img, opacity, size, duration=None, ID=None, from_aura=None):
+        super().__init__(duration, ID, from_aura)
+        self.batch = None
+        self.img, self.opacity, self.size = img, opacity, size
+        self.sprite = None
+
+    def on_apply(self, target):
+        self.batch = target.game.batch
+        self.sprite = pyglet.sprite.Sprite(self.img, target.x, target.y,
+                                           batch=self.batch if target.shown else None, group=groups.g[1])
+        self.sprite.opacity = self.opacity
+        self.sprite.scale = self.size / self.img.width * target.size
+
+    def graphics_update(self, dt):
+        self.sprite.update(x=self.target.x * SPRITE_SIZE_MULT - self.target.game.camx,
+                           y=self.target.y * SPRITE_SIZE_MULT - self.target.game.camy)
+
+    def graphics_show(self):
+        self.sprite.batch = self.batch
+
+    def graphics_hide(self):
+        self.sprite.batch = None
+
+    def on_remove(self):
+        if self.sprite is not None:
+            self.sprite.delete()
+            self.sprite = None
+
+
 class effect_combined(effect):
-    def __init__(self, effects, args, duration=None, ID=None):
-        super().__init__(duration, ID)
+    def __init__(self, effects, args, duration=None, ID=None, from_aura=None):
+        super().__init__(duration, ID, from_aura)
         self.effects = [effects[i](*args[i]) for i in range(len(effects))]
 
     def on_apply(self, target):
@@ -3758,7 +3843,7 @@ class aura:
 
     def apply(self, target):
         if self.targets is None or target.name in self.targets:
-            self.effect(*self.args).apply(target)
+            self.effect(*self.args, from_aura = self).apply(target)
 
     def delete(self):
         self.exists = False
@@ -4116,9 +4201,9 @@ class Upgrade_bigger_arrows(Upgrade):
 
     def on_finish(self):
         self.player.add_aura(aura(effect_stat_mult, ("dmg", float(upgrade_stats[self.name]["mod"])),
-                                  targets=["Archer", "Tower", "Tower1", "Tower3", "Tower31","Tower4","Tower41"]))
+                                  targets=["Archer", "Tower", "Tower1", "Tower3", "Tower31", "Tower4", "Tower41"]))
         self.player.add_aura(aura(effect_stat_mult, ("bullet_scale", 2),
-                                  targets=["Archer", "Tower", "Tower1", "Tower3", "Tower31","Tower4","Tower41"]))
+                                  targets=["Archer", "Tower", "Tower1", "Tower3", "Tower31", "Tower4", "Tower41"]))
 
 
 class Upgrade_bigger_rocks(Upgrade):
@@ -4179,7 +4264,7 @@ class Upgrade_vigorous_farming(Upgrade):
 
     def on_finish(self):
         self.player.add_aura(aura(effect_stat_mult, ("production", float(upgrade_stats[self.name]["mod"])),
-                                  targets=["Farm", "Farm1", "Farm2"]))
+                                  targets=["Farm", "Farm1", "Farm2", "Farm21"]))
 
 
 class Upgrade_nanobots(Upgrade):
