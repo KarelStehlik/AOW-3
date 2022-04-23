@@ -2477,7 +2477,7 @@ class Formation:
             self.update_warning(x, y)
 
     def update_warning(self, x, y):
-        warn_distance = 500
+        warn_distance = 350
         dist = hypot(self.x * SPRITE_SIZE_MULT - x - SCREEN_WIDTH / 2,
                      self.y * SPRITE_SIZE_MULT - y - SCREEN_HEIGHT / 2)
         if dist > warn_distance:

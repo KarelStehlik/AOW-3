@@ -210,7 +210,7 @@ class Game:
         self.players[side].time_until_wave = WAVE_INTERVAL
         units = generate_units(power)
         angle = random.random() * 2 * math.pi
-        distance = 1000 * self.players[side].ai_wave ** .2
+        distance = 1500 * self.players[side].ai_wave ** .2
         x = int(self.players[side].TownHall.x + distance * math.cos(angle))
         y = int(self.players[side].TownHall.y + distance * math.sin(angle))
         args = [side, x, y, units[0], self.ticks, worth, str(units[1])]
