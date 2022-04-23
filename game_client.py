@@ -2371,7 +2371,7 @@ class Formation:
                                       self.y * SPRITE_SIZE_MULT - game.camy - SCREEN_HEIGHT / 2)
             self.warning = pyglet.sprite.Sprite(images.Warn, x=SCREEN_WIDTH / 2 + 500 * math.cos(warn_angle),
                                                 y=SCREEN_HEIGHT / 2 + 500 * math.sin(warn_angle), batch=game.batch,
-                                                group=groups.g[7])
+                                                group=groups.g[15])
             self.warning.scale = 0.2 * SPRITE_SIZE_MULT
         else:
             self.has_warning = False
