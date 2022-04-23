@@ -1,6 +1,7 @@
 The Beginning:desc=Does Nothing|flavor=Upgrading exists now!|cost=0|time=0|x=0|y=0|from=
 Bigger Stalls:desc=Unlocks Bears|flavor=Bears may not be as tall as horses, but they are very fat. You need high quality stables.|cost=100000|time=60|x=1|y=0|from=The Beginning
 Bigger Arrows:desc=Increases arrow damage|flavor=There is no "correct size" for arrows, it turns out bigger is always better!|cost=5000|time=1|mod=1.5|x=0|y=1|from=The Beginning
+More Chestplates:desc=increases swordman and defender health|flavor=Twice the chestplate, twice the health! Makes sense, right?|cost=15000|time=1|mod=2|x=-1|y=1|from=The Beginning
 Catapults:desc=Unlocks catapults|flavor=If you can't throw the rock yourself, have a machine do it. We assure you it's not a work of the devil!|cost=10000|time=40|x=0|y=3|from=Tech
 Bigger Rocks:desc=Bigger explosions|flavor=Just in case you don't get crushed enough by the regular rocks|cost=75000|mod_dmg=1.5|mod_rad=1.5|time=1|x=1|y=3|from=Tech
 Egg Cannon:desc=Unlocks the egg tower|flavor=To unleash the might of the chicken god requires immense investment. Pray that it destroys your enemies, not you|cost=666666|time=150|x=1|y=4|from=Bigger Rocks

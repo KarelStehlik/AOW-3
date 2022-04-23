@@ -1,6 +1,6 @@
 import pyglet
 
-CHEATS = False
+CHEATS = True
 FACTION_LOCK=False
 display = pyglet.canvas.Display()
 screen = display.get_default_screen()
@@ -21,7 +21,7 @@ STARTING_MANA = 50000000000 if CHEATS else 0
 MAX_MANA = 50000000000 if CHEATS else 1500
 PASSIVE_MANA = .08
 ACTION_DELAY = 1
-WAVE_INTERVAL = 60 * 60
+WAVE_INTERVAL = 60 * 75
 MAX_ANIMATIONS = 150
 MOUNTAINRANGES =30
 MOUNTAINS = 5

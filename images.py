@@ -89,6 +89,7 @@ Bullet = RI("Bullet")
 Arrow_upg = RI("Arrow_upg")
 Arrow_upg_2 = RI("Arrow_upg_2")
 Mine = RI("mine")
+Chestplates = RI("Chestplates")
 
 Farm = RI("farm")
 Farm1 = RI("Farm1")

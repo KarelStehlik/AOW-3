@@ -3112,7 +3112,7 @@ class selection_bear(selection_unit):
 
 
 class selection_necromancer(selection_unit):
-    img = images.Farm
+    img = images.Necromancer
     unit_num = 5
 
 
@@ -4164,16 +4164,12 @@ class upgrade_description(client_utility.toolbar):
 
 class Upgrade_default(Upgrade):
     previous = []
-    x = 0
-    y = 0
     name = "The Beginning"
 
 
 class Upgrade_test_1(Upgrade):
     image = images.Bear
     previous = []
-    x = 1
-    y = 0
     name = "Bigger Stalls"
 
     def on_finish(self):
@@ -4184,8 +4180,6 @@ class Upgrade_catapult(Upgrade):
     name = "Catapults"
     previous = []
     image = images.Trebuchet
-    x = -1
-    y = 0
 
     def on_finish(self):
         self.player.unlock_unit(Trebuchet)
@@ -4195,8 +4189,6 @@ class Upgrade_bigger_arrows(Upgrade):
     name = "Bigger Arrows"
     previous = []
     image = images.Arrow_upg
-    x = 0
-    y = 1
 
     def on_finish(self):
         aura(effect_stat_mult, ("dmg", float(upgrade_stats[self.name]["mod"])),
@@ -4208,13 +4200,21 @@ class Upgrade_bigger_arrows(Upgrade):
              targets=["Archer", "Tower", "Tower1", "Tower3", "Tower31", "Tower4", "Tower41"]
              )
 
+class Upgrade_more_chestplates(Upgrade):
+    name = "More Chestplates"
+    previous = []
+    image = images.Chestplates
+
+    def on_finish(self):
+        aura(effect_stat_mult, ("health", float(upgrade_stats[self.name]["mod"])),
+             self.player.game, self.player.side,
+             targets=["Swordsman", "Defender"],
+             )
 
 class Upgrade_bigger_rocks(Upgrade):
     name = "Bigger Rocks"
     previous = []
     image = images.Boulder
-    x = 1
-    y = 1
 
     def on_finish(self):
         aura(effect_stat_mult, ("dmg", float(upgrade_stats[self.name]["mod_dmg"])),
@@ -4232,8 +4232,6 @@ class Upgrade_egg(Upgrade):
     name = "Egg Cannon"
     previous = []
     image = images.Egg
-    x = 1
-    y = 2
 
     def on_finish(self):
         self.player.unlock_unit(Tower211)
@@ -4243,8 +4241,6 @@ class Upgrade_mines(Upgrade):
     name = "Mines"
     previous = []
     image = images.Mine
-    x = 2
-    y = 1
 
     def on_finish(self):
         self.player.unlock_unit(Tower22)
@@ -4253,8 +4249,6 @@ class Upgrade_mines(Upgrade):
 class Upgrade_faster_archery(Upgrade):
     name = "Faster Archery"
     previous = []
-    x = -1
-    y = 1
     image = images.Arrow_upg_2
 
     def on_finish(self):
@@ -4266,8 +4260,6 @@ class Upgrade_faster_archery(Upgrade):
 class Upgrade_vigorous_farming(Upgrade):
     name = "Vigorous Farming"
     previous = []
-    x = 0
-    y = -1
     image = images.Farm1
 
     def on_finish(self):
@@ -4279,8 +4271,6 @@ class Upgrade_vigorous_farming(Upgrade):
 class Upgrade_nanobots(Upgrade):
     name = "Nanobots"
     previous = []
-    x = 0
-    y = -2
     image = images.Farm1
 
     def on_finish(self):
@@ -4292,8 +4282,6 @@ class Upgrade_nanobots(Upgrade):
 class Upgrade_walls(Upgrade):
     name = "Tough Walls"
     previous = []
-    x = 0
-    y = -3
     image = images.Farm1
 
     def on_finish(self):
@@ -4305,8 +4293,6 @@ class Upgrade_walls(Upgrade):
 class Upgrade_necromancy(Upgrade):
     name = "Necromancy"
     previous = []
-    x = -2
-    y = 0
     image = images.Beam
 
     def on_finish(self):
@@ -4316,8 +4302,6 @@ class Upgrade_necromancy(Upgrade):
 class Upgrade_superior_pyrotechnics(Upgrade):
     name = "Superior Pyrotechnics"
     previous = []
-    x = 2
-    y = 2
     image = images.Beam
 
     def on_finish(self):
@@ -4327,8 +4311,6 @@ class Upgrade_superior_pyrotechnics(Upgrade):
 class Upgrade_golem(Upgrade):
     image = images.Boulder
     previous = []
-    x = 2
-    y = 0
     name = "Golem"
 
     def on_finish(self):
@@ -4338,8 +4320,6 @@ class Upgrade_golem(Upgrade):
 class Upgrade_trees(Upgrade):
     image = images.Tree
     previous = []
-    x = 2
-    y = 0
     name = "Trees"
 
     def on_finish(self):
@@ -4350,8 +4330,6 @@ class Upgrade_nature(Upgrade):
     image = images.Boulder
     excludes = []
     previous = []
-    x = 2
-    y = 0
     name = "Nature"
 
     def on_finish(self):
@@ -4362,8 +4340,6 @@ class Upgrade_fire(Upgrade):
     image = images.Boulder
     excludes = []
     previous = []
-    x = 2
-    y = 0
     name = "Fire"
 
     def on_finish(self):
@@ -4374,8 +4350,6 @@ class Upgrade_frost(Upgrade):
     image = images.Boulder
     excludes = []
     previous = []
-    x = 2
-    y = 0
     name = "Frost"
 
     def on_finish(self):
@@ -4386,8 +4360,6 @@ class Upgrade_tech(Upgrade):
     image = images.Boulder
     excludes = []
     previous = []
-    x = 2
-    y = 0
     name = "Tech"
 
     def on_finish(self):
@@ -4401,7 +4373,7 @@ for uuuu in [Upgrade_frost, Upgrade_fire, Upgrade_nature, Upgrade_tech]:
 possible_upgrades = [Upgrade_default, Upgrade_test_1, Upgrade_bigger_arrows, Upgrade_catapult, Upgrade_bigger_rocks,
                      Upgrade_egg, Upgrade_faster_archery, Upgrade_vigorous_farming, Upgrade_mines, Upgrade_necromancy,
                      Upgrade_nanobots, Upgrade_walls, Upgrade_superior_pyrotechnics, Upgrade_golem, Upgrade_frost,
-                     Upgrade_fire, Upgrade_nature, Upgrade_tech, Upgrade_trees]
+                     Upgrade_fire, Upgrade_nature, Upgrade_tech, Upgrade_trees, Upgrade_more_chestplates]
 
 for uuuu in possible_upgrades:
     uuuu.x, uuuu.y = int(upgrade_stats[uuuu.name]["x"]), int(upgrade_stats[uuuu.name]["y"])

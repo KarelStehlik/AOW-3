@@ -1146,14 +1146,14 @@ class Farm21(Farm_upgrade):
     def on_summon(self):
         self.additionals.append(
             aura(effect_combined,
-                     (
-                         (effect_stat_mult, effect_stat_mult, effect_stat_add),
-                         (("speed", self.stats["buff"]),
-                          ("dmg", self.stats["buff"]),
-                          ("health", self.stats["health_buff"])),
-                         None, self.ID
-                     ),
-                     self.game, self.side, None, [e.name for e in possible_units]))
+                 (
+                     (effect_stat_mult, effect_stat_mult, effect_stat_add),
+                     (("speed", self.stats["buff"]),
+                      ("dmg", self.stats["buff"]),
+                      ("health", self.stats["health_buff"])),
+                     None, self.ID
+                 ),
+                 self.game, self.side, None, [e.name for e in possible_units]))
 
     def on_delete(self):
         [e.delete() for e in self.additionals]
@@ -2329,6 +2329,17 @@ class Upgrade_bigger_arrows(Upgrade):
              targets=["Archer", "Tower", "Tower1", "Tower3", "Tower31", "Tower4", "Tower41"])
 
 
+class Upgrade_more_chestplates(Upgrade):
+    name = "More Chestplates"
+    previous = []
+
+    def on_finish(self):
+        aura(effect_stat_mult, ("health", float(upgrade_stats[self.name]["mod"])),
+             self.player.game, self.player.side,
+             targets=["Swordsman", "Defender"],
+             )
+
+
 class Upgrade_bigger_rocks(Upgrade):
     previous = []
     name = "Bigger Rocks"
@@ -2473,7 +2484,7 @@ for uuuu in [Upgrade_frost, Upgrade_fire, Upgrade_nature, Upgrade_tech]:
 possible_upgrades = [Upgrade_default, Upgrade_test_1, Upgrade_bigger_arrows, Upgrade_catapult, Upgrade_bigger_rocks,
                      Upgrade_egg, Upgrade_faster_archery, Upgrade_vigorous_farming, Upgrade_mines, Upgrade_necromancy,
                      Upgrade_nanobots, Upgrade_walls, Upgrade_superior_pyrotechnics, Upgrade_golem, Upgrade_frost,
-                     Upgrade_fire, Upgrade_nature, Upgrade_tech, Upgrade_trees]
+                     Upgrade_fire, Upgrade_nature, Upgrade_tech, Upgrade_trees, Upgrade_more_chestplates]
 
 for uuuu in possible_upgrades:
     fromme = upgrade_stats[uuuu.name]["from"].split("&")
