@@ -705,11 +705,11 @@ class minimap(client_utility.toolbar):
         self.sprite2.vertices = [-1, 0] * self.max_entities * 4
         self.current_entity = 0
         self.already_checked = []
+        [self.mark(e, (0, 0, 0, 255)) for e in self.game.all_obstacles]
         [self.mark(e, (0, 255, 0, 255)) for e in self.game.players[self.game.side].units]
         [self.mark(e, (0, 255, 0, 255)) for e in self.game.players[self.game.side].all_buildings]
         [self.mark(e, (255, 0, 0, 255)) for e in self.game.players[1 - self.game.side].units]
         [self.mark(e, (255, 0, 0, 255)) for e in self.game.players[1 - self.game.side].all_buildings]
-        [self.mark(e, (0, 0, 0, 255)) for e in self.game.all_obstacles]
 
     def mark(self, e, color):
         if self.current_entity >= self.max_entities:
@@ -2659,6 +2659,7 @@ class Unit:
             stats = self.stats.keys()
         for e in stats:
             self.stats[e] = (self.base_stats[e] + sum(self.mods_add[e])) * product(*self.mods_multiply[e])
+        self.stats["speed"]= min(self.stats["speed"], 100)
         self.health = self.stats["health"] * health_part
         self.size = self.stats["size"]
         self.sprite.scale = self.stats["vwidth"] * SPRITE_SIZE_MULT / self.image.width

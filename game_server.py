@@ -204,7 +204,7 @@ class Game:
 
     def summon_ai_wave(self, side):
         self.players[side].ai_wave += 1
-        power = 1000 * 2 ** self.players[side].ai_wave
+        power = 1000 * 1.7 ** self.players[side].ai_wave
         worth = power
         self.players[side].gain_money(worth)
         self.players[side].time_until_wave = WAVE_INTERVAL
@@ -1524,6 +1524,7 @@ class Unit:
             stats = self.stats.keys()
         for e in stats:
             self.stats[e] = (self.base_stats[e] + sum(self.mods_add[e])) * product(*self.mods_multiply[e])
+        self.stats["speed"] = min(self.stats["speed"], 100)
         self.health = self.stats["health"] * health_part
         self.size = self.stats["size"]
 
