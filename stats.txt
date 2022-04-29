@@ -1,8 +1,9 @@
 TownHall:size=200,health=2500,resistance=1,spell_resistance=0
-TownHall1:cost=666420,size=200,health=15000,resistance=.1,spell_resistance=0,radius=2000,slow=.4
-TownHall2:cost=500555,size=200,health=6000,resistance=1,spell_resistance=0,dmg=10,cd=0.012,reach=850,bulletspeed=15,pierce=10,cluster=0,recursion=0,bullet_size=200
-TownHall3:cost=555555,size=200,health=15000,resistance=.1,spell_resistance=0,trees=20,tree_size=2,spread=500
-TownHall4:cost=555555,size=200,health=50000,resistance=1,spell_resistance=0
+TownHall1:cost=7500,size=200,health=2500,resistance=.4,spell_resistance=0,dmg=100,cd=0.5,reach=850,bulletspeed=15,pierce=5,cluster=0,recursion=0,bullet_scale=.2
+TownHall11:cost=666420,size=200,health=15000,resistance=.1,spell_resistance=0,radius=2000,slow=.3
+TownHall12:cost=500555,size=200,health=6000,resistance=1,spell_resistance=0,dmg=30,cd=0.012,reach=850,bulletspeed=15,pierce=100,cluster=0,recursion=0,bullet_size=200
+TownHall13:cost=555555,size=200,health=15000,resistance=.1,spell_resistance=0,trees=20,tree_size=4,spread=500
+TownHall14:cost=555555,size=200,health=50000,resistance=1,spell_resistance=0
 Tree:cost=666420,size=50,health=4000,resistance=1,spell_resistance=.5,diameter=150,heal=40
 Tower:size=50,health=900,cost=1500,dmg=5,cd=0.2,reach=400,bulletspeed=6,proximity=500,bullet_scale=.15,pierce=1,cluster=0,recursion=0,resistance=1
 Tower4:size=50,health=3000,cost=3000,dmg=600,cd=2,reach=700,bulletspeed=10,proximity=500,bullet_scale=.25,pierce=1,cluster=0,recursion=0,resistance=1
@@ -12,10 +13,10 @@ Tower2:size=50,health=2000,cost=1500,dmg=12,cd=1.6,reach=350,bulletspeed=8,explo
 Tower11:size=50,health=1500,cost=3500,dmg=12,cd=0.02,reach=350,bulletspeed=15,spread=0.2,shots=2,bullet_scale=.05,pierce=1,cluster=0,recursion=0,resistance=1
 Tower21:size=50,health=3000,cost=6000,dmg=30,cd=2,reach=800,bulletspeed=20,explosion_radius=100,bullet_scale=.15,pierce=1,cluster=0,recursion=0,resistance=1
 Tower22:size=50,health=3000,cost=25000,dmg=250,cd=8,reach=250,bulletspeed=20,explosion_radius=200,bullet_scale=.07,pierce=1,cluster=0,recursion=0,duration=5000,resistance=1
-Tower221:size=70,health=3000,cost=99000,cd=10,reach=250,bulletspeed=20,bullet_scale=.07,pierce=1,cluster=0,recursion=0,resistance=1,t_health=900,t_dmg=10,t_cd=0.05,t_reach=400,t_bulletspeed=20,t_bullet_scale=.04,spawn_lifetime=100,t_size=40
+Tower221:size=70,health=3000,cost=99000,cd=2,reach=250,bulletspeed=20,bullet_scale=.07,pierce=1,cluster=0,recursion=0,resistance=1,t_health=900,t_dmg=20,t_cd=0.05,t_reach=400,t_bulletspeed=20,t_bullet_scale=.04,spawn_lifetime=25,t_size=40
 Turret:size=25,health=900,cost=1500,dmg=5,cd=0.2,reach=0,bulletspeed=6,proximity=500,bullet_scale=.04,pierce=1,cluster=0,recursion=0,resistance=1
-Tower23:size=75,health=6900,cost=35000,dmg=70,cd=.3,reach=150,resistance=1
-Tower231:size=100,health=20000,cost=150000,dmg=80,cd=.2,reach=400,resistance=1,bulletspeed=10,bullet_size=250,pierce=1000,cluster=0,recursion=0,flame_radius=200,dmg2=30
+Tower23:size=75,health=6900,cost=35000,dmg=100,cd=.3,reach=100,resistance=1
+Tower231:size=100,health=20000,cost=150000,dmg=150,cd=.2,reach=400,resistance=1,bulletspeed=10,bullet_size=250,pierce=1000,cluster=0,recursion=0,flame_radius=150,dmg2=30
 Tower211:size=70,health=5000,cost=500000,dmg=200,cd=0.1,reach=1500,bulletspeed=20,explosion_radius=200,bullet_scale=.15,pierce=1,cluster=0,recursion=0,resistance=1,cost_mana=1000
 Tower3:size=50,health=900,cost=5000,dmg=10,cd=0.2,reach=400,bulletspeed=10,proximity=500,bullet_scale=.15,pierce=2,cluster=10,recursion=1,resistance=1
 Tower31:size=50,health=1500,cost=10000,dmg=10,cd=0.35,reach=400,bulletspeed=20,proximity=500,bullet_scale=.15,pierce=1,cluster=7,recursion=2,resistance=1
@@ -27,6 +28,7 @@ Farm21:size=200,health=5000,cost=100000,production=1,proximity=500,resistance=1,
 Wall:size=35,health=3000,cost=1000,resistance=1
 Swordsman:vwidth=20,vheight=20,speed=250,size=19,health=60,dmg=15,cd=1,reach=10,cost=50,mass=1,resistance=1
 Defender:vwidth=20,vheight=20,speed=150,size=19,health=300,dmg=1,cd=0.6,reach=10,cost=200,mass=3,resistance=1
+Mancatcher:vwidth=60,vheight=60,speed=250,size=19,health=50,dmg=.1,cd=0.02,reach=110,cost=200,mass=5,resistance=1,slow=8,steal=5,duration=30
 Archer:vwidth=20,vheight=20,speed=200,size=19,health=20,dmg=20,cd=0.7,reach=300,cost=100,bulletspeed=9,mass=.8,bullet_scale=.15,pierce=1,cluster=0,recursion=0,resistance=1
 Trebuchet:vwidth=50,vheight=50,speed=75,size=50,health=70,dmg=500,cd=6,reach=500,cost=1000,bulletspeed=3,explosion_radius=150,mass=30,bullet_scale=.15,pierce=1,cluster=0,recursion=0,resistance=1,min_range=200
 Bear:vwidth=80,vheight=150,speed=350,size=60,health=1500,dmg=200,cd=0.1,reach=30,cost=8000,mass=20,resistance=1
@@ -36,4 +38,4 @@ Fireball:cost=500,radius=150,dmg=2000,delay=.02
 Tree_spell:cost=700,radius=300,delay=60,trees=10,tree_size=1
 Freeze:cost=300,radius=150,duration=200,delay=60
 Rage:cost=500,radius=350,duration=500,buff=2,delay=60
-Golem:vwidth=250,vheight=170,speed=150,size=200,health=70000,dmg=500,cd=.7,reach=30,cost=100000,cost_mana=10,mass=400,resistance=1,wall_mult=10
+Golem:vwidth=250,vheight=170,speed=150,size=200,health=70000,dmg=500,cd=.7,reach=30,cost=100000,cost_mana=10,mass=2000,resistance=1,wall_mult=10

@@ -221,7 +221,7 @@ class Game:
             self.camx_moving = min(self.camx_moving + self.cam_move_speed, self.cam_move_speed)
         elif symbol == key.W:
             self.camy_moving = min(self.camy_moving + self.cam_move_speed, self.cam_move_speed)
-        elif modifiers == 16:
+        else:
             if key.NUM_9 >= symbol >= key.NUM_1:
                 if len(self.UI_bottomBar.loaded) > symbol - key.NUM_1:
                     self.select(self.UI_bottomBar.loaded[symbol - key.NUM_1])
@@ -366,9 +366,9 @@ class player:
         self.auras = []
         self.pending_upgrades = []
         self.owned_upgrades = [Upgrade_default(self, 0)]
-        self.unlocked_units = [Swordsman, Archer, Defender, Tower, Wall, Farm, Tower1, Tower2, Tower11, Tower21,
-                               Farm1, Farm2, Tower3, Tower31, Farm11, Fireball, Freeze, Rage, Tower23, Tower221, Tower4,
-                               Tower41, Farm21]
+        self.unlocked_units = [Swordsman, Archer, Mancatcher, Defender, Tower, Wall, Farm, Tower1, Tower2, Tower11,
+                               Tower21, Farm1, Farm2, Tower3, Tower31, Farm11, Fireball, Freeze, Rage, Tower23,
+                               Tower221, Tower4, Tower41, Farm21, TownHall1]
         self.farm_value = 0
 
     def gain_mana(self, amount):
@@ -1404,6 +1404,7 @@ class Building:
         self.hpbar.delete()
         self.exists = False
         while self.effects:
+            self.effects[0].on_death()
             self.effects[0].remove()
         self.on_delete()
 
@@ -1479,7 +1480,7 @@ class TownHall(Building):
         self.exists = True
         self.sprite.opacity = 255
         self.tick = self.tick2
-        self.upgrades_into = [TownHall1, TownHall2, TownHall3, TownHall4]
+        self.upgrades_into = [TownHall1]
 
     def on_die(self):
         animation_explosion(self.x, self.y, 1000, 30, self.game)
@@ -1536,6 +1537,60 @@ class TownHall_upgrade(Building):
 class TownHall1(TownHall_upgrade):
     upgrades = []
     name = "TownHall1"
+    image = images.Townhall
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.current_cooldown = 0
+        self.target = None
+        self.shooting_in_chunks = get_chunks_force_circle(self.x, self.y, 2 * self.stats["reach"])
+        self.turns_without_target = 0
+
+    def tick2(self):
+        super().tick2()
+        assert self.frozen >= 0
+        if self.frozen == 0:
+            if self.current_cooldown > 0:
+                self.current_cooldown -= 1 * INV_FPS
+            if self.current_cooldown <= 0:
+                if self.acquire_target():
+                    self.current_cooldown += self.stats["cd"]
+                    self.attack(self.target)
+                else:
+                    self.turns_without_target += 1
+
+    def attack(self, target):
+        direction = target.towards(self.x, self.y)
+        Arrow(self.x, self.y, *direction, self.game, self.side, self.stats["dmg"], self, self.stats["bulletspeed"],
+              self.stats["reach"] * 1.5, scale=self.stats["bullet_scale"], pierce=self.stats["pierce"],
+              cluster=self.stats["cluster"], recursion=self.stats["recursion"])
+
+    def acquire_target(self):
+        if self.target is not None and \
+                self.target.exists and self.target.distance_to_point(self.x, self.y) < self.stats["reach"]:
+            return True
+        if self.turns_without_target == 60 or self.turns_without_target == 0:
+            self.turns_without_target = 0
+            for c in self.shooting_in_chunks:
+                chonker = self.game.find_chunk(c)
+                if chonker is not None:
+                    for unit in chonker.units[1 - self.side]:
+                        if unit.exists and unit.distance_to_point(self.x, self.y) < self.stats["reach"]:
+                            self.target = unit
+                            self.turns_without_target = 0
+                            return True
+                    for unit in chonker.buildings[1 - self.side]:
+                        if unit.exists and unit.distance_to_point(self.x, self.y) < self.stats["reach"]:
+                            self.target = unit
+                            self.turns_without_target = 0
+                            return True
+            return False
+        return False
+
+
+class TownHall11(TownHall_upgrade):
+    upgrades = []
+    name = "TownHall11"
     image = images.Meteor
 
     def __init__(self, *a, **k):
@@ -1558,9 +1613,9 @@ class TownHall1(TownHall_upgrade):
         [e.delete() for e in self.additionals]
 
 
-class TownHall2(TownHall_upgrade):
+class TownHall12(TownHall_upgrade):
     upgrades = []
-    name = "TownHall2"
+    name = "TownHall12"
     image = images.Townhall
 
     def __init__(self, *args, **kwargs):
@@ -1613,9 +1668,9 @@ class TownHall2(TownHall_upgrade):
         return False
 
 
-class TownHall3(TownHall_upgrade):
+class TownHall13(TownHall_upgrade):
     upgrades = []
-    name = "TownHall3"
+    name = "TownHall13"
     image = images.blue_arrow
 
     def on_summon(self):
@@ -1626,9 +1681,9 @@ class TownHall3(TownHall_upgrade):
                  self.side, self.game, size)
 
 
-class TownHall4(TownHall_upgrade):
+class TownHall14(TownHall_upgrade):
     upgrades = []
-    name = "TownHall4"
+    name = "TownHall14"
     image = images.Fire
 
 
@@ -2163,13 +2218,15 @@ class Farm21(farm_upgrade, Farm):
             aura(effect_combined,
                  (
                      (effect_stat_mult, effect_stat_mult, effect_stat_add, effect_visual),
-                     (("speed", self.stats["buff"]),
-                      ("dmg", self.stats["buff"]),
-                      ("health", self.stats["health_buff"]),
-                      (images.Glow, 150, 1.5)),
+                     (
+                         ("speed", self.stats["buff"]),
+                         ("dmg", self.stats["buff"]),
+                         ("health", self.stats["health_buff"]),
+                         (images.Glow, 150, 1.5)
+                     ),
                      None, self.ID
                  ),
-                 self.game, self.side, None, [e.name for e in possible_units]))
+                 self.game, self.side, None, ["unit"]))
 
     def on_delete(self):
         [e.delete() for e in self.additionals]
@@ -2177,7 +2234,7 @@ class Farm21(farm_upgrade, Farm):
 
 possible_buildings = [Tower, Farm, Tower1, Tower2, Tower21, Tower11, Farm1, Farm2, Tower211, Tower3, Tower31, Tower22,
                       Tower221, Tower4, Tower41, Farm21,
-                      Farm11, Tower23, Tower231, TownHall, TownHall1, TownHall2, TownHall3, TownHall4]
+                      Farm11, Tower23, Tower231, TownHall, TownHall11, TownHall12, TownHall13, TownHall14, TownHall1]
 
 
 def get_upg_num(cls):
@@ -2304,6 +2361,7 @@ class Wall:
         [self.game.remove_wall_from_chunk(self, e) for e in self.chunks]
         self.exists = False
         while self.effects:
+            self.effects[0].on_death()
             self.effects[0].remove()
 
     def take_damage(self, amount, source, type=None):
@@ -2635,6 +2693,7 @@ class Unit:
                       self.base_stats.keys()}
         self.health = self.stats["health"]
         self.frozen = 0
+        self.recent_target = None
         for e in effects:
             e.apply(self)
         # self.TESTING_t1=0
@@ -2659,7 +2718,7 @@ class Unit:
             stats = self.stats.keys()
         for e in stats:
             self.stats[e] = (self.base_stats[e] + sum(self.mods_add[e])) * product(*self.mods_multiply[e])
-        self.stats["speed"]= min(self.stats["speed"], 100)
+        self.stats["speed"] = min(max(self.stats["speed"], 0), 100)
         self.health = self.stats["health"] * health_part
         self.size = self.stats["size"]
         self.sprite.scale = self.stats["vwidth"] * SPRITE_SIZE_MULT / self.image.width
@@ -2765,6 +2824,7 @@ class Unit:
         pass
 
     def tick(self):
+        self.recent_target = None
         if not self.exists:
             return
         if self.frozen == 0:
@@ -2786,6 +2846,7 @@ class Unit:
                 self.acquire_target()
                 if self.target is not None and self.move_in_range(self.target):
                     self.attempt_attack(self.target)
+                    self.recent_target = self.target
 
         self.chunks = get_chunks(self.x, self.y, self.size)
         for e in self.chunks:
@@ -2807,7 +2868,6 @@ class Unit:
             return
         self.formation.troops.remove(self)
         self.game.players[self.side].units.remove(self)
-        self.game = None
         self.sprite.delete()
         self.hpbar.delete()
         if not self.formation.troops:
@@ -2815,6 +2875,7 @@ class Unit:
         self.formation = None
         self.exists = False
         while self.effects:
+            self.effects[0].on_death()
             self.effects[0].remove()
 
     def take_knockback(self, x, y, source):
@@ -2890,7 +2951,9 @@ class Unit:
             return
         x, y = self.x * SPRITE_SIZE_MULT - self.game.camx, self.y * SPRITE_SIZE_MULT - self.game.camy
         if self.shown:
-            self.sprite.update(x=x, y=y, rotation=-self.rotation * 180 / math.pi + 90)
+            self.sprite.update(x=x, y=y, rotation=(-self.rotation * 180 / math.pi + 90) if self.recent_target is None
+                               else -get_rotation(self.recent_target.x - self.x,
+                                                  self.recent_target.y - self.y) * 180 / math.pi+90)
             [e.graphics_update(dt) for e in self.effects]
             self.update_hpbar()
             if x + self.size < 0 or x - self.size > SCREEN_WIDTH or y + self.size < 0 or y - self.size > SCREEN_HEIGHT:
@@ -2951,6 +3014,19 @@ class Defender(Unit):
     name = "Defender"
 
     def attack(self, target):
+        target.take_damage(self.stats["dmg"], self)
+
+
+class Mancatcher(Unit):
+    image = images.Mancatcher
+    name = "Mancatcher"
+
+    def attack(self, target):
+        if has_tag(target.name, "unit") and not has_tag(target.name, "unplayable"):
+            effect_catch_man(self.stats["steal"],
+                             self.stats["cd"] * self.stats["duration"] * FPS, "mancatcher").apply(target)
+            effect_stat_add("speed", -self.stats["slow"] * self.mass / target.mass,
+                            self.stats["cd"] * self.stats["duration"] * FPS, self.ID).apply(target)
         target.take_damage(self.stats["dmg"], self)
 
 
@@ -3122,10 +3198,15 @@ class selection_golem(selection_unit):
     unit_num = 7
 
 
-possible_units = [Swordsman, Archer, Trebuchet, Defender, Bear, Necromancer, Zombie, Golem]
+class selection_mancatcher(selection_unit):
+    img = images.Mancatcher
+    unit_num = 8
+
+
+possible_units = [Swordsman, Archer, Trebuchet, Defender, Bear, Necromancer, Zombie, Golem, Mancatcher]
 selects_p1 = [selection_tower, selection_wall, selection_farm]
-selects_p2 = [selection_swordsman, selection_archer, selection_trebuchet, selection_defender, selection_bear,
-              selection_necromancer, selection_golem]
+selects_p2 = [selection_swordsman, selection_archer, selection_mancatcher, selection_trebuchet, selection_defender,
+              selection_bear, selection_necromancer, selection_golem]
 selects_p3 = [selection_fireball, selection_freeze, selection_rage, selection_tree]
 selects_all = [selects_p1, selects_p2, selects_p3]
 
@@ -3672,15 +3753,18 @@ class effect:
         if self.ID is not None:
             for e in target.effects:
                 if e.ID == self.ID:
-                    if e.remaining_duration is None or self.remaining_duration is None:
-                        e.remaining_duration = None
-                    else:
-                        e.remaining_duration = max(e.remaining_duration, self.remaining_duration)
+                    self.stack(e)
                     return False
         self.target = target
         self.target.effects.append(self)
         self.on_apply(target)
         return True
+
+    def stack(self, existing):
+        if existing.remaining_duration is None or self.remaining_duration is None:
+            existing.remaining_duration = None
+        else:
+            existing.remaining_duration = max(existing.remaining_duration, self.remaining_duration)
 
     def remove(self):
         if self.target is None:
@@ -3716,6 +3800,21 @@ class effect:
 
     def graphics_hide(self):
         pass
+
+    def on_death(self):
+        pass
+
+
+class effect_catch_man(effect):
+    def __init__(self, amount, duration=None, ID=None, from_aura=None):
+        super().__init__(duration, ID, from_aura)
+        self.amount = amount
+
+    def on_death(self):
+        you = self.target.game.players[1 - self.target.side]
+        res = self.target.__class__.get_cost()
+        for [key, value] in res.items():
+            you.gain_resource(value * self.amount, key)
 
 
 class effect_instant_health(effect):
@@ -3826,8 +3925,9 @@ class effect_combined(effect):
 class aura:
     everywhere = True
 
-    def __init__(self, effect, args, game, side, duration=None, targets=None):
+    def __init__(self, effect, args, game, side, duration=None, targets=None, require_1_tag=False):
         self.effect = effect
+        self.require_1_tag = require_1_tag
         self.args = args
         self.remaining_duration = duration
         self.exists = True
@@ -3842,7 +3942,7 @@ class aura:
             self.exists = False
 
     def apply(self, target):
-        if self.targets is None or target.name in self.targets:
+        if self.targets is None or has_tags(target.name, self.targets, self.require_1_tag):
             self.effect(*self.args, from_aura=self).apply(target)
 
     def delete(self):
@@ -3852,9 +3952,11 @@ class aura:
 class AOE_aura:
     everywhere = False
 
-    def __init__(self, effect, args, x_y_rad, game: Game, side, duration=None, targets=None, frequency=1):
+    def __init__(self, effect, args, x_y_rad, game: Game, side, duration=None, targets=None, frequency=1,
+                 require_1_tag=False):
         self.effect = effect
         self.args = args
+        self.require_1_tag = require_1_tag
         self.remaining_duration = duration
         self.apply_counter = 0
         self.exists = True
@@ -3898,7 +4000,7 @@ class AOE_aura:
         self.exists = False
 
     def apply(self, target):
-        if self.targets is None or target.name in self.targets:
+        if self.targets is None or has_tags(target.name, self.targets, self.require_1_tag):
             self.effect(*self.args).apply(target)
 
 
@@ -3925,7 +4027,6 @@ class Upgrade:
     def finished(self):
         self.player.pending_upgrades.remove(self)
         self.player.owned_upgrades.append(self)
-        print(self.name, self.player.game.ticks)
         self.on_finish()
 
     def on_finish(self):
@@ -4192,14 +4293,16 @@ class Upgrade_bigger_arrows(Upgrade):
     image = images.Arrow_upg
 
     def on_finish(self):
-        aura(effect_stat_mult, ("dmg", float(upgrade_stats[self.name]["mod"])),
-             self.player.game, self.player.side,
-             targets=["Archer", "Tower", "Tower1", "Tower3", "Tower31", "Tower4", "Tower41"],
-             )
-        aura(effect_stat_mult, ("bullet_scale", 2),
-             self.player.game, self.player.side,
-             targets=["Archer", "Tower", "Tower1", "Tower3", "Tower31", "Tower4", "Tower41"]
-             )
+        aura(
+            effect_combined, (
+                (effect_stat_mult, effect_stat_mult),
+                (
+                    ("dmg", float(upgrade_stats[self.name]["mod"])),
+                    ("bullet_scale", 2)
+                )
+            ), self.player.game, self.player.side, targets=["arrows"]
+        )
+
 
 class Upgrade_more_chestplates(Upgrade):
     name = "More Chestplates"
@@ -4209,8 +4312,9 @@ class Upgrade_more_chestplates(Upgrade):
     def on_finish(self):
         aura(effect_stat_mult, ("health", float(upgrade_stats[self.name]["mod"])),
              self.player.game, self.player.side,
-             targets=["Swordsman", "Defender"],
+             targets=["footman"],
              )
+
 
 class Upgrade_bigger_rocks(Upgrade):
     name = "Bigger Rocks"
@@ -4218,15 +4322,16 @@ class Upgrade_bigger_rocks(Upgrade):
     image = images.Boulder
 
     def on_finish(self):
-        aura(effect_stat_mult, ("dmg", float(upgrade_stats[self.name]["mod_dmg"])),
-             self.player.game, self.player.side,
-             targets=["Trebuchet", "Tower2", "Tower21"])
-        aura(effect_stat_mult, ("explosion_radius", float(upgrade_stats[self.name]["mod_rad"])),
-             self.player.game, self.player.side,
-             targets=["Trebuchet", "Tower2", "Tower21"])
-        aura(effect_stat_mult, ("bullet_scale", 2),
-             self.player.game, self.player.side,
-             targets=["Trebuchet", "Tower2", "Tower21"])
+        aura(effect_combined, (
+            (effect_stat_mult, effect_stat_mult, effect_stat_mult),
+            (
+                ("dmg", float(upgrade_stats[self.name]["mod_dmg"])),
+                ("explosion_radius", float(upgrade_stats[self.name]["mod_rad"])),
+                ("bullet_scale", 2)
+            )
+        ),
+             self.player.game, self.player.side, targets=["boulders"]
+             )
 
 
 class Upgrade_egg(Upgrade):
@@ -4255,7 +4360,7 @@ class Upgrade_faster_archery(Upgrade):
     def on_finish(self):
         aura(effect_stat_mult, ("cd", float(upgrade_stats[self.name]["mod"])),
              self.player.game, self.player.side,
-             targets=["Archer", "Tower", "Tower1", "Tower3", "Tower31"])
+             targets=["arrows"])
 
 
 class Upgrade_vigorous_farming(Upgrade):
@@ -4266,7 +4371,7 @@ class Upgrade_vigorous_farming(Upgrade):
     def on_finish(self):
         aura(effect_stat_mult, ("production", float(upgrade_stats[self.name]["mod"])),
              self.player.game, self.player.side,
-             targets=["Farm", "Farm1", "Farm2", "Farm21"])
+             targets=["farm"])
 
 
 class Upgrade_nanobots(Upgrade):
@@ -4277,7 +4382,7 @@ class Upgrade_nanobots(Upgrade):
     def on_finish(self):
         aura(effect_regen, (float(upgrade_stats[self.name]["mod"]),),
              self.player.game, self.player.side,
-             targets=["TownHall", "Wall"] + [e.name for e in possible_buildings])
+             targets=["building", "wall"], require_1_tag=True)
 
 
 class Upgrade_walls(Upgrade):
@@ -4288,7 +4393,7 @@ class Upgrade_walls(Upgrade):
     def on_finish(self):
         aura(effect_stat_mult, ("resistance", float(upgrade_stats[self.name]["mod"])),
              self.player.game, self.player.side,
-             targets=["Wall"])
+             targets=["wall"])
 
 
 class Upgrade_necromancy(Upgrade):
@@ -4334,7 +4439,7 @@ class Upgrade_nature(Upgrade):
     name = "Nature"
 
     def on_finish(self):
-        self.player.unlock_unit(TownHall3)
+        self.player.unlock_unit(TownHall13)
 
 
 class Upgrade_fire(Upgrade):
@@ -4344,7 +4449,7 @@ class Upgrade_fire(Upgrade):
     name = "Fire"
 
     def on_finish(self):
-        self.player.unlock_unit(TownHall2)
+        self.player.unlock_unit(TownHall12)
 
 
 class Upgrade_frost(Upgrade):
@@ -4354,7 +4459,7 @@ class Upgrade_frost(Upgrade):
     name = "Frost"
 
     def on_finish(self):
-        self.player.unlock_unit(TownHall1)
+        self.player.unlock_unit(TownHall11)
 
 
 class Upgrade_tech(Upgrade):
@@ -4364,7 +4469,7 @@ class Upgrade_tech(Upgrade):
     name = "Tech"
 
     def on_finish(self):
-        self.player.unlock_unit(TownHall4)
+        self.player.unlock_unit(TownHall14)
 
 
 for uuuu in [Upgrade_frost, Upgrade_fire, Upgrade_nature, Upgrade_tech]:

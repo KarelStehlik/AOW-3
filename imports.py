@@ -39,6 +39,52 @@ def load_stats():
 unit_stats = load_stats()
 
 
+def load_tags():
+    tagges = {}
+    with open("tags.txt", "r") as cs:
+        units = cs.read().split("\n")
+        for unit in units:
+            name_stats = unit.split(":")
+            tags = []
+            for e in name_stats[1].split(","):
+                tags.append(e)
+            tagges[name_stats[0]] = tags
+    return tagges
+
+
+unit_tags = load_tags()
+
+
+def has_tag(name, tag):
+    if name not in unit_tags:
+        return False
+    return tag in unit_tags[name]
+
+
+def has_all_tags(name, tags):
+    if name not in unit_tags:
+        return False
+    for e in tags:
+        if not has_tag(name, e):
+            return False
+    return True
+
+
+def has_some_tag(name, tags):
+    if name not in unit_tags:
+        return False
+    for e in tags:
+        if has_tag(name, e):
+            return True
+    return False
+
+
+def has_tags(name, tags, any_tag):
+    if any_tag:
+        return has_some_tag(name, tags)
+    return has_all_tags(name, tags)
+
+
 def load_upgrades():
     unit_statst = {}
     with open("upgrade_descriptions.txt", "r") as cs:

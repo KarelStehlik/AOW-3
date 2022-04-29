@@ -58,9 +58,14 @@ class cw_server(Server):
         pass
 
     def tick(self, dt=0):
+        t0 = time.perf_counter()
         self.Pump()
+        t1 = time.perf_counter()
         [e.Pump() for e in self.playing_channels]
+        t2 = time.perf_counter()
         [e.tick() for e in self.games]
+        t3 = time.perf_counter()
+       # print(f"pump : {t1-t1}, channels : {t2-t1}, Game : {t3-t2}")
 
 
 srvr = cw_server(localaddr=("192.168.1.237", 5071))
@@ -69,4 +74,3 @@ srvr = cw_server(localaddr=("192.168.1.237", 5071))
 # pyglet.clock.schedule_interval(srvr.tick, 1.0 / constants.FPS)
 while True:
     srvr.tick()
-    time.sleep(0.001)

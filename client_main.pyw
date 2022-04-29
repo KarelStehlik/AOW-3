@@ -226,8 +226,9 @@ def main():
     while True:
         t += 1
         try:
-            connection.Pump()
-            place.nwl.Pump()
+            if not constants.ARTIFICIAL_DELAY or t % 10 == 0:
+                connection.Pump()
+                place.nwl.Pump()
             place.tick()
             '''if t % 1000 == 0:
                 with cProfile.Profile() as pr:
