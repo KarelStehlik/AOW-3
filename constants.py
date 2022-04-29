@@ -2,7 +2,7 @@ import pyglet
 
 CHEATS = False
 FACTION_LOCK = False
-ARTIFICIAL_DELAY = True
+ARTIFICIAL_DELAY = False
 display = pyglet.canvas.Display()
 screen = display.get_default_screen()
 SCREEN_WIDTH = screen.width  # //2
