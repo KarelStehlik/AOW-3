@@ -2454,8 +2454,8 @@ class Formation:
                             column - self.game.unit_formation_columns / 2,
                             row - self.game.unit_formation_rows / 2,
                             game, self,
-                            effects=(effect_stat_mult("health", amplifier),
-                                     effect_stat_mult("dmg", amplifier))
+                            effects=() if amplifier == 1.0 else (effect_stat_mult("health", amplifier),
+                                                                 effect_stat_mult("dmg", amplifier))
                         )
                     )
         self.instr_object = instruction_moving(self, self.x, self.y)
@@ -2952,8 +2952,8 @@ class Unit:
         x, y = self.x * SPRITE_SIZE_MULT - self.game.camx, self.y * SPRITE_SIZE_MULT - self.game.camy
         if self.shown:
             self.sprite.update(x=x, y=y, rotation=(-self.rotation * 180 / math.pi + 90) if self.recent_target is None
-                               else -get_rotation(self.recent_target.x - self.x,
-                                                  self.recent_target.y - self.y) * 180 / math.pi+90)
+            else -get_rotation(self.recent_target.x - self.x,
+                               self.recent_target.y - self.y) * 180 / math.pi + 90)
             [e.graphics_update(dt) for e in self.effects]
             self.update_hpbar()
             if x + self.size < 0 or x - self.size > SCREEN_WIDTH or y + self.size < 0 or y - self.size > SCREEN_HEIGHT:

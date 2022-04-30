@@ -1388,8 +1388,8 @@ class Formation:
                             column - self.game.unit_formation_columns / 2,
                             row - self.game.unit_formation_rows / 2,
                             game, self,
-                            effects=(effect_stat_mult("health", amplifier),
-                                     effect_stat_mult("dmg", amplifier))
+                            effects=() if amplifier == 1.0 else (effect_stat_mult("health", amplifier),
+                                                                 effect_stat_mult("dmg", amplifier))
                         )
                     )
         self.instr_object = instruction_moving(self, self.x, self.y)
