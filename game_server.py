@@ -2684,3 +2684,43 @@ class Rage(Spell):
 
 
 possible_spells = [Fireball, Freeze, Rage, Tree_spell]
+
+
+class Merchant:
+    def __init__(self, x, y, game: Game, tick):
+        self.x = x
+        self.y = y
+        self.game = game
+        self.menu = Merchant.get_menu(tick)
+        self.spawning = game.ticks - tick
+        self.player_resources = [{}, {}]
+        self.tick = Merchant.tick
+        self.chunks = get_chunks_force_circle(x, y, MERCHANT_RANGE)
+
+    def tick(self):
+        if self.spawning < FPS * ACTION_DELAY:
+            self.spawning += 1
+        if self.spawning >= FPS * ACTION_DELAY:
+            self.spawn()
+
+    def spawn(self):
+        self.tick = self.tick2
+
+    def tick2(self):
+        for c in self.chunks:
+            ch = self.game.find_chunk(c)
+            if ch is not None:
+                for e in ch.units:
+                    for unit in e:
+                        if unit.distance_to_point(self.x, self.y) < MERCHANT_RANGE:
+                            unit.die()
+                            price = unit.__class__.get_cost()
+                            for resource, amount in price.items():
+                                if resource in self.player_resources[unit.side].keys():
+                                    self.player_resources[unit.side][resource] += amount
+                                else:
+                                    self.player_resources[unit.side][resource] = amount
+
+    @staticmethod
+    def get_menu(tick):
+        return []

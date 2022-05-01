@@ -672,6 +672,7 @@ class UI_top_bar(client_utility.toolbar):
         self.timer.vertices[4:11:2] = [x] * 4
         self.timer_text.text = "next wave in: " + str(
             int((self.last_wave_tick + WAVE_INTERVAL - self.game.ticks) * INV_FPS) + 1)
+        self.timer_text.text=str(self.game.ticks)
 
 
 class minimap(client_utility.toolbar):
