@@ -23,7 +23,6 @@ for root, dirs, files in os.walk("noise/"):
         split = file.split(".")[0].split("_")
         if split[0] in actions:
             names = [e.capitalize() for e in split[1:-1]]
-            print(names)
             act = split[0]
             for name in names:
                 sounds[name][act].append(pyglet.media.load("noise/" + file, streaming=False))
@@ -33,6 +32,7 @@ for unit in unit_stats.keys():
         sounds[unit][act] = tuple(sounds[unit][act])
 
 bgm = load("spectre")
+arrow_launched = load("bow_pew")
 building_destroyed = load("building_destroyed")
 
 if __name__ == "__main__":

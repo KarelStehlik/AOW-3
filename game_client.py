@@ -3207,8 +3207,8 @@ class Projectile:
         if self.recursion > 0:
             for i in range(self.cluster):
                 self.__class__(self.x, self.y, 0, 0, self.game, self.side, self.damage, self.source, self.speed,
-                               self.max_reach * .7,
-                               scale=self.sprite.scale / SPRITE_SIZE_MULT * .9, pierce=self.max_pierce,
+                               self.max_reach * RECURSION_REACH,
+                               scale=self.sprite.scale / SPRITE_SIZE_MULT, pierce=self.max_pierce,
                                cluster=self.cluster, rotation=self.game.ticks + 2 * math.pi * i / self.cluster,
                                recursion=self.recursion - 1)
 
@@ -3254,6 +3254,12 @@ class Arrow(Projectile):
     image = images.Arrow
     scale = .1
 
+    def __init__(self, x, y, dx, dy, game, side, damage, source, speed, reach, scale=None, pierce=2, cluster=5,
+                 rotation=None, recursion=2, animated=False):
+        super().__init__(x, y, dx, dy, game, side, damage, source, speed, reach, scale, pierce, cluster, rotation,
+                         recursion, animated)
+        noise.arrow_launched.play()
+
 
 class flame_wave(Projectile_with_size):
     image = images.flame_wave
@@ -3294,8 +3300,8 @@ class Boulder(Projectile):
         if self.recursion > 0:
             for i in range(self.cluster):
                 self.__class__(self.x, self.y, 0, 0, self.game, self.side, self.damage, self.source, self.speed,
-                               self.max_reach * .7,
-                               self.radius * .7, self.sprite.scale / SPRITE_SIZE_MULT * .9, self.max_pierce,
+                               self.max_reach * RECURSION_REACH,
+                               self.radius, self.sprite.scale / SPRITE_SIZE_MULT, self.max_pierce,
                                self.cluster,
                                self.game.ticks + 2 * math.pi * i / self.cluster,
                                self.recursion - 1)
@@ -3373,8 +3379,8 @@ class Meteor(Projectile):
         if self.recursion > 0:
             for i in range(self.cluster):
                 self.__class__(self.x, self.y, 0, 0, self.game, self.side, self.damage, self.source, self.speed,
-                               self.max_reach * .7,
-                               self.radius * .7, self.sprite.scale / SPRITE_SIZE_MULT * .9, self.max_pierce,
+                               self.max_reach * RECURSION_REACH,
+                               self.radius, self.sprite.scale / SPRITE_SIZE_MULT, self.max_pierce,
                                self.cluster,
                                self.game.ticks + 2 * math.pi * i / self.cluster,
                                self.recursion - 1)

@@ -32,6 +32,8 @@ def load_stats():
                     stats[k[0]] = float(k[1])
                 if k[0] == "speed":
                     stats[k[0]] /= constants.FPS
+            if "resistance" not in stats.keys():
+                stats["resistance"] = 1
             unit_statst[name_stats[0]] = stats
     return unit_statst
 

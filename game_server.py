@@ -1891,7 +1891,7 @@ class Projectile:
         if self.recursion > 0:
             for i in range(self.cluster):
                 self.__class__(self.x, self.y, 0, 0, self.game, self.side, self.damage, self.source, self.speed,
-                               self.max_reach * .7,
+                               self.max_reach * RECURSION_REACH,
                                pierce=self.max_pierce, cluster=self.cluster,
                                rotation=self.game.ticks + 2 * math.pi * i / self.cluster, recursion=self.recursion - 1)
 
@@ -1969,8 +1969,8 @@ class Boulder(Projectile):
         if self.recursion > 0:
             for i in range(self.cluster):
                 self.__class__(self.x, self.y, 0, 0, self.game, self.side, self.damage, self.source, self.speed,
-                               self.max_reach * .7,
-                               self.radius * .7, self.max_pierce, self.cluster,
+                               self.max_reach * RECURSION_REACH,
+                               self.radius, self.max_pierce, self.cluster,
                                self.game.ticks + 2 * math.pi * i / self.cluster, self.recursion - 1)
 
 
