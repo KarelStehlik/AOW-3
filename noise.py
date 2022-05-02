@@ -20,11 +20,13 @@ for unit in unit_stats.keys():
 
 for root, dirs, files in os.walk("noise/"):
     for file in files:
-        split = file.split("_")
+        split = file.split(".")[0].split("_")
         if split[0] in actions:
-            name = split[1].split(".")[0].capitalize()
+            names = [e.capitalize() for e in split[1:-1]]
+            print(names)
             act = split[0]
-            sounds[name][act].append(pyglet.media.load("noise/" + file, streaming=False))
+            for name in names:
+                sounds[name][act].append(pyglet.media.load("noise/" + file, streaming=False))
 
 for unit in unit_stats.keys():
     for act in actions:
