@@ -237,7 +237,7 @@ def main():
                 stats.print_stats()
             else:
                 place.tick()
-            # pyglet.clock.tick()'''
+            '''
         except Exception as e:
             place.error_close()
             raise e

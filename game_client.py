@@ -3,6 +3,7 @@ import groups
 from constants import *
 import images
 import client_utility
+import noise
 
 
 class Game:
@@ -56,6 +57,12 @@ class Game:
         self.obstacles_vlist = obstacle_vertexlist(self)
         self.all_obstacles = []
         self.pathing_map = np.ones((int((MOUNTAINSPREAD + MOUNTAINSIZE * MOUNTAINS) / PATHING_CHUNK_SIZE),) * 2)
+        p = self.bgm = pyglet.media.Player()
+        p.loop = True
+        p.queue(noise.bgm)
+        p.play()
+        p.volume = 0.3
+        self.last_clock_tick = time.perf_counter()
 
     def open_upgrade_menu(self):
         if self.upgrade_menu is None:
@@ -135,6 +142,9 @@ class Game:
             self.players[1].gain_money(PASSIVE_INCOME)
             self.players[0].gain_mana(PASSIVE_MANA)
             self.players[1].gain_mana(PASSIVE_MANA)
+            if time.perf_counter() - self.last_clock_tick > .3:
+                pyglet.clock.tick()
+                self.last_clock_tick = time.perf_counter()
         self.update_cam(self.last_dt)
         self.players[0].graphics_update(self.last_dt)
         self.players[1].graphics_update(self.last_dt)
@@ -1394,6 +1404,7 @@ class Building:
             return
         self.delete()
         self.on_die()
+        noise.building_destroyed.play()
 
     def delete(self):
         if not self.exists:
@@ -2636,6 +2647,7 @@ class Unit:
     name = "None"
 
     def __init__(self, ID, x, y, side, column, row, game: Game, formation: Formation, effects=()):
+        self.sounds = noise.sounds[self.name]
         self.entity_type = "unit"
         self.last_camx, self.last_camy = game.camx, game.camy
         self.ID = ID
@@ -2878,6 +2890,8 @@ class Unit:
         while self.effects:
             self.effects[0].on_death()
             self.effects[0].remove()
+        if self.sounds["die"]:
+            random.choice(self.sounds["die"]).play()
 
     def take_knockback(self, x, y, source):
         if not self.exists:
@@ -2904,6 +2918,8 @@ class Unit:
         self.sprite.opacity = 255
         self.game.players[self.side].on_unit_summon(self)
         self.update_stats()
+        if self.sounds["spawn"]:
+            random.choice(self.sounds["spawn"]).play()
 
     def update_cam(self, x, y):
         return
