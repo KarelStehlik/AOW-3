@@ -265,7 +265,7 @@ class Game:
 
     def find_building(self, ID, side, entity_type=None):
         for e in self.players[side].all_buildings:
-            if e.ID == ID and (entity_type is None or e.entity_type == entity_type):
+            if e.ID == ID and (entity_type == None or e.entity_type == entity_type):
                 return e
         return None
 
@@ -458,7 +458,7 @@ class Building:
     def __init__(self, x, y, side, game, instant=False, size_override=None):
         x, y = int(x), int(y)
         self.spawning = 0
-        self.ID = (x, y, self.name, game.ticks - self.spawning)
+        self.ID = (x, y, self.name, game.ticks)
         self.x, self.y = x, y
         self.side = side
         self.size = unit_stats[self.name]["size"] if size_override is None else size_override
@@ -586,6 +586,54 @@ class Building:
                 e.take_knockback(dx * shovage, dy * shovage, self)
 
 
+class RangedBuilding(Building):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.current_cooldown = 0
+        self.target = None
+        self.shooting_in_chunks = get_chunks_force_circle(self.x, self.y, 2 * self.stats["reach"])
+        self.turns_without_target = 0
+
+    def tick2(self):
+        super().tick2()
+        assert self.frozen >= 0
+        if self.frozen == 0:
+            if self.current_cooldown > 0:
+                self.current_cooldown -= 1 * INV_FPS
+            if self.current_cooldown <= 0:
+                if self.acquire_target():
+                    self.current_cooldown += self.stats["cd"]
+                    self.attack(self.target)
+                else:
+                    self.turns_without_target += 1
+
+    def acquire_target(self):
+        if self.target is not None and \
+                self.target.exists and self.target.distance_to_point(self.x, self.y) < self.stats["reach"]:
+            return True
+        if self.turns_without_target == 60 or self.turns_without_target == 0:
+            self.turns_without_target = 0
+            for c in self.shooting_in_chunks:
+                chonker = self.game.find_chunk(c)
+                if chonker is not None:
+                    for unit in chonker.units[1 - self.side]:
+                        if unit.exists and unit.distance_to_point(self.x, self.y) < self.stats["reach"]:
+                            self.target = unit
+                            self.turns_without_target = 0
+                            return True
+                    for unit in chonker.buildings[1 - self.side]:
+                        if unit.exists and unit.distance_to_point(self.x, self.y) < self.stats["reach"]:
+                            self.target = unit
+                            self.turns_without_target = 0
+                            return True
+            return False
+        return False
+
+    def attack(self, target):
+        pass
+
+
+
 class Tree(Building):
     name = "Tree"
     entity_type = "tree"
@@ -673,7 +721,7 @@ class TownHall_upgrade(Building):
         return resources
 
 
-class TownHall1(TownHall_upgrade):
+class TownHall1(TownHall_upgrade, RangedBuilding):
     name = "TownHall1"
     upgrades = []
 
@@ -684,46 +732,11 @@ class TownHall1(TownHall_upgrade):
         self.shooting_in_chunks = get_chunks_force_circle(self.x, self.y, 2 * self.stats["reach"])
         self.turns_without_target = 0
 
-    def tick2(self):
-        super().tick2()
-        assert self.frozen >= 0
-        if self.frozen == 0:
-            if self.current_cooldown > 0:
-                self.current_cooldown -= 1 * INV_FPS
-            if self.current_cooldown <= 0:
-                if self.acquire_target():
-                    self.current_cooldown += self.stats["cd"]
-                    self.attack(self.target)
-                else:
-                    self.turns_without_target += 1
-
     def attack(self, target):
         Arrow(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"], self,
               self.stats["bulletspeed"],
               self.stats["reach"] * 1.5, pierce=self.stats["pierce"], cluster=self.stats["cluster"],
               recursion=self.stats["recursion"])
-
-    def acquire_target(self):
-        if self.target is not None and \
-                self.target.exists and self.target.distance_to_point(self.x, self.y) < self.stats["reach"]:
-            return True
-        if self.turns_without_target == 60 or self.turns_without_target == 0:
-            self.turns_without_target = 0
-            for c in self.shooting_in_chunks:
-                chonker = self.game.find_chunk(c)
-                if chonker is not None:
-                    for unit in chonker.units[1 - self.side]:
-                        if unit.exists and unit.distance_to_point(self.x, self.y) < self.stats["reach"]:
-                            self.target = unit
-                            self.turns_without_target = 0
-                            return True
-                    for unit in chonker.buildings[1 - self.side]:
-                        if unit.exists and unit.distance_to_point(self.x, self.y) < self.stats["reach"]:
-                            self.target = unit
-                            self.turns_without_target = 0
-                            return True
-            return False
-        return False
 
 
 class TownHall11(TownHall_upgrade):
@@ -747,7 +760,7 @@ class TownHall11(TownHall_upgrade):
         [e.delete() for e in self.additionals]
 
 
-class TownHall12(TownHall_upgrade):
+class TownHall12(TownHall_upgrade, RangedBuilding):
     name = "TownHall12"
     upgrades = []
 
@@ -778,28 +791,6 @@ class TownHall12(TownHall_upgrade):
                    cluster=self.stats["cluster"],
                    recursion=self.stats["recursion"])
 
-    def acquire_target(self):
-        if self.target is not None and \
-                self.target.exists and self.target.distance_to_point(self.x, self.y) < self.stats["reach"]:
-            return True
-        if self.turns_without_target == 60 or self.turns_without_target == 0:
-            self.turns_without_target = 0
-            for c in self.shooting_in_chunks:
-                chonker = self.game.find_chunk(c)
-                if chonker is not None:
-                    for unit in chonker.units[1 - self.side]:
-                        if unit.exists and unit.distance_to_point(self.x, self.y) < self.stats["reach"]:
-                            self.target = unit
-                            self.turns_without_target = 0
-                            return True
-                    for unit in chonker.buildings[1 - self.side]:
-                        if unit.exists and unit.distance_to_point(self.x, self.y) < self.stats["reach"]:
-                            self.target = unit
-                            self.turns_without_target = 0
-                            return True
-            return False
-        return False
-
 
 class TownHall13(TownHall_upgrade):
     upgrades = []
@@ -818,18 +809,14 @@ class TownHall14(TownHall_upgrade):
     name = "TownHall14"
 
 
-class Tower(Building):
+class Tower(RangedBuilding):
     name = "Tower"
     entity_type = "tower"
     upgrades = []
 
     def __init__(self, x, y, side, game):
         super().__init__(x, y, side, game)
-        self.current_cooldown = 0
-        self.target = None
-        self.shooting_in_chunks = get_chunks_force_circle(self.x, self.y, 2 * self.stats["reach"])
         self.upgrades_into = [e for e in self.upgrades]
-        self.turns_without_target = 0
 
     @classmethod
     def get_cost(cls, params=()):
@@ -839,46 +826,11 @@ class Tower(Building):
                 resources[e[5::]] = unit_stats[cls.name][e]
         return resources
 
-    def tick2(self):
-        super().tick2()
-        assert self.frozen >= 0
-        if self.frozen == 0:
-            if self.current_cooldown > 0:
-                self.current_cooldown -= 1 * INV_FPS
-            if self.current_cooldown <= 0:
-                if self.acquire_target():
-                    self.current_cooldown += self.stats["cd"]
-                    self.attack(self.target)
-                else:
-                    self.turns_without_target += 1
-
     def attack(self, target):
         Arrow(self.x, self.y, *target.towards(self.x, self.y), self.game, self.side, self.stats["dmg"], self,
               self.stats["bulletspeed"],
               self.stats["reach"] * 1.5, pierce=self.stats["pierce"], cluster=self.stats["cluster"],
               recursion=self.stats["recursion"])
-
-    def acquire_target(self):
-        if self.target is not None and \
-                self.target.exists and self.target.distance_to_point(self.x, self.y) < self.stats["reach"]:
-            return True
-        if self.turns_without_target == 60 or self.turns_without_target == 0:
-            self.turns_without_target = 0
-            for c in self.shooting_in_chunks:
-                chonker = self.game.find_chunk(c)
-                if chonker is not None:
-                    for unit in chonker.units[1 - self.side]:
-                        if unit.exists and unit.distance_to_point(self.x, self.y) < self.stats["reach"]:
-                            self.target = unit
-                            self.turns_without_target = 0
-                            return True
-                    for unit in chonker.buildings[1 - self.side]:
-                        if unit.exists and unit.distance_to_point(self.x, self.y) < self.stats["reach"]:
-                            self.target = unit
-                            self.turns_without_target = 0
-                            return True
-            return False
-        return False
 
 
 class Tower_upgrade(Tower):
@@ -1029,7 +981,7 @@ class Tower221(Tower_upgrade):
             self.attack(None)
 
 
-class Turret(Building):
+class Turret(RangedBuilding):
     name = "Turret"
     entity_type = "tower"
     upgrades = []
@@ -1040,10 +992,7 @@ class Turret(Building):
             super().__init__(x, y, side, game, instant=True, size_override=stats["size"])
         else:
             super().__init__(x, y, side, game, instant=True)
-        self.current_cooldown = 0
-        self.target = None
         self.upgrades_into = []
-        self.turns_without_target = 0
         for s in stats:
             self.base_stats[s] = stats[s]
         self.lifetime = lifetime
@@ -1054,19 +1003,9 @@ class Turret(Building):
 
     def tick2(self):
         super().tick2()
-        assert self.frozen >= 0
-        if self.frozen == 0:
-            if self.current_cooldown > 0:
-                self.current_cooldown -= 1 * INV_FPS
-            if self.current_cooldown <= 0:
-                if self.acquire_target():
-                    self.current_cooldown += self.stats["cd"]
-                    self.attack(self.target)
-                else:
-                    self.turns_without_target += 1
         self.lifetime -= INV_FPS
         if self.lifetime <= 0:
-            self.die()
+            self.delete()
 
     def attack(self, target):
         Bullet(self.x, self.y, get_rotation_norm(*target.towards(self.x, self.y)), self.game, self.side,
@@ -1074,28 +1013,6 @@ class Turret(Building):
                self.stats["bulletspeed"],
                self.stats["reach"] * 1.5, pierce=self.stats["pierce"], cluster=self.stats["cluster"],
                recursion=self.stats["recursion"])
-
-    def acquire_target(self):
-        if self.target is not None and \
-                self.target.exists and self.target.distance_to_point(self.x, self.y) < self.stats["reach"]:
-            return True
-        if self.turns_without_target == 60 or self.turns_without_target == 0:
-            self.turns_without_target = 0
-            for c in self.shooting_in_chunks:
-                chonker = self.game.find_chunk(c)
-                if chonker is not None:
-                    for unit in chonker.units[1 - self.side]:
-                        if unit.exists and unit.distance_to_point(self.x, self.y) < self.stats["reach"]:
-                            self.target = unit
-                            self.turns_without_target = 0
-                            return True
-                    for unit in chonker.buildings[1 - self.side]:
-                        if unit.exists and unit.distance_to_point(self.x, self.y) < self.stats["reach"]:
-                            self.target = unit
-                            self.turns_without_target = 0
-                            return True
-            return False
-        return False
 
 
 class Tower21(Tower_upgrade):
@@ -2121,6 +2038,7 @@ def AOE_damage(x, y, size, amount, source, game, type=None):
             for wall in c.walls[1 - side]:
                 if wall.exists and wall.distance_to_point(x, y) < size and wall not in affected_things:
                     affected_things.append(wall)
+
     for e in affected_things:
         e.take_damage(amount, source, type)
 
@@ -2368,7 +2286,6 @@ class Upgrade:
         return False
 
     def finished(self):
-        print(self.player.game.ticks, self.name)
         self.player.pending_upgrades.remove(self)
         self.player.owned_upgrades.append(self)
         self.on_finish()
