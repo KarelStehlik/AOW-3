@@ -32,6 +32,13 @@ for unit in unit_stats.keys():
         sounds[unit][act] = tuple(sounds[unit][act])
 
 bgm = load("spectre")
+TH_death = load("TownHall_dies")
+
+def get_music():
+    while True:
+        yield bgm
+
+
 arrow_launched = load("bow_pew")
 building_destroyed = load("building_destroyed")
 

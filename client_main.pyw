@@ -9,9 +9,6 @@ import client_utility
 from imports import *
 
 
-# connection.DoConnect(('127.0.0.1', 5071))
-
-
 class MyNetworkListener(ConnectionListener):
     def __init__(self, *args, **kwargs):
         super().__init__()
@@ -219,6 +216,7 @@ def main():
 
     connection.DoConnect(('192.168.1.237', 5071))
     # place = windoo(caption='test', fullscreen=True)
+    #connection.DoConnect(('127.0.0.1', 5071))
     place = windoo(caption='test', style=pyglet.window.Window.WINDOW_STYLE_BORDERLESS, width=constants.SCREEN_WIDTH,
                    height=constants.SCREEN_HEIGHT)
     place.set_location(0, 0)
