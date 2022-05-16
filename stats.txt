@@ -13,7 +13,7 @@ Tower2:size=50,health=2000,cost=1500,dmg=12,cd=1.6,reach=350,bulletspeed=8,explo
 Tower11:size=50,health=1500,cost=3500,dmg=12,cd=0.02,reach=350,bulletspeed=15,spread=0.2,shots=2,bullet_scale=.05,pierce=1,cluster=0,recursion=0
 Tower21:size=50,health=3000,cost=6000,dmg=30,cd=2,reach=800,bulletspeed=20,explosion_radius=100,bullet_scale=.15,pierce=1,cluster=0,recursion=0
 Tower22:size=50,health=3000,cost=25000,dmg=250,cd=8,reach=250,bulletspeed=20,explosion_radius=200,bullet_scale=.07,pierce=1,cluster=0,recursion=0,duration=5000
-Tower221:size=70,health=3000,cost=99000,cd=0.02,reach=250,bulletspeed=20,bullet_scale=.07,pierce=1,cluster=0,recursion=0,t_health=900,t_dmg=20,t_cd=0.05,t_reach=400,t_bulletspeed=20,t_bullet_scale=.04,spawn_lifetime=25,t_size=40
+Tower221:size=70,health=3000,cost=99000,cd=2,reach=250,bulletspeed=20,bullet_scale=.07,pierce=1,cluster=0,recursion=0,t_health=900,t_dmg=20,t_cd=0.05,t_reach=400,t_bulletspeed=20,t_bullet_scale=.04,spawn_lifetime=25,t_size=40
 Turret:size=25,health=900,cost=1500,dmg=5,cd=0.2,reach=0,bulletspeed=6,proximity=500,bullet_scale=.04,pierce=1,cluster=0,recursion=0
 Tower23:size=75,health=6900,cost=35000,dmg=100,cd=.3,reach=100
 Tower231:size=100,health=20000,cost=150000,dmg=150,cd=.2,reach=400,bulletspeed=10,bullet_size=250,pierce=1000,cluster=0,recursion=0,flame_radius=150,dmg2=30
