@@ -28,12 +28,12 @@ Farm21:size=200,health=5000,cost=100000,production=1,proximity=500,spell_resista
 Wall:size=35,health=3000,cost=1000
 Swordsman:vwidth=20,vheight=20,speed=250,size=19,health=60,dmg=20,cd=1,reach=10,cost=50,mass=1
 Defender:vwidth=20,vheight=20,speed=150,size=19,health=300,dmg=1,cd=0.6,reach=10,cost=200,mass=3
-Mancatcher:vwidth=60,vheight=60,speed=250,size=19,health=50,dmg=.1,cd=0.02,reach=110,cost=200,mass=5,slow=8,steal=2,duration=30
+Mancatcher:vwidth=60,vheight=60,speed=250,size=19,health=50,dmg=.1,cd=0.02,reach=110,cost=200,mass=5,slow=80000000000,steal=2,duration=30
 Archer:vwidth=20,vheight=20,speed=200,size=19,health=20,dmg=15,cd=0.7,reach=300,cost=100,bulletspeed=9,mass=.8,bullet_scale=.15,pierce=1,cluster=0,recursion=0
 Trebuchet:vwidth=50,vheight=50,speed=75,size=50,health=70,dmg=500,cd=6,reach=500,cost=1000,bulletspeed=3,explosion_radius=150,mass=30,bullet_scale=.15,pierce=1,cluster=0,recursion=0,min_range=200
 Bear:vwidth=80,vheight=150,speed=350,size=60,health=1500,dmg=200,cd=0.1,reach=30,cost=8000,mass=20
 Necromancer:vwidth=40,vheight=40,speed=150,size=40,health=150,dmg=2,cd=.01,reach=200,cost=2500,mass=2,steal=3
-Zombie:vwidth=20,vheight=22,speed=400,size=19,health=10,dmg=1,cd=0,reach=8,cost=30,mass=.2,steal=1
+Zombie:vwidth=20,vheight=22,speed=400,size=19,health=10,dmg=1,cd=0,reach=8,cost=30,mass=0.2,steal=1
 Fireball:cost=500,radius=150,dmg=2000,delay=.02
 Tree_spell:cost=700,radius=300,delay=60,trees=10,tree_size=1
 Freeze:cost=300,radius=150,duration=200,delay=60

@@ -1737,9 +1737,10 @@ class Mancatcher(Unit):
     name = "Mancatcher"
 
     def attack(self, target):
-        if has_tag(target.name, "unit") and not has_tag(target.name, "unplayable"):
-            effect_catch_man(self.stats["steal"],
-                             self.stats["cd"] * self.stats["duration"] * FPS, "mancatcher").apply(target)
+        if has_tag(target.name, "unit"):
+            if not has_tag(target.name, "unplayable"):
+                effect_catch_man(self.stats["steal"],
+                                 self.stats["cd"] * self.stats["duration"] * FPS, "mancatcher").apply(target)
             effect_stat_add("speed", -self.stats["slow"] * self.mass / target.mass,
                             self.stats["cd"] * self.stats["duration"] * FPS, self.ID).apply(target)
         target.take_damage(self.stats["dmg"], self)

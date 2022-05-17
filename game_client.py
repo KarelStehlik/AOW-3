@@ -58,9 +58,10 @@ class Game:
         self.all_obstacles = []
         self.pathing_map = np.ones((int((MOUNTAINSPREAD + MOUNTAINSIZE * MOUNTAINS) / PATHING_CHUNK_SIZE),) * 2)
         p = self.bgm = pyglet.media.Player()
-        p.queue(noise.get_music())
+        p.queue(noise.bgm)
         p.play()
         p.volume = MUSIC
+        p.loop=True
         self.last_clock_tick = time.perf_counter()
 
     def open_upgrade_menu(self):
@@ -142,6 +143,7 @@ class Game:
             self.players[0].gain_mana(PASSIVE_MANA)
             self.players[1].gain_mana(PASSIVE_MANA)
             if time.perf_counter() - self.last_clock_tick > .3:
+                pyglet.app.platform_event_loop.step(0)
                 pyglet.clock.tick()
                 self.last_clock_tick = time.perf_counter()
         self.update_cam(self.last_dt)
@@ -1404,7 +1406,7 @@ class Building:
             return
         self.delete()
         self.on_die()
-        noise.building_destroyed.play().volume = SFX
+        noise.play(self.name, "die")
 
     def delete(self):
         if not self.exists:
@@ -1498,8 +1500,7 @@ class RangedBuilding(Building):
             if self.current_cooldown <= 0:
                 if self.acquire_target():
                     self.current_cooldown += self.stats["cd"]
-                    if self.sounds["attack"]:
-                        random.choice(self.sounds["attack"]).play().volume = SFX
+                    noise.play(self.name, "attack")
                     self.attack(self.target)
                 else:
                     self.turns_without_target += 1
@@ -1898,8 +1899,7 @@ class Tower22(tower_upgrade, Tower):
             self.current_cooldown -= 1 * INV_FPS
         if self.current_cooldown <= 0:
             self.current_cooldown += self.stats["cd"]
-            if self.sounds["attack"]:
-                random.choice(self.sounds["attack"]).play().volume = SFX
+            noise.play(self.name, "attack")
             if self.acquire_target():
                 self.attack(self.target)
             else:
@@ -1932,8 +1932,7 @@ class Tower221(tower_upgrade, Tower):
             self.current_cooldown -= 1 * INV_FPS
         if self.current_cooldown <= 0:
             self.current_cooldown += self.stats["cd"]
-            if self.sounds["attack"]:
-                random.choice(self.sounds["attack"]).play().volume = SFX
+            noise.play(self.name, "attack")
             self.attack(None)
 
 
@@ -2378,8 +2377,6 @@ class Formation:
         return cost
 
     def tick(self):
-        if self.warn_opacity > 0:
-            self.warn_opacity -= 2
         if self.spawning < FPS * ACTION_DELAY:
             self.spawning += 1
         if self.spawning >= FPS * ACTION_DELAY:
@@ -2436,6 +2433,7 @@ class Formation:
             self.update_warning(x, y)
 
     def update_warning(self, x, y):
+        self.warn_opacity = max(0, self.warn_opacity-1)
         warn_distance = 350
         dist = hypot(self.x * SPRITE_SIZE_MULT - x - SCREEN_WIDTH / 2,
                      self.y * SPRITE_SIZE_MULT - y - SCREEN_HEIGHT / 2)
@@ -2447,7 +2445,7 @@ class Formation:
         else:
             self.warning.update(x=self.x * SPRITE_SIZE_MULT - x,
                                 y=self.y * SPRITE_SIZE_MULT - y)
-        if self.warn_opacity > 0:
+        if self.warning.opacity > 0:
             self.warning.opacity = self.warn_opacity
         else:
             self.warning.delete()
@@ -2720,8 +2718,7 @@ class Unit:
     def attempt_attack(self, target):
         if self.current_cooldown <= 0:
             self.current_cooldown += self.stats["cd"]
-            if self.sounds["attack"]:
-                random.choice(self.sounds["attack"]).play().volume = SFX
+            noise.play(self.name, "attack")
             self.attack(target)
 
     def attack(self, target):
@@ -2781,8 +2778,7 @@ class Unit:
         while self.effects:
             self.effects[0].on_death()
             self.effects[0].remove()
-        if self.sounds["die"]:
-            random.choice(self.sounds["die"]).play().volume = SFX
+        noise.play(self.name, "die")
 
     def take_knockback(self, x, y, source):
         if not self.exists:
@@ -2809,8 +2805,7 @@ class Unit:
         self.sprite.opacity = 255
         self.game.players[self.side].on_unit_summon(self)
         self.update_stats()
-        if self.sounds["spawn"]:
-            random.choice(self.sounds["spawn"]).play().volume = SFX
+        noise.play(self.name, "spawn")
 
     def update_cam(self, x, y):
         return
@@ -2930,9 +2925,10 @@ class Mancatcher(Unit):
     name = "Mancatcher"
 
     def attack(self, target):
-        if has_tag(target.name, "unit") and not has_tag(target.name, "unplayable"):
-            effect_catch_man(self.stats["steal"],
-                             self.stats["cd"] * self.stats["duration"] * FPS, "mancatcher").apply(target)
+        if has_tag(target.name, "unit"):
+            if not has_tag(target.name, "unplayable"):
+                effect_catch_man(self.stats["steal"],
+                                 self.stats["cd"] * self.stats["duration"] * FPS, "mancatcher").apply(target)
             effect_stat_add("speed", -self.stats["slow"] * self.mass / target.mass,
                             self.stats["cd"] * self.stats["duration"] * FPS, self.ID).apply(target)
         target.take_damage(self.stats["dmg"], self)
@@ -3259,7 +3255,6 @@ class Arrow(Projectile):
                  rotation=None, recursion=2, animated=False):
         super().__init__(x, y, dx, dy, game, side, damage, source, speed, reach, scale, pierce, cluster, rotation,
                          recursion, animated)
-        noise.arrow_launched.play().volume = SFX
 
 
 class flame_wave(Projectile_with_size):
