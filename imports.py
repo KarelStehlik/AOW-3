@@ -17,6 +17,42 @@ import numpy as np
 pyglet.gl.glEnable(pyglet.gl.GL_BLEND)
 
 
+@njit
+def distance(x1, y1, x2, y2):
+    return ((x1 - x2) ** 2 + (y1 - y2) ** 2) ** .5
+
+
+distance(1.1, 1.1, 1.1, 1.1)
+distance(1, 1, 1, 1)
+
+
+@njit
+def distance_squared(x1, y1, x2, y2):
+    return (x1 - x2) ** 2 + (y1 - y2) ** 2
+
+
+distance_squared(1.1, 1.1, 1.1, 1.1)
+distance_squared(1, 1, 1, 1)
+
+
+@njit
+def hypot(x, y):
+    return (x ** 2 + y ** 2) ** .5
+
+
+hypot(1.1, 1.1)
+hypot(1, 1)
+
+
+@njit
+def hypot_squared(x, y):
+    return x ** 2 + y ** 2
+
+
+hypot_squared(1.1, 1.1)
+hypot_squared(1, 1)
+
+
 def load_stats():
     unit_statst = {}
     with open("stats.txt", "r") as cs:
@@ -171,6 +207,19 @@ def get_chunks_force_circle(x, y, size):
 get_chunks_force_circle(1.1, 1.1, 1.1)
 
 
+def get_chunks_spiral(x, y, size):
+    # return [[int(x * constants.INV_CHUNK_SIZE), int(y * constants.INV_CHUNK_SIZE)]]
+    chunks = get_chunks(x, y, size)
+
+    chunks.sort(
+        key=lambda chunk: distance(constants.CHUNK_SIZE * (chunk[0] + .5), constants.CHUNK_SIZE * (chunk[1] + .5), x,
+                                   y))
+    return chunks
+
+
+get_chunks_spiral(1.1, 1.1, 1.4)
+
+
 @njit
 def get_chunks_force_circle_sorted(x, y, size):
     # return [[int(x * constants.INV_CHUNK_SIZE), int(y * constants.INV_CHUNK_SIZE)]]
@@ -252,42 +301,6 @@ def inv_h(x, y):
 
 
 inv_h(1.1, 1.1)
-
-
-@njit
-def distance(x1, y1, x2, y2):
-    return ((x1 - x2) ** 2 + (y1 - y2) ** 2) ** .5
-
-
-distance(1.1, 1.1, 1.1, 1.1)
-distance(1, 1, 1, 1)
-
-
-@njit
-def distance_squared(x1, y1, x2, y2):
-    return (x1 - x2) ** 2 + (y1 - y2) ** 2
-
-
-distance_squared(1.1, 1.1, 1.1, 1.1)
-distance_squared(1, 1, 1, 1)
-
-
-@njit
-def hypot(x, y):
-    return (x ** 2 + y ** 2) ** .5
-
-
-hypot(1.1, 1.1)
-hypot(1, 1)
-
-
-@njit
-def hypot_squared(x, y):
-    return x ** 2 + y ** 2
-
-
-hypot_squared(1.1, 1.1)
-hypot_squared(1, 1)
 
 
 @njit  # (List(float64))

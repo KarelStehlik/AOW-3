@@ -591,7 +591,7 @@ class RangedBuilding(Building):
         super().__init__(*args, **kwargs)
         self.current_cooldown = 0
         self.target = None
-        self.shooting_in_chunks = get_chunks_force_circle(self.x, self.y, 2 * self.stats["reach"])
+        self.shooting_in_chunks = get_chunks_spiral(self.x, self.y, 2 * self.stats["reach"])
         self.turns_without_target = 0
 
     def tick2(self):
@@ -729,7 +729,7 @@ class TownHall1(TownHall_upgrade, RangedBuilding):
         super().__init__(*args, **kwargs)
         self.current_cooldown = 0
         self.target = None
-        self.shooting_in_chunks = get_chunks_force_circle(self.x, self.y, 2 * self.stats["reach"])
+        self.shooting_in_chunks = get_chunks_spiral(self.x, self.y, 2 * self.stats["reach"])
         self.turns_without_target = 0
 
     def attack(self, target):
@@ -768,7 +768,7 @@ class TownHall12(TownHall_upgrade, RangedBuilding):
         super().__init__(*args, **kwargs)
         self.current_cooldown = 0
         self.target = None
-        self.shooting_in_chunks = get_chunks_force_circle(self.x, self.y, 2 * self.stats["reach"])
+        self.shooting_in_chunks = get_chunks_spiral(self.x, self.y, 2 * self.stats["reach"])
         self.turns_without_target = 0
 
     def tick2(self):
@@ -997,7 +997,7 @@ class Turret(RangedBuilding):
             self.base_stats[s] = stats[s]
         self.lifetime = lifetime
         self.update_stats()
-        self.shooting_in_chunks = get_chunks_force_circle(self.x, self.y, 2 * self.stats["reach"])
+        self.shooting_in_chunks = get_chunks_spiral(self.x, self.y, 2 * self.stats["reach"])
         if alt_attack is not None:
             self.attack = alt_attack
 
