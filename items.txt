@@ -1,0 +1,2 @@
+sword:cost=100,weight=50
+shield:cost=500,weight=10

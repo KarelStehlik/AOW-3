@@ -77,6 +77,44 @@ def load_stats():
 unit_stats = load_stats()
 
 
+def load_items():
+    items = {}
+    weight = 0
+    with open("items.txt", "r") as cs:
+        units = cs.read().split("\n")
+        for unit in units:
+            name_stats = unit.split(":")
+            stats = {}
+            for e in name_stats[1].split(","):
+                k = e.split("=")
+                if k[0].startswith("cost"):
+                    stats[k[0]] = int(k[1])
+                elif k[0] == "weight":
+                    w = int(k[1])
+                    stats[k[0]] = w
+                    weight += w
+                else:
+                    stats[k[0]] = float(k[1])
+            items[name_stats[0]] = stats
+    return weight, items
+
+
+merchant_total_weight, merchant_items = load_items()
+
+
+def get_merchant_items(seed, count):
+    random.seed(seed)
+    result = []
+    for _ in range(count):
+        w = random.randint(0, merchant_total_weight)
+        for key, value in merchant_items.items():
+            w -= value["weight"]
+            if w < 0:
+                result.append(key)
+                break
+    return result
+
+
 def load_tags():
     tagges = {}
     with open("tags.txt", "r") as cs:

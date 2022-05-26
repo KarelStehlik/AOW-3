@@ -61,7 +61,7 @@ class Game:
         p.queue(noise.bgm)
         p.play()
         p.volume = MUSIC
-        p.loop=True
+        p.loop = True
         self.last_clock_tick = time.perf_counter()
 
     def open_upgrade_menu(self):
@@ -381,6 +381,7 @@ class player:
                                Tower21, Farm1, Farm2, Tower3, Tower31, Farm11, Fireball, Freeze, Rage, Tower23,
                                Tower221, Tower4, Tower41, Farm21, TownHall1]
         self.farm_value = 0
+        self.items = []
 
     def gain_mana(self, amount):
         self.resources["mana"] = min(self.resources["mana"] + amount, self.max_mana)
@@ -2433,7 +2434,7 @@ class Formation:
             self.update_warning(x, y)
 
     def update_warning(self, x, y):
-        self.warn_opacity = max(0, self.warn_opacity-1)
+        self.warn_opacity = max(0, self.warn_opacity - 1)
         warn_distance = 350
         dist = hypot(self.x * SPRITE_SIZE_MULT - x - SCREEN_WIDTH / 2,
                      self.y * SPRITE_SIZE_MULT - y - SCREEN_HEIGHT / 2)
@@ -2532,6 +2533,7 @@ class instruction_moving(instruction):
 class Unit:
     image = images.Cancelbutton
     name = "None"
+    retreats = True
 
     def __init__(self, ID, x, y, side, column, row, game: Game, formation: Formation, effects=()):
         self.sounds = noise.sounds[self.name]
@@ -2687,7 +2689,7 @@ class Unit:
     def move_in_range(self, other):
         if other.entity_type == "wall":
             d = other.distance_to_point(self.x, self.y)
-            if d > self.stats["reach"]:
+            if d > self.stats["reach"] or not self.retreats:
                 direction = other.towards(self.x, self.y)
                 self.vx = self.stats["speed"] * direction[0]
                 self.vy = self.stats["speed"] * direction[1]
@@ -2702,14 +2704,14 @@ class Unit:
             return d <= self.stats["reach"] + self.size
         else:
             dist_sq = (other.x - self.x) ** 2 + (other.y - self.y) ** 2
-            if dist_sq < ((other.size + self.size) * .5 + self.stats["reach"] * .8) ** 2:
+            if self.retreats and dist_sq < ((other.size + self.size) * .5 + self.stats["reach"] * .8) ** 2:
                 self.rotate(self.x - other.x, self.y - other.y)
                 self.vx *= .7
                 self.vy *= .7
                 self.x += self.vx
                 self.y += self.vy
                 return True
-            elif dist_sq > ((other.size + self.size) * .5 + self.stats["reach"]) ** 2:
+            elif (not self.retreats) or dist_sq > ((other.size + self.size) * .5 + self.stats["reach"]) ** 2:
                 self.rotate(other.x - self.x, other.y - self.y)
                 self.x += self.vx
                 self.y += self.vy
@@ -2854,9 +2856,7 @@ class Unit:
             return
         x, y = self.x * SPRITE_SIZE_MULT - self.game.camx, self.y * SPRITE_SIZE_MULT - self.game.camy
         if self.shown:
-            self.sprite.update(x=x, y=y, rotation=(-self.rotation * 180 / math.pi + 90) if self.recent_target is None
-            else -get_rotation(self.recent_target.x - self.x,
-                               self.recent_target.y - self.y) * 180 / math.pi + 90)
+            self.update_sprite(x, y)
             [e.graphics_update(dt) for e in self.effects]
             self.update_hpbar()
             if x + self.size < 0 or x - self.size > SCREEN_WIDTH or y + self.size < 0 or y - self.size > SCREEN_HEIGHT:
@@ -2864,6 +2864,11 @@ class Unit:
                 return
         elif x + self.size > 0 and x - self.size < SCREEN_WIDTH and y + self.size > 0 and y - self.size < SCREEN_HEIGHT:
             self.show()
+
+    def update_sprite(self, x, y):
+        self.sprite.update(x=x, y=y, rotation=(-self.rotation * 180 / math.pi + 90) if self.recent_target is None
+        else -get_rotation(self.recent_target.x - self.x,
+                           self.recent_target.y - self.y) * 180 / math.pi + 90)
 
     @classmethod
     def get_image(cls):
@@ -3077,6 +3082,19 @@ class Golem(Unit):
         super().die()
 
 
+class Crab(Unit):
+    image = images.Crab
+    name = "Crab"
+    retreats = False
+
+    def attack(self, target):
+        AOE_damage(self.x, self.y, self.stats["AOE"], self.stats["dmg"], self, self.game)
+
+    def update_sprite(self, x, y):
+        self.sprite.update(x=x, y=y, rotation=(-self.rotation * 180 / math.pi + 90) if self.recent_target is None
+        else self.sprite.rotation + 20)
+
+
 class selection_trebuchet(selection_unit):
     img = images.Trebuchet
     unit_num = 2
@@ -3107,10 +3125,15 @@ class selection_mancatcher(selection_unit):
     unit_num = 8
 
 
-possible_units = [Swordsman, Archer, Trebuchet, Defender, Bear, Necromancer, Zombie, Golem, Mancatcher]
+class selection_crab(selection_unit):
+    img = images.Crab
+    unit_num = 9
+
+
+possible_units = [Swordsman, Archer, Trebuchet, Defender, Bear, Necromancer, Zombie, Golem, Mancatcher, Crab]
 selects_p1 = [selection_tower, selection_wall, selection_farm]
 selects_p2 = [selection_swordsman, selection_archer, selection_mancatcher, selection_trebuchet, selection_defender,
-              selection_bear, selection_necromancer, selection_golem]
+              selection_bear, selection_necromancer, selection_golem, selection_crab]
 selects_p3 = [selection_fireball, selection_freeze, selection_rage, selection_tree]
 selects_all = [selects_p1, selects_p2, selects_p3]
 
@@ -3632,24 +3655,29 @@ class Bullet(Projectile):
 
 
 def AOE_damage(x, y, size, amount, source, game, type=None):
-    chunks_affected = get_chunks(x, y, size * 2)
     side = source.side
+    affected_things = AOE_get(x, y, size, 1 - side, game)
+
+    for e in affected_things:
+        e.take_damage(amount, source, type)
+
+
+def AOE_get(x, y, size, side, game, chunks=None):
+    chunks_affected = get_chunks(x, y, size * 2) if chunks is None else chunks
     affected_things = []
     for coord in chunks_affected:
         c = game.find_chunk(coord)
         if c is not None:
-            for unit in c.units[1 - side]:
+            for unit in c.units[side]:
                 if unit.exists and unit.distance_to_point(x, y) < size and unit not in affected_things:
                     affected_things.append(unit)
-            for unit in c.buildings[1 - side]:
+            for unit in c.buildings[side]:
                 if unit.exists and unit.distance_to_point(x, y) < size and unit not in affected_things:
                     affected_things.append(unit)
-            for wall in c.walls[1 - side]:
+            for wall in c.walls[side]:
                 if wall.exists and wall.distance_to_point(x, y) < size and wall not in affected_things:
                     affected_things.append(wall)
-
-    for e in affected_things:
-        e.take_damage(amount, source, type)
+    return affected_things
 
 
 class effect:
@@ -3881,22 +3909,7 @@ class AOE_aura:
     def tick(self):
         if self.apply_counter % self.frequency == 0:
             self.apply_counter = 0
-            affected = []
-            for c in self.chunks:
-                ch = self.game.find_chunk(c)
-                if ch is not None:
-                    for e in ch.units[self.side]:
-                        if e.distance_to_point(self.x_y_rad[0], self.x_y_rad[1]) < self.x_y_rad[2]:
-                            if e not in affected:
-                                affected.append(e)
-                    for e in ch.buildings[self.side]:
-                        if e.distance_to_point(self.x_y_rad[0], self.x_y_rad[1]) < self.x_y_rad[2]:
-                            if e not in affected:
-                                affected.append(e)
-                    for e in ch.walls[self.side]:
-                        if e.distance_to_point(self.x_y_rad[0], self.x_y_rad[1]) < self.x_y_rad[2]:
-                            if e not in affected:
-                                affected.append(e)
+            affected = AOE_get(*self.x_y_rad, self.side, self.game, self.chunks)
             for e in affected:
                 self.apply(e)
         self.apply_counter += 1
@@ -4273,6 +4286,19 @@ class Upgrade_faster_archery(Upgrade):
              targets=["arrows"])
 
 
+class Upgrade_extra_recursion(Upgrade):
+    name = "Extra recursion"
+    previous = []
+    image = images.Arrow_upg_2
+
+    def on_finish(self):
+        effect = effect_combined
+        args1 = ("cluster", int(upgrade_stats[self.name]["mod"]))
+        args2 = ("pierce", int(upgrade_stats[self.name]["mod_pierce"]))
+        args = ((effect_stat_add, effect_stat_add), (args1, args2))
+        aura(effect, args, self.player.game, self.player.side, targets=["arrows"])
+
+
 class Upgrade_vigorous_farming(Upgrade):
     name = "Vigorous Farming"
     previous = []
@@ -4381,6 +4407,15 @@ class Upgrade_tech(Upgrade):
     def on_finish(self):
         self.player.unlock_unit(TownHall14)
 
+class Upgrade_crab(Upgrade):
+    image = images.Crab
+    excludes = []
+    previous = []
+    name = "Crabs"
+
+    def on_finish(self):
+        self.player.unlock_unit(Crab)
+
 
 for uuuu in [Upgrade_frost, Upgrade_fire, Upgrade_nature, Upgrade_tech]:
     uuuu.excludes = [Upgrade_frost, Upgrade_fire, Upgrade_nature, Upgrade_tech]
@@ -4389,7 +4424,8 @@ for uuuu in [Upgrade_frost, Upgrade_fire, Upgrade_nature, Upgrade_tech]:
 possible_upgrades = [Upgrade_default, Upgrade_test_1, Upgrade_bigger_arrows, Upgrade_catapult, Upgrade_bigger_rocks,
                      Upgrade_egg, Upgrade_faster_archery, Upgrade_vigorous_farming, Upgrade_mines, Upgrade_necromancy,
                      Upgrade_nanobots, Upgrade_walls, Upgrade_superior_pyrotechnics, Upgrade_golem, Upgrade_frost,
-                     Upgrade_fire, Upgrade_nature, Upgrade_tech, Upgrade_trees, Upgrade_more_chestplates]
+                     Upgrade_fire, Upgrade_nature, Upgrade_tech, Upgrade_trees, Upgrade_more_chestplates,
+                     Upgrade_extra_recursion, Upgrade_crab]
 
 for uuuu in possible_upgrades:
     uuuu.x, uuuu.y = int(upgrade_stats[uuuu.name]["x"]), int(upgrade_stats[uuuu.name]["y"])

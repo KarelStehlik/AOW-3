@@ -120,6 +120,7 @@ Swordsman.anchor_y = 54
 Mancatcher = RI("Mancatcher")
 Mancatcher.anchor_y = 100
 Bowman = RI("Bowman", False)
+Crab = RI("crab")
 Bowman.anchor_x = 64
 Bowman.anchor_y = 60
 Trebuchet = RI("Trebuchet")

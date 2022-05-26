@@ -26,7 +26,8 @@ Farm11:building,farm
 Farm2:building,farm
 Farm21:building,farm
 Wall:wall
-Swordsman:unit,footman,melee
+Swordsman:unit,footman,melee,sword
+Mancatcher:unit,footman,melee
 Defender:unit,footman,melee
 Archer:unit,arrows,ranged
 Trebuchet:unit,boulders,ranged
@@ -38,4 +39,4 @@ Tree_spell:spell
 Freeze:spell
 Rage:spell
 Golem:unit,melee
-Mancatcher:unit,melee
+Crab:unit,melee,sword
