@@ -18,5 +18,5 @@ Fire:desc=Burn it All!|flavor=This is war, after all|cost=542|time=1|cost_mana=1
 Frost:desc=Very Cool|flavor=|cost=542|time=1|cost_mana=1|x=-2|y=0|from=Tough Walls
 Tech:desc=Beep Boop|flavor=|cost=54|time=1|cost_mana=1|x=0|y=2|from=Bigger Arrows
 Trees:desc=Unlocks Trees|flavor=Money doesn't grow on trees, but health sure does|cost=5420420|time=1|cost_mana=1|x=1|y=-3|from=Nature
-Extra recursion:desc=Arrow clusterfuckery|flavor=Too much?|cost=1000000|time=1|mod=10|mod_pierce=2|x=-1|y=5|from=Nanobots
+Extra recursion:desc=More rocks|flavor=Enough stones certainly will break your bones|cost=1000000|time=1|mod=10|mod_aoe=2|x=-1|y=5|from=Nanobots
 Crabs:desc=With lightsabers.|flavor=Crabs with lightsabers. Yep.|cost=50000|time=1|x=-2|y=2|from=More Chestplates

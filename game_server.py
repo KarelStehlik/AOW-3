@@ -2395,9 +2395,9 @@ class Upgrade_extra_recursion(Upgrade):
     def on_finish(self):
         effect = effect_combined
         args1 = ("cluster", int(upgrade_stats[self.name]["mod"]))
-        args2 = ("pierce", int(upgrade_stats[self.name]["mod_pierce"]))
+        args2 = ("explosion_radius", int(upgrade_stats[self.name]["mod_aoe"]))
         args = ((effect_stat_add, effect_stat_add), (args1, args2))
-        aura(effect, args, self.player.game, self.player.side, targets=["arrows"])
+        aura(effect, args, self.player.game, self.player.side, targets=["boulders"])
 
 
 class Upgrade_vigorous_farming(Upgrade):
