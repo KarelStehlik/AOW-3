@@ -179,7 +179,7 @@ def load_upgrades():
                 stats[k[0]] = k[1]
                 if constants.CHEATS and k[0] == "time":
                     stats[k[0]] = "1"
-                stats[k[0]]*=20
+                stats[k[0]]=str(float(stats[k[0]])*20)
             del e
             unit_statst[name_stats[0]] = stats
     return unit_statst
