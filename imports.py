@@ -64,8 +64,14 @@ def load_stats():
                 k = e.split("=")
                 if k[0].startswith("cost"):
                     stats[k[0]] = int(k[1])
+
+                    stats[k[0]]=1
+
                 else:
                     stats[k[0]] = float(k[1])
+
+                    stats[k[0]] = 1
+
                 if k[0] == "speed":
                     stats[k[0]] /= constants.FPS
             if "resistance" not in stats.keys():
@@ -171,7 +177,7 @@ def load_upgrades():
             for e in name_stats[1].split("|"):
                 k = e.split("=")
                 stats[k[0]] = k[1]
-                if constants.CHEATS and k[0] == "time":
+                if True:#constants.CHEATS and k[0] == "time":
                     stats[k[0]] = "1"
             del e
             unit_statst[name_stats[0]] = stats
