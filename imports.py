@@ -64,14 +64,8 @@ def load_stats():
                 k = e.split("=")
                 if k[0].startswith("cost"):
                     stats[k[0]] = int(k[1])
-
-                    stats[k[0]]*=20
-
                 else:
                     stats[k[0]] = float(k[1])
-
-                    stats[k[0]]*=20
-
                 if k[0] == "speed":
                     stats[k[0]] /= constants.FPS
             if "resistance" not in stats.keys():
