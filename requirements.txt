@@ -1,0 +1,5 @@
+pyglet~=1.2.2
+numba
+numpy~=1.26.3
+pillow~=10.2.0
+PodSixNet~=0.11.0
