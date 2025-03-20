@@ -1,5 +1,5 @@
 TownHall:size=200,health=2500,spell_resistance=0
-TownHall1:cost=0,size=200,health=2500,resistance=.4,spell_resistance=0,dmg=300,cd=0.1,reach=2000,bulletspeed=15,pierce=1,cluster=1,recursion=1,bullet_scale=.2
+TownHall1:cost=7500,size=200,health=2500,resistance=.4,spell_resistance=0,dmg=100,cd=0.5,reach=850,bulletspeed=15,pierce=5,cluster=0,recursion=1,bullet_scale=.2
 TownHall11:cost=666420,size=200,health=15000,resistance=.1,spell_resistance=0,radius=2000,slow=.3
 TownHall12:cost=500555,size=200,health=6000,spell_resistance=0,dmg=30,cd=0.012,reach=850,bulletspeed=15,pierce=100,cluster=0,recursion=1,bullet_size=200
 TownHall13:cost=555555,size=200,health=15000,resistance=.1,spell_resistance=0,trees=20,tree_size=4,spread=500
