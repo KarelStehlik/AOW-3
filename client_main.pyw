@@ -214,7 +214,7 @@ def main():
     pyglet.options['debug_gl'] = False
     pyglet.gl.glEnable(pyglet.gl.GL_BLEND)
 
-    connection.DoConnect(('192.168.1.237', 5071))
+    connection.DoConnect(('192.168.1.137', 5071))
     #connection.DoConnect(('127.0.0.1', 5071))
     place = windoo(caption='test', style=pyglet.window.Window.WINDOW_STYLE_BORDERLESS, width=constants.SCREEN_WIDTH,
                    height=constants.SCREEN_HEIGHT)
