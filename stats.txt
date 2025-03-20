@@ -26,8 +26,8 @@ Farm11:size=200,health=1000,cost=250000,production=60,proximity=500,spell_resist
 Farm2:size=200,health=5000,cost=1000,production=0.2,proximity=500,spell_resistance=0
 Farm21:size=200,health=5000,cost=100000,production=1,proximity=500,spell_resistance=0,buff=1.2,health_buff=100
 Wall:size=35,health=4000,cost=1000
-Swordsman:vwidth=20,vheight=20,speed=400,size=19,health=20,dmg=30,cd=1,reach=10,cost=50,mass=1.5
-Defender:vwidth=20,vheight=20,speed=250,size=19,health=900,dmg=1,cd=0.6,reach=10,cost=200,mass=3
+Swordsman:vwidth=20,vheight=20,speed=250,size=19,health=80,dmg=30,cd=1,reach=10,cost=50,mass=1.5
+Defender:vwidth=20,vheight=20,speed=150,size=19,health=900,dmg=1,cd=0.6,reach=10,cost=200,mass=3
 Mancatcher:vwidth=60,vheight=60,speed=250,size=19,health=50,dmg=.5,cd=0.02,reach=110,cost=200,mass=5,slow=8,steal=2,duration=30
 Archer:vwidth=20,vheight=20,speed=200,size=19,health=20,dmg=15,cd=0.7,reach=300,cost=100,bulletspeed=9,mass=.8,bullet_scale=.15,pierce=1,cluster=0,recursion=1
 Trebuchet:vwidth=50,vheight=50,speed=75,size=50,health=70,dmg=500,cd=6,reach=500,cost=1000,bulletspeed=3,explosion_radius=150,mass=30,bullet_scale=.15,pierce=1,cluster=0,recursion=1,min_range=200
